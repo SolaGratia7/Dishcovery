@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Meal Planner</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid py-3">
+        <div class="container">
+      <div class="header mb-3">
+        <h1>Dishcovery</h1>
+        <p>Plan your meals, manage your pantry, and discover amazing recipes!</p>
+      </div>
+
+      <!-- Navigation (from navbar.html) -->
+      <nav class="navbar navbar-expand-md">
+        <div class="container-fluid px-0">
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <a class="nav-link" id="pantry-tab" data-bs-toggle="tab" data-bs-target="#pantry" role="tab" aria-controls="pantry" aria-selected="false" href="#">Pantry</a>
+              </li>
+              <li class="nav-item" role="presentation">
+                <a class="nav-link" id="recipes-tab" data-bs-toggle="tab" data-bs-target="#recipes" role="tab" aria-controls="recipes" aria-selected="false" href="#">Recipes</a>
+              </li>
+              <li class="nav-item" role="presentation">
+                <a class="nav-link active" id="planner-tab" data-bs-toggle="tab" data-bs-target="#planner" role="tab" aria-controls="planner" aria-selected="true" href="#">Meal Planner</a>
+              </li>
+              <li class="nav-item" role="presentation">
+                <a class="nav-link" id="shopping-tab" data-bs-toggle="tab" data-bs-target="#shopping" role="tab" aria-controls="shopping" aria-selected="false" href="#">Shopping List</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+
+            <div class="tab-content mt-3">
+                <div class="tab-pane fade" id="pantry" role="tabpanel">
+                    <p class="text-muted">Pantry placeholder</p>
+                </div>
+
+                <div class="tab-pane fade" id="recipes" role="tabpanel">
+                    <p class="text-muted">Recipes placeholder — discovery UI is kept separate.</p>
+                </div>
+
+                <div class="tab-pane fade show active" id="planner" role="tabpanel">
+                    <!-- History search & filter (planner-only) placed above the weekly planner -->
+                    <div class="mb-3" id="planner-history-top">
+                      <div class="card">
+                        <div class="card-body">
+                          <div class="row g-2 align-items-center">
+                            <div class="col-md-6">
+                              <input id="history-search" type="text" class="form-control" placeholder="Search meal history by recipe title (e.g. 'Spaghetti')">
+                            </div>
+                            <div class="col-auto">
+                              <select id="history-month" class="form-select">
+                                <option value="">All months</option>
+                              </select>
+                            </div>
+                            <div class="col-auto">
+                              <select id="history-mealtype" class="form-select">
+                                <option value="">All meals</option>
+                                <option value="breakfast">Breakfast</option>
+                                <option value="lunch">Lunch</option>
+                                <option value="dinner">Dinner</option>
+                              </select>
+                            </div>
+                            <div class="col-auto">
+                              <button class="btn btn-outline-secondary" id="history-filter-btn">Filter</button>
+                            </div>
+                          </div>
+                          <div id="history-results" class="small text-muted mt-2">No results yet.</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Weekly Meal Planner</span>
+                            <div>
+                                <button class="btn btn-sm btn-secondary" onclick="changeWeek(-1)">&larr; Previous</button>
+                                <span id="current-week" class="mx-3"></span>
+                                <button class="btn btn-sm btn-secondary" onclick="changeWeek(1)">Next &rarr;</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                <table class="table">
+                  <colgroup>
+                    <col style="width:18%">
+                    <col style="width:27.333%">
+                    <col style="width:27.333%">
+                    <col style="width:27.333%">
+                  </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <th>Day</th>
+                          <th class="breakfast-col">Breakfast</th>
+                                            <th>Lunch</th>
+                                            <th>Dinner</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="meal-planner-grid"><!-- generated by JS --></tbody>
+                                </table>
+                            </div>
+                            <div class="mt-3">
+                                <button class="btn btn-success" onclick="generateShoppingList()">Generate Shopping List</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="shopping" role="tabpanel">
+                    <p class="text-muted">Shopping list placeholder</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals needed by planner (kept minimal) -->
+    <div class="modal fade" id="recipeModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="recipeModalTitle">Recipe Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="recipeModalBody"></div>
+          <!-- Footer intentionally left empty; actions (Add/Remove/Close) are placed in the modal body for contextual control -->
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="mealPlanModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Add to Meal Plan</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="meal-plan-form">
+              <div class="mb-3">
+                <label class="form-label">Date</label>
+                <input type="date" id="meal-plan-date" class="form-control" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Meal</label>
+                <select id="meal-plan-type" class="form-select">
+                  <option value="breakfast">Breakfast</option>
+                  <option value="lunch">Lunch</option>
+                  <option value="dinner">Dinner</option>
+                </select>
+              </div>
+              <input type="hidden" id="selected-recipe-id">
+              <input type="hidden" id="selected-recipe-title">
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveMealPlan()">Save to Meal Plan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999">
+      <div id="toastContainer"></div>
+    </div>
+
+    <style>
+      /* Table: fixed layout so we can set equal widths for meal columns */
+      .table { table-layout: fixed; width: 100%; }
+      /* Day column slightly narrower, meals share remaining space equally. Use percentages that add to ~100. */
+      .table thead th:first-child, .table tbody td:first-child { width: 18%; }
+      .table thead th:nth-child(2), .table thead th:nth-child(3), .table thead th:nth-child(4),
+      .table tbody td:nth-child(2), .table tbody td:nth-child(3), .table tbody td:nth-child(4) { width: 27.333%; }
+
+      /* Center content inside meal slots, make the + sign larger and visible, and show pointer */
+      .meal-slot { min-height: 72px; display:flex; align-items:center; justify-content:center; text-align:center; cursor:pointer; word-break:break-word; }
+      /* Center meal column headers so they line up with their cells */
+      .table thead th:nth-child(2), .table thead th:nth-child(3), .table thead th:nth-child(4) { text-align:center; vertical-align:middle; }
+      .table thead th:first-child { text-align:left; }
+
+      /* Aesthetic circular plus button */
+      .plus-sign {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        width:40px;
+        height:40px;
+        border-radius:50%;
+        background: rgba(0,0,0,0.03);
+        border: 1px solid rgba(0,0,0,0.06);
+        color: #495057;
+        font-size: 1.25rem;
+        line-height:1;
+        box-shadow: 0 1px 2px rgba(16,24,40,0.03);
+        transition: transform .08s ease, background-color .12s ease, color .12s ease;
+      }
+      .meal-slot.empty .plus-sign { opacity: 0.9; }
+      .plus-sign:hover, .plus-sign:focus {
+        transform: scale(1.06);
+        background: #0d6efd;
+        color: #fff;
+        border-color: rgba(13,110,253,0.9);
+      }
+      .meal-slot.highlight { outline: 3px solid #ffcc00; background-color: #fff8e6; }
+
+      /* Responsive: on very narrow screens we keep the table but allow cells to wrap content */
+      @media (max-width: 640px) {
+        .table thead th:first-child, .table tbody td:first-child { width: 30%; }
+        .table thead th:nth-child(2), .table thead th:nth-child(3), .table thead th:nth-child(4),
+        .table tbody td:nth-child(2), .table tbody td:nth-child(3), .table tbody td:nth-child(4) { width: 23.333%; }
+      }
+    </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+  <script src="planning.js"></script>
+</body>
+</html>
