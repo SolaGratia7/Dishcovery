@@ -13,6 +13,9 @@ let appData = {
     currentWeek: new Date(),
     currentRecipe: null
 };
+// internal flag: becomes true after first full initialization to prevent loadData
+// from overwriting the user's live view in the same session.
+appData._initialized = false;
 
 // Storage key used by draft01
 const STORAGE_KEY = 'recipeFinderData';
@@ -34,27 +37,75 @@ function parseServerSeedText(txt){
     return null;
 }
 
+// Parse an ISO-like date string as a local date (treat 'YYYY-MM-DD' as local midnight)
+function parseLocalDate(v){
+    if(!v) return null;
+    if(typeof v === 'string'){
+        const m = v.match(/^\s*(\d{4})-(\d{2})-(\d{2})\s*$/);
+        if(m){ const y=Number(m[1]), mo=Number(m[2])-1, d=Number(m[3]); return new Date(y,mo,d); }
+    }
+    const d = new Date(v);
+    return isNaN(d) ? null : d;
+}
+
+// Format a Date (or date-like) into local YYYY-MM-DD
+function formatDateLocal(d){
+    const dt = (d instanceof Date) ? d : parseLocalDate(d) || new Date(d);
+    if(!dt || isNaN(dt)) return '';
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth()+1).padStart(2,'0');
+    const day = String(dt.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+}
+
 // Render an array of history match objects {date,meal,title} into #history-results
 function renderHistoryResults(matches, emptyMessage){
     const out = document.getElementById('history-results'); if(!out) return;
+    out.textContent = '';
     if(!matches || matches.length===0){ out.textContent = emptyMessage || 'No history found.'; return; }
-    out.innerHTML = matches.map(m=>`<div class="history-item" data-date="${m.date}" data-meal="${m.meal}" style="cursor:pointer;padding:6px;border-bottom:1px solid #eee">${m.title} — <strong>${m.meal}</strong> on ${new Date(m.date).toLocaleDateString()}</div>`).join('');
-    Array.from(out.getElementsByClassName('history-item')).forEach(el=>{
-        el.addEventListener('click', ()=>{
-            const d = el.getAttribute('data-date');
-            const meal = el.getAttribute('data-meal');
+    const frag = document.createDocumentFragment();
+    matches.forEach(m => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        div.style.cursor = 'pointer';
+        div.style.padding = '6px';
+        div.style.borderBottom = '1px solid #eee';
+        div.dataset.date = m.date;
+        div.dataset.meal = m.meal;
+    // build content: title — <strong>meal</strong> on Weekday, Date
+    const dateObj = parseLocalDate(m.date) || new Date(m.date);
+    const weekday = dateObj.toLocaleDateString(undefined, { weekday: 'long' });
+    const dateLabel = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    div.appendChild(document.createTextNode(m.title + ' — '));
+    const strong = document.createElement('strong'); strong.textContent = m.meal; div.appendChild(strong);
+    div.appendChild(document.createTextNode(' on ' + weekday + ', ' + dateLabel));
+        div.addEventListener('click', ()=>{
+            const d = div.dataset.date;
+            const meal = div.dataset.meal;
             clearHighlights();
             const slot = document.getElementById(`slot-${d}-${meal}`);
             if(slot){ slot.classList.add('highlight'); slot.scrollIntoView({behavior:'smooth', block:'center'}); }
         });
+        frag.appendChild(div);
     });
+    out.appendChild(frag);
 }
 
 function loadData() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-        try { appData = Object.assign(appData, JSON.parse(saved)); }
-        catch (e) { console.warn('Failed to parse saved data', e); }
+        try {
+            const parsed = JSON.parse(saved) || {};
+            // Do not overwrite an in-memory currentWeek (user may have changed view)
+            const savedCW = parsed.hasOwnProperty('currentWeek') ? parsed.currentWeek : undefined;
+            if (parsed.currentWeek) delete parsed.currentWeek;
+            appData = Object.assign(appData, parsed);
+            // Apply persisted currentWeek only on the first initialization (so subsequent
+            // in-session loadData() calls do not move the user's view unexpectedly).
+            if (!appData._initialized && savedCW) {
+                appData.currentWeek = savedCW;
+            }
+        } catch (e) { console.warn('Failed to parse saved data', e); }
     }
 
     // If another part of the app (recipeDiscovery.js) stored saved recipes under
@@ -146,23 +197,41 @@ function loadData() {
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); } catch (e) { /* ignore */ }
     }
 
-    // default values for date inputs
+    // default values for date inputs (use local date formatting)
     const nextWeek = new Date(); nextWeek.setDate(nextWeek.getDate() + 7);
     const expiryInput = document.getElementById('ingredient-expiry');
-    if (expiryInput) expiryInput.value = nextWeek.toISOString().split('T')[0];
+    if (expiryInput) expiryInput.value = formatDateLocal(nextWeek);
 
     const mealDate = document.getElementById('meal-plan-date');
-    if (mealDate) mealDate.value = new Date().toISOString().split('T')[0];
+    if (mealDate) mealDate.value = formatDateLocal(new Date());
 
-    // Always show the current week (today) on initial load so users start where they are.
-    try { appData.currentWeek = new Date(); } catch (e) { appData.currentWeek = new Date(); }
+    // Ensure we have a valid currentWeek in appData, but do NOT overwrite the user's
+    // persisted view on every load. Only default to today if currentWeek is missing or invalid.
+    try {
+        if (!appData.currentWeek) {
+            appData.currentWeek = new Date();
+            try { saveData(); } catch (e) { /* ignore */ }
+        } else {
+            const cw = parseLocalDate(appData.currentWeek);
+            if (!cw) {
+                appData.currentWeek = new Date();
+                try { saveData(); } catch (e) { /* ignore */ }
+            } else {
+                // normalized Date object (local)
+                appData.currentWeek = cw;
+            }
+        }
+    } catch (e) { appData.currentWeek = new Date(); }
 }
 
 // Helper: set current week view to the week containing the provided ISO date string (YYYY-MM-DD)
 function setViewWeekToDate(isoDateStr){
     try {
-        const d = new Date(isoDateStr);
-        if (!isNaN(d)) {
+        const parsed = parseLocalDate(isoDateStr) || new Date(isoDateStr);
+        if (parsed && !isNaN(parsed)) {
+            // normalize to local-midnight Date constructed from Y/M/D to avoid TZ shifts
+            const d = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+            console.debug('[planner] setViewWeekToDate -> requested:', isoDateStr, 'parsed:', parsed.toString(), 'normalized:', d.toString());
             appData.currentWeek = d;
             // persist the user's current view week (optional)
             try { saveData(); } catch (e) { /* ignore */ }
@@ -173,14 +242,28 @@ function setViewWeekToDate(isoDateStr){
 }
 
 function saveData() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    try {
+        // Persist currentWeek as YYYY-MM-DD (local) to avoid timezone shifts when reloading
+        const copy = Object.assign({}, appData);
+        if (copy.currentWeek instanceof Date) copy.currentWeek = formatDateLocal(copy.currentWeek);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
+    } catch (e) {
+        // fallback
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); } catch (e2) { /* ignore */ }
+    }
 }
 
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `alert alert-${type} position-fixed`;
     toast.style.cssText = `top:20px; right:20px; z-index:9999; min-width:300px;`;
-    toast.innerHTML = `${message} <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>`;
+    // Build toast content without innerHTML
+    const msgNode = document.createTextNode(message + ' ');
+    toast.appendChild(msgNode);
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button'; closeBtn.className = 'btn-close';
+    closeBtn.addEventListener('click', () => { if (toast.parentElement) toast.parentElement.removeChild(toast); });
+    toast.appendChild(closeBtn);
     document.body.appendChild(toast);
     setTimeout(() => { if (toast.parentElement) toast.remove(); }, 3000);
 }
@@ -223,15 +306,21 @@ function populateHistoryMonths(){
     if(!monthSelect) return;
     const months = new Set();
     for(const dateStr in appData.mealPlans){
-        const d = new Date(dateStr);
+        const d = parseLocalDate(dateStr);
         if(isNaN(d)) continue;
         const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
         months.add(key);
     }
     // sort descending
     const arr = Array.from(months).sort((a,b)=> b.localeCompare(a));
-    // clear existing (keep first option)
-    monthSelect.innerHTML = '<option value="">All months</option>' + arr.map(m=>{ const [y,mm]=m.split('-'); const label = new Date(y,Number(mm)-1,1).toLocaleString('default',{month:'long', year:'numeric'}); return `<option value="${m}">${label}</option>`; }).join('');
+    // clear existing and rebuild options
+    while (monthSelect.firstChild) monthSelect.removeChild(monthSelect.firstChild);
+    const first = document.createElement('option'); first.value = ''; first.textContent = 'All months'; monthSelect.appendChild(first);
+    arr.forEach(m => {
+        const [y,mm] = m.split('-');
+        const label = new Date(y, Number(mm)-1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+        const opt = document.createElement('option'); opt.value = m; opt.textContent = label; monthSelect.appendChild(opt);
+    });
 }
 
 function doFilteredHistorySearch(){
@@ -242,7 +331,7 @@ function doFilteredHistorySearch(){
     const matches = [];
     for(const date in appData.mealPlans){
         // month filter
-        if(month){ const [y,m] = month.split('-'); const d = new Date(date); if(d.getFullYear()!=Number(y) || (d.getMonth()+1)!=Number(m)) continue; }
+        if(month){ const [y,m] = month.split('-'); const d = parseLocalDate(date); if(!d || d.getFullYear()!=Number(y) || (d.getMonth()+1)!=Number(m)) continue; }
         const meals = appData.mealPlans[date];
         for(const mealType of MEAL_TYPES){
             if(meal && meal !== mealType) continue;
@@ -254,6 +343,8 @@ function doFilteredHistorySearch(){
         }
     }
     if(matches.length===0){ renderHistoryResults([], q? `No history found for "${q}" with these filters.` : 'No history found for these filters.'); return; }
+    // sort matches by date desc, then meal order (breakfast, lunch, dinner)
+    matches.sort(historySortComparator);
     renderHistoryResults(matches);
 }
 
@@ -273,6 +364,7 @@ function searchMealHistory(query){
         }
     }
     if(matches.length===0){ renderHistoryResults([], 'No history found for "'+query+'".'); return; }
+    matches.sort(historySortComparator);
     renderHistoryResults(matches);
 }
 
@@ -288,7 +380,21 @@ function showAllHistory(){
         }
     }
     if(matches.length===0){ renderHistoryResults([], 'No history available.'); return; }
+    matches.sort(historySortComparator);
     renderHistoryResults(matches);
+}
+
+// Comparator used to sort history results: date descending, then breakfast->lunch->dinner
+function historySortComparator(a,b){
+    // a.date and b.date are ISO-like YYYY-MM-DD strings
+    const da = parseLocalDate(a.date) || new Date(a.date);
+    const db = parseLocalDate(b.date) || new Date(b.date);
+    // compare date descending
+    if (da.getTime() !== db.getTime()) return db.getTime() - da.getTime();
+    const order = { breakfast: 0, lunch: 1, dinner: 2 };
+    const oa = order[a.meal] ?? 99;
+    const ob = order[b.meal] ?? 99;
+    return oa - ob;
 }
 
 function clearHighlights(){ Array.from(document.querySelectorAll('.meal-slot.highlight')).forEach(s=>s.classList.remove('highlight')); }
@@ -300,21 +406,36 @@ function renderMealPlanner() {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const startOfWeek = new Date(appData.currentWeek);
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-
-    const html = days.map((day, idx) => {
+    container.textContent = '';
+    const frag = document.createDocumentFragment();
+    days.forEach((day, idx) => {
         const currentDate = new Date(startOfWeek); currentDate.setDate(currentDate.getDate() + idx);
-        const dateStr = currentDate.toISOString().split('T')[0];
+    const dateStr = formatDateLocal(currentDate);
         const dayMeals = appData.mealPlans[dateStr] || {};
-        return `
-            <tr>
-                <td><strong>${day}</strong><br><small class="text-muted">${currentDate.toLocaleDateString()}</small></td>
-                <td><div id="slot-${dateStr}-breakfast" class="meal-slot breakfast ${dayMeals.breakfast ? 'has-meal' : 'empty'}" onclick="planMeal('${dateStr}','breakfast')">${dayMeals.breakfast ? dayMeals.breakfast.title : '<span class=\\"plus-sign\\">+</span>'}</div></td>
-                <td><div id="slot-${dateStr}-lunch" class="meal-slot ${dayMeals.lunch ? 'has-meal' : 'empty'}" onclick="planMeal('${dateStr}','lunch')">${dayMeals.lunch ? dayMeals.lunch.title : '<span class=\\"plus-sign\\">+</span>'}</div></td>
-                <td><div id="slot-${dateStr}-dinner" class="meal-slot ${dayMeals.dinner ? 'has-meal' : 'empty'}" onclick="planMeal('${dateStr}','dinner')">${dayMeals.dinner ? dayMeals.dinner.title : '<span class=\\"plus-sign\\">+</span>'}</div></td>
-            </tr>
-        `;
-    }).join('');
-    container.innerHTML = html;
+        const tr = document.createElement('tr');
+        const tdDay = document.createElement('td');
+        const strong = document.createElement('strong'); strong.textContent = day; tdDay.appendChild(strong);
+        tdDay.appendChild(document.createElement('br'));
+        const small = document.createElement('small'); small.className = 'text-muted'; small.textContent = currentDate.toLocaleDateString(); tdDay.appendChild(small);
+        tr.appendChild(tdDay);
+        // helper to create meal cell
+        function makeMealCell(mealType){
+            const td = document.createElement('td');
+            const div = document.createElement('div');
+            div.id = `slot-${dateStr}-${mealType}`;
+            div.className = `meal-slot ${mealType}` + (dayMeals[mealType] ? ' has-meal' : ' empty');
+            div.addEventListener('click', () => planMeal(dateStr, mealType));
+            if(dayMeals[mealType] && dayMeals[mealType].title){ div.textContent = dayMeals[mealType].title; }
+            else { const plus = document.createElement('span'); plus.className = 'plus-sign'; plus.textContent = '+'; div.appendChild(plus); }
+            td.appendChild(div);
+            return td;
+        }
+        tr.appendChild(makeMealCell('breakfast'));
+        tr.appendChild(makeMealCell('lunch'));
+        tr.appendChild(makeMealCell('dinner'));
+        frag.appendChild(tr);
+    });
+    container.appendChild(frag);
 }
 
 function updateWeekDisplay() {
@@ -341,20 +462,19 @@ function planMeal(date, mealType) {
     const modalBody = document.getElementById('recipeModalBody');
     if (!modalBody) return;
     // Place Add and Remove alongside Close (Close will dismiss modal). This matches the requested layout.
-    modalBody.innerHTML = `
-        <form id="quick-meal-plan-form">
-            <div class="mb-3">
-                <label class="form-label">Select Recipe for ${mealType} on ${new Date(date).toLocaleDateString()}</label>
-                <select class="form-select" id="quick-recipe-select" required>
-                    <option value="">Choose a recipe...</option>
-                    ${recipeOptions}
-                </select>
-            </div>
-            <div class="d-flex justify-content-end">
-                <button type="button" class="btn btn-primary" onclick="quickSaveMeal('${date}','${mealType}')">Add to Meal Plan</button>
-                <button type="button" class="btn btn-danger ms-2" onclick="removeMeal('${date}','${mealType}')">Remove Meal</button>
-            </div>
-        </form>`;
+    modalBody.textContent = '';
+    const form = document.createElement('form'); form.id = 'quick-meal-plan-form';
+    const divWrap = document.createElement('div'); divWrap.className = 'mb-3';
+    const label = document.createElement('label'); label.className = 'form-label'; label.textContent = `Select Recipe for ${mealType} on ${new Date(date).toLocaleDateString()}`;
+    const select = document.createElement('select'); select.className = 'form-select'; select.id = 'quick-recipe-select'; select.required = true;
+    const optDefault = document.createElement('option'); optDefault.value = ''; optDefault.textContent = 'Choose a recipe...'; select.appendChild(optDefault);
+    // populate options
+    sourceList.forEach(r => { const o = document.createElement('option'); o.value = String(r.id); o.textContent = r.title; select.appendChild(o); });
+    divWrap.appendChild(label); divWrap.appendChild(select); form.appendChild(divWrap);
+    const btnDiv = document.createElement('div'); btnDiv.className = 'd-flex justify-content-end';
+    const addBtn = document.createElement('button'); addBtn.type = 'button'; addBtn.className = 'btn btn-primary'; addBtn.textContent = 'Add to Meal Plan'; addBtn.addEventListener('click', () => quickSaveMeal(date, mealType));
+    const remBtn = document.createElement('button'); remBtn.type = 'button'; remBtn.className = 'btn btn-danger ms-2'; remBtn.textContent = 'Remove Meal'; remBtn.addEventListener('click', () => removeMeal(date, mealType));
+    btnDiv.appendChild(addBtn); btnDiv.appendChild(remBtn); form.appendChild(btnDiv); modalBody.appendChild(form);
     document.getElementById('recipeModalTitle').textContent = 'Plan Meal';
     new bootstrap.Modal(document.getElementById('recipeModal')).show();
 }
@@ -376,7 +496,23 @@ function quickSaveMeal(date, mealType) {
 }
 
 
-function removeMeal(date, mealType) { if (appData.mealPlans[date] && appData.mealPlans[date][mealType]) { delete appData.mealPlans[date][mealType]; if (Object.keys(appData.mealPlans[date]).length === 0) delete appData.mealPlans[date]; saveData(); renderMealPlanner(); updateTodayMeals(); populateHistoryMonths(); const m = bootstrap.Modal.getInstance(document.getElementById('recipeModal')); if (m) m.hide(); showToast('Meal removed from plan', 'info'); } }
+function removeMeal(date, mealType) {
+    if (appData.mealPlans[date] && appData.mealPlans[date][mealType]) {
+        console.debug('[planner] removeMeal -> removing', date, mealType, 'currentWeek before:', appData.currentWeek);
+        delete appData.mealPlans[date][mealType];
+        if (Object.keys(appData.mealPlans[date]).length === 0) delete appData.mealPlans[date];
+        // persist and ensure the planner view stays on the week containing 'date'
+        saveData();
+        setViewWeekToDate(date);
+        console.debug('[planner] removeMeal -> currentWeek after setViewWeekToDate:', appData.currentWeek);
+        renderMealPlanner();
+        updateTodayMeals();
+        populateHistoryMonths();
+        const m = bootstrap.Modal.getInstance(document.getElementById('recipeModal'));
+        if (m) m.hide();
+        showToast('Meal removed from plan', 'info');
+    }
+}
 
 function addToMealPlan() { document.getElementById('selected-recipe-id').value = appData.currentRecipe?.id || ''; document.getElementById('selected-recipe-title').value = appData.currentRecipe?.title || ''; const modal = bootstrap.Modal.getInstance(document.getElementById('recipeModal')); if (modal) modal.hide(); new bootstrap.Modal(document.getElementById('mealPlanModal')).show(); }
 
@@ -394,7 +530,7 @@ function saveMealPlan() {
     showToast(`${recipeTitle} added to ${mealType}!`, 'success');
 }
 
-function updateTodayMeals() { const today = new Date().toISOString().split('T')[0]; const todayMeals = appData.mealPlans[today] || {}; const setOr = 'No meal planned'; const elB = document.getElementById('today-breakfast'); if (elB) elB.textContent = todayMeals.breakfast ? todayMeals.breakfast.title : setOr; const elL = document.getElementById('today-lunch'); if (elL) elL.textContent = todayMeals.lunch ? todayMeals.lunch.title : setOr; const elD = document.getElementById('today-dinner'); if (elD) elD.textContent = todayMeals.dinner ? todayMeals.dinner.title : setOr; }
+function updateTodayMeals() { const today = formatDateLocal(new Date()); const todayMeals = appData.mealPlans[today] || {}; const setOr = 'No meal planned'; const elB = document.getElementById('today-breakfast'); if (elB) elB.textContent = todayMeals.breakfast ? todayMeals.breakfast.title : setOr; const elL = document.getElementById('today-lunch'); if (elL) elL.textContent = todayMeals.lunch ? todayMeals.lunch.title : setOr; const elD = document.getElementById('today-dinner'); if (elD) elD.textContent = todayMeals.dinner ? todayMeals.dinner.title : setOr; }
 
 function generateShoppingList() { showToast('Added items to shopping list (demo).', 'info'); }
 
@@ -414,27 +550,103 @@ function searchRecipes() {
 
 function searchByPantryIngredients() { if (appData.pantry.length === 0) { showToast('Add some ingredients to your pantry first!', 'warning'); return; } searchRecipes(); }
 
-function renderRecipes(recipes) { const container = document.getElementById('recipe-results'); if (!container) return; if (recipes.length === 0) { container.innerHTML = '<div class="col-12"><p class="text-muted text-center">No recipes found.</p></div>'; return; } container.innerHTML = recipes.map(r => `<div class="col-md-4 col-sm-6 mb-4"><div class="card recipe-card" onclick="showRecipeDetails(${r.id})"><div class="card-body"><h6>${r.title}</h6><p class="small text-muted">${r.summary || ''}</p></div></div></div>`).join(''); }
+function renderRecipes(recipes) {
+    const container = document.getElementById('recipe-results'); if (!container) return; container.textContent = '';
+    if (!recipes || recipes.length === 0) {
+        const div = document.createElement('div'); div.className = 'col-12'; const p = document.createElement('p'); p.className = 'text-muted text-center'; p.textContent = 'No recipes found.'; div.appendChild(p); container.appendChild(div); return;
+    }
+    const frag = document.createDocumentFragment();
+    recipes.forEach(r => {
+        const col = document.createElement('div'); col.className = 'col-md-4 col-sm-6 mb-4';
+        const card = document.createElement('div'); card.className = 'card recipe-card'; card.addEventListener('click', () => showRecipeDetails(r.id));
+        const body = document.createElement('div'); body.className = 'card-body';
+        const h6 = document.createElement('h6'); h6.textContent = r.title; const small = document.createElement('p'); small.className = 'small text-muted'; small.textContent = r.summary || '';
+        body.appendChild(h6); body.appendChild(small); card.appendChild(body); col.appendChild(card); frag.appendChild(col);
+    });
+    container.appendChild(frag);
+}
 
-function showRecipeDetails(id) { const recipe = appData.recipes.find(r => r.id === id) || appData.savedRecipes.find(r => r.id === id); if (!recipe) return; appData.currentRecipe = recipe; document.getElementById('recipeModalTitle').textContent = recipe.title; document.getElementById('recipeModalBody').innerHTML = `<div class="row"><div class="col-md-6"><img src="${recipe.image || 'https://via.placeholder.com/400x300'}" class="img-fluid rounded"></div><div class="col-md-6"><p>${recipe.summary || ''}</p></div></div>`; new bootstrap.Modal(document.getElementById('recipeModal')).show(); }
+function showRecipeDetails(id) {
+    const recipe = appData.recipes.find(r => r.id === id) || appData.savedRecipes.find(r => r.id === id);
+    if (!recipe) return;
+    appData.currentRecipe = recipe;
+    document.getElementById('recipeModalTitle').textContent = recipe.title;
+    const body = document.getElementById('recipeModalBody'); if (!body) return; body.textContent = '';
+    const row = document.createElement('div'); row.className = 'row';
+    const colImg = document.createElement('div'); colImg.className = 'col-md-6';
+    const img = document.createElement('img'); img.src = recipe.image || 'https://via.placeholder.com/400x300'; img.className = 'img-fluid rounded'; colImg.appendChild(img);
+    const colText = document.createElement('div'); colText.className = 'col-md-6';
+    const p = document.createElement('p'); p.textContent = recipe.summary || ''; colText.appendChild(p);
+    row.appendChild(colImg); row.appendChild(colText); body.appendChild(row);
+    new bootstrap.Modal(document.getElementById('recipeModal')).show();
+}
 
 function saveRecipe() { if (!appData.currentRecipe) return; if (appData.savedRecipes.find(r => r.id === appData.currentRecipe.id)) { showToast('Recipe already saved!', 'info'); return; } appData.savedRecipes.push({ ...appData.currentRecipe, savedDate: new Date().toISOString() }); saveData(); renderSavedRecipes(); showToast('Recipe saved!', 'success'); }
 
-function renderSavedRecipes() { const container = document.getElementById('saved-recipes'); if (!container) return; if (appData.savedRecipes.length === 0) { container.innerHTML = '<div class="col-12"><p class="text-muted text-center">No saved recipes yet.</p></div>'; return; } container.innerHTML = appData.savedRecipes.map(r => `<div class="col-md-4 col-sm-6 mb-3"><div class="card recipe-card" onclick="showRecipeDetails(${r.id})"><div class="card-body"><h6>${r.title}</h6></div></div></div>`).join(''); }
+function renderSavedRecipes() {
+    const container = document.getElementById('saved-recipes'); if (!container) return; container.textContent = '';
+    if (!Array.isArray(appData.savedRecipes) || appData.savedRecipes.length === 0) {
+        const div = document.createElement('div'); div.className = 'col-12'; const p = document.createElement('p'); p.className = 'text-muted text-center'; p.textContent = 'No saved recipes yet.'; div.appendChild(p); container.appendChild(div); return;
+    }
+    const frag = document.createDocumentFragment();
+    appData.savedRecipes.forEach(r => {
+        const col = document.createElement('div'); col.className = 'col-md-4 col-sm-6 mb-3';
+        const card = document.createElement('div'); card.className = 'card recipe-card'; card.addEventListener('click', () => showRecipeDetails(r.id));
+        const body = document.createElement('div'); body.className = 'card-body'; const h6 = document.createElement('h6'); h6.textContent = r.title; body.appendChild(h6); card.appendChild(body); col.appendChild(card); frag.appendChild(col);
+    });
+    container.appendChild(frag);
+}
 
 function removeSavedRecipe(id) { appData.savedRecipes = appData.savedRecipes.filter(r => r.id !== id); saveData(); renderSavedRecipes(); showToast('Recipe removed!', 'info'); }
 
-function addIngredient() { const name = document.getElementById('ingredient-name')?.value || 'Test Ingredient'; const category = document.getElementById('ingredient-category')?.value || 'pantry'; const quantity = parseFloat(document.getElementById('ingredient-quantity')?.value || 1); const unit = document.getElementById('ingredient-unit')?.value || 'pieces'; const expiry = document.getElementById('ingredient-expiry')?.value || new Date().toISOString().split('T')[0]; const item = { id: Date.now(), name, category, quantity, unit, expiry }; appData.pantry.push(item); saveData(); renderPantry(); showToast('Ingredient added!', 'success'); }
+function addIngredient() { const name = document.getElementById('ingredient-name')?.value || 'Test Ingredient'; const category = document.getElementById('ingredient-category')?.value || 'pantry'; const quantity = parseFloat(document.getElementById('ingredient-quantity')?.value || 1); const unit = document.getElementById('ingredient-unit')?.value || 'pieces'; const expiry = document.getElementById('ingredient-expiry')?.value || formatDateLocal(new Date()); const item = { id: Date.now(), name, category, quantity, unit, expiry }; appData.pantry.push(item); saveData(); renderPantry(); showToast('Ingredient added!', 'success'); }
 
-function renderPantry() { const container = document.getElementById('pantry-items'); if (!container) return; if (appData.pantry.length === 0) { container.innerHTML = '<p class="text-muted text-center">Your pantry is empty.</p>'; return; } container.innerHTML = appData.pantry.map(i => `<div class="ingredient-item"><div class="d-flex justify-content-between"><div><h6>${i.name}</h6><small class="text-muted">${i.quantity} ${i.unit}</small></div><button class="btn btn-danger btn-sm" onclick="removeIngredient(${i.id})"><i class="fas fa-trash"></i></button></div></div>`).join(''); }
+function renderPantry() {
+    const container = document.getElementById('pantry-items'); if (!container) return; container.textContent = '';
+    if (!Array.isArray(appData.pantry) || appData.pantry.length === 0) { const p = document.createElement('p'); p.className = 'text-muted text-center'; p.textContent = 'Your pantry is empty.'; container.appendChild(p); return; }
+    const frag = document.createDocumentFragment();
+    appData.pantry.forEach(i => {
+        const wrap = document.createElement('div'); wrap.className = 'ingredient-item';
+        const row = document.createElement('div'); row.className = 'd-flex justify-content-between';
+        const left = document.createElement('div'); const h6 = document.createElement('h6'); h6.textContent = i.name; const small = document.createElement('small'); small.className = 'text-muted'; small.textContent = `${i.quantity} ${i.unit}`; left.appendChild(h6); left.appendChild(small);
+        const btn = document.createElement('button'); btn.className = 'btn btn-danger btn-sm'; btn.addEventListener('click', ()=> removeIngredient(i.id)); const icon = document.createElement('i'); icon.className = 'fas fa-trash'; btn.appendChild(icon);
+        row.appendChild(left); row.appendChild(btn); wrap.appendChild(row); frag.appendChild(wrap);
+    });
+    container.appendChild(frag);
+}
 
 function removeIngredient(id) { appData.pantry = appData.pantry.filter(p => p.id !== id); saveData(); renderPantry(); showToast('Ingredient removed!', 'info'); }
 
 function addShoppingItem() { const name = document.getElementById('shopping-item-name')?.value || 'Sample'; const quantity = document.getElementById('shopping-item-quantity')?.value || '1'; const category = document.getElementById('shopping-item-category')?.value || 'produce'; const item = { id: Date.now(), name, quantity, category, checked: false }; appData.shoppingList.push(item); saveData(); renderShoppingList(); showToast('Item added!', 'success'); }
 
-function renderShoppingList() { const container = document.getElementById('shopping-list'); if (!container) return; if (appData.shoppingList.length === 0) { container.innerHTML = '<p class="text-muted">Your shopping list is empty.</p>'; return; } container.innerHTML = appData.shoppingList.map(i => `<div class="shopping-item"><div class="d-flex justify-content-between align-items-center"><div>${i.name} (${i.quantity})</div><button class="btn btn-danger btn-sm" onclick="removeShoppingItem(${i.id})"><i class="fas fa-trash"></i></button></div></div>`).join(''); }
+function renderShoppingList() {
+    const container = document.getElementById('shopping-list'); if (!container) return; container.textContent = '';
+    if (!Array.isArray(appData.shoppingList) || appData.shoppingList.length === 0) { const p = document.createElement('p'); p.className = 'text-muted'; p.textContent = 'Your shopping list is empty.'; container.appendChild(p); return; }
+    const frag = document.createDocumentFragment();
+    appData.shoppingList.forEach(i => {
+        const wrap = document.createElement('div'); wrap.className = 'shopping-item';
+        const row = document.createElement('div'); row.className = 'd-flex justify-content-between align-items-center';
+        const left = document.createElement('div'); left.textContent = `${i.name} (${i.quantity})`;
+        const btn = document.createElement('button'); btn.className = 'btn btn-danger btn-sm'; btn.addEventListener('click', ()=> removeShoppingItem(i.id)); const icon = document.createElement('i'); icon.className = 'fas fa-trash'; btn.appendChild(icon);
+        row.appendChild(left); row.appendChild(btn); wrap.appendChild(row); frag.appendChild(wrap);
+    });
+    container.appendChild(frag);
+}
 
 function removeShoppingItem(id) { appData.shoppingList = appData.shoppingList.filter(i => i.id !== id); saveData(); renderShoppingList(); }
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => { loadData(); initializeEventListeners(); renderSavedRecipes(); renderPantry(); renderShoppingList(); updateWeekDisplay(); renderMealPlanner(); updateTodayMeals(); });
+document.addEventListener('DOMContentLoaded', () => {
+    loadData();
+    initializeEventListeners();
+    renderSavedRecipes();
+    renderPantry();
+    renderShoppingList();
+    updateWeekDisplay();
+    renderMealPlanner();
+    updateTodayMeals();
+    // mark initialization complete so subsequent in-session loadData() calls
+    // (for example triggered by other windows/tabs) won't overwrite the
+    // user's current view week unexpectedly.
+    try { appData._initialized = true; } catch (e) { /* ignore */ }
+});
