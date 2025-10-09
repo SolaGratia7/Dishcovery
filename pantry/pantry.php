@@ -10,7 +10,7 @@ if (!file_exists($file)) {
 
 // helper: read all items
 function read_pantry($file) {
-    $data = json_decode(file_get_contents($file), true);
+    $data = json_decode(file_get_contents($file), true); // true returns assoc array instead of object
     return is_array($data) ? $data : [];
 }
 
@@ -35,7 +35,7 @@ function sanitize_item($it) {
 
 // handle POST (add or delete)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $raw = file_get_contents('php://input');
+    $raw = file_get_contents('php://input'); // reads raw body of request 
     $data = json_decode($raw, true);
     if ($data === null) {
         echo json_encode(['status' => 'error', 'message' => 'Invalid JSON']);
@@ -48,9 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($data['deleteId'])) {
         $delId = (string)$data['deleteId'];
         $found = false;
-        foreach ($pantry as $k => $it) {
+        foreach ($pantry as $k => $it) { // for each key => value
             if ((string)$it['id'] === $delId) {
-                array_splice($pantry, $k, 1);
+                array_splice($pantry, $k, 1); //k is the numeric index
                 $found = true;
                 break;
             }
