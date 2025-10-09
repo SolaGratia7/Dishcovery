@@ -1,0 +1,42 @@
+[
+    {
+        "id": "68e76b5f9ecbb9.80568344",
+        "name": "rice",
+        "category": "Carbohydrates",
+        "quantity": 10,
+        "unit": "kg",
+        "expiration": "2025-10-31"
+    },
+    {
+        "id": "68e76b6e95b8e7.38863684",
+        "name": "pork",
+        "category": "Protein",
+        "quantity": 200,
+        "unit": "grams",
+        "expiration": "2025-10-17"
+    },
+    {
+        "id": "68e76b80ec4108.21086844",
+        "name": "white bread",
+        "category": "Carbohydrates",
+        "quantity": 10,
+        "unit": "pcs",
+        "expiration": "2025-10-15"
+    },
+    {
+        "id": "68e76b9d10b6a9.22609136",
+        "name": "chips",
+        "category": "Snacks",
+        "quantity": 1,
+        "unit": "packet",
+        "expiration": "2025-10-15"
+    },
+    {
+        "id": "68e76bc2b1b0f4.21080834",
+        "name": "carrot",
+        "category": "Vegetables",
+        "quantity": 500,
+        "unit": "grams",
+        "expiration": "2025-10-22"
+    }
+]
