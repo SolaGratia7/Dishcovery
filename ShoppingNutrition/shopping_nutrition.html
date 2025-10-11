@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping List & Nutrition - Dishcovery</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <link rel="stylesheet" href="shoppingNutrition.css">
+</head>
+<body>
+    <div class="container-fluid">        
+        <div class="header">
+            <h1>Dishcovery</h1>
+            <p>Plan your meals, manage your pantry, and discover amazing recipes!</p>
+        </div>
+        
+        <nav class="navbar navbar-expand-md bg-white shadow-sm">
+            <div class="container-fluid">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link active" id="shopping-tab" data-bs-toggle="tab" data-bs-target="#shopping" role="tab" href="#">Shopping List</a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="nutrition-tab" data-bs-toggle="tab" data-bs-target="#nutrition" role="tab" href="#">Nutrition Tracking</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container py-4">            
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="shopping" role="tabpanel">
+                    <h2 class="mb-4">Shopping List</h2>
+                    
+                    <div class="nutrition-card">
+                        <h5 class="mb-3">Add Item</h5>
+                        <form id="shopping-add-form">
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <input type="text" id="shopping-item-name" class="form-control" placeholder="Item name" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="number" id="shopping-item-qty" class="form-control" placeholder="Qty" value="1" min="1" step="0.1" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <select id="shopping-item-unit" class="form-select">
+                                        <option>pcs</option>
+                                        <option>kg</option>
+                                        <option>g</option>
+                                        <option>L</option>
+                                        <option>ml</option>
+                                        <option>oz</option>
+                                        <option>lbs</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <select id="shopping-item-cat" class="form-select">
+                                        <option value="produce">Produce</option>
+                                        <option value="dairy">Dairy</option>
+                                        <option value="meat">Meat</option>
+                                        <option value="pantry">Pantry</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="submit" class="btn btn-primary w-100">Add to List</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-lg-8">
+                            <div class="nutrition-card">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5>Items</h5>
+                                    <small class="text-muted" id="shopping-count">0 items</small>
+                                </div>
+                                <div id="shopping-list-display" class="empty-state">
+                                    <i class="fas fa-shopping-cart"></i>
+                                    <p>Your shopping list is empty. Add items above!</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-4">
+                            <div class="nutrition-card">
+                                <h5 class="mb-3">Summary</h5>
+                                <div id="shopping-summary">
+                                    <p class="text-muted text-center">Add items to see summary</p>
+                                </div>
+                                <button class="btn btn-outline-success w-100 mt-3" id="clear-list-btn">Clear List</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-pane fade" id="nutrition" role="tabpanel">
+                    <h2 class="mb-4">Nutrition Tracking</h2>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="nutrition-card">
+                                <div class="progress-circle pc-calories">
+                                    <span id="cal-display">0%</span>
+                                </div>
+                                <div class="nutrition-stat">
+                                    <div class="stat-value" id="cal-value">0</div>
+                                    <div class="stat-label">/ 2000 cal</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="nutrition-card">
+                                <div class="progress-circle pc-protein">
+                                    <span id="prot-display">0%</span>
+                                </div>
+                                <div class="nutrition-stat">
+                                    <div class="stat-value" id="prot-value">0g</div>
+                                    <div class="stat-label">/ 150g protein</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="nutrition-card">
+                                <div class="progress-circle pc-carbs">
+                                    <span id="carb-display">0%</span>
+                                </div>
+                                <div class="nutrition-stat">
+                                    <div class="stat-value" id="carb-value">0g</div>
+                                    <div class="stat-label">/ 250g carbs</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="nutrition-card">
+                                <div class="progress-circle pc-fat">
+                                    <span id="fat-display">0%</span>
+                                </div>
+                                <div class="nutrition-stat">
+                                    <div class="stat-value" id="fat-value">0g</div>
+                                    <div class="stat-label">/ 65g fat</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-lg-6">
+                            <div class="nutrition-card">
+                                <h5 class="mb-3">Macro Breakdown</h5>
+                                <div class="chart-container">
+                                    <canvas id="macroChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="nutrition-card">
+                                <h5 class="mb-3">Daily Progress</h5>
+                                <div class="chart-container">
+                                    <canvas id="progressChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="nutrition-card">
+                        <h5 class="mb-3">Log Meal</h5>
+                        <form id="nutrition-log-form">
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <input type="text" id="meal-name" class="form-control" placeholder="Meal name" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="number" id="meal-calories" class="form-control" placeholder="Calories" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="number" id="meal-protein" class="form-control" placeholder="Protein (g)" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="number" id="meal-carbs" class="form-control" placeholder="Carbs (g)" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="number" id="meal-fat" class="form-control" placeholder="Fat (g)" required>
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="submit" class="btn btn-primary w-100">Log</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="nutrition-card">
+                        <h5 class="mb-3">Today's Meals</h5>
+                        <div id="logged-meals-display" class="empty-state">
+                            <i class="fas fa-utensils"></i>
+                            <p>No meals logged yet. Log a meal above!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="shoppingNutrition.js"></script>
+</body>
+</html>
