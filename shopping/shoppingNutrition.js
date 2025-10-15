@@ -13,6 +13,20 @@ let appState = {
   nutritionCache: {}
 };
 
+
+const savedState = localStorage.getItem("appState");
+if (savedState) {
+  try {
+    appState = JSON.parse(savedState);
+  } catch {
+    console.warn("Failed to parse saved app state.");
+  }
+}
+
+function saveAppState() {
+  localStorage.setItem("appState", JSON.stringify(appState));
+}
+
 // LOCAL DATABASE for when Spoonacular API fails
 const localIngredientsDB = [
   // Produce
@@ -397,6 +411,7 @@ function renderShoppingList() {
       <small class="text-muted">Complete</small>
     </div>
   `;
+  saveAppState();
 }
 
 window.toggleShoppingItem = function(id) {
@@ -405,11 +420,13 @@ window.toggleShoppingItem = function(id) {
     item.checked = !item.checked;
     renderShoppingList();
   }
+  saveAppState();
 };
 
 window.removeShoppingItem = function(id) {
   appState.shoppingList = appState.shoppingList.filter(i => i.id !== id);
   renderShoppingList();
+  saveAppState();
 };
 
 async function addShoppingItem(e) {
@@ -454,6 +471,7 @@ async function addShoppingItem(e) {
     btnText.style.display = 'inline';
     btnSpinner.style.display = 'none';
   }
+  saveAppState();
 }
 
 function clearShoppingList() {
@@ -509,6 +527,7 @@ function updateNutritionDisplay() {
     window.progressChart.data.datasets[0].data = [calPct, protPct, carbPct, fatPct];
     window.progressChart.update();
   }
+  saveAppState();
 }
 
 function renderLoggedMeals() {
@@ -545,6 +564,7 @@ window.removeMeal = function(id) {
   appState.loggedMeals = appState.loggedMeals.filter(m => m.id !== id);
   renderLoggedMeals();
   updateNutritionDisplay();
+  saveAppState();
 };
 
 async function addMeal(e) {
@@ -593,6 +613,7 @@ async function addMeal(e) {
   } finally {
     btnText.style.display = 'inline';
     btnSpinner.style.display = 'none';
+    saveAppState();
   }
 }
 
