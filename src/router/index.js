@@ -1,21 +1,29 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthenticated } from '@/lib/supabase'
 import LoginView from '@/views/LoginView.vue'
+import HomeView from '@/views/HomeView.vue'
 import PantryView from '@/views/PantryView.vue'
 import RecipeView from '@/views/RecipeView.vue'
+import PlanningView from '@/views/PlanningView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      redirect: '/pantry'
+      redirect: '/home'
     },
     {
       path: '/login',
       name: 'login',
       component: LoginView,
       meta: { requiresAuth: false }
+    },
+    {
+      path: '/home',
+      name: 'home',
+      component: HomeView,
+      meta: { requiresAuth: true }
     },
     {
       path: '/pantry',
@@ -28,7 +36,13 @@ const router = createRouter({
       name: 'recipes',
       component: RecipeView,
       meta: { requiresAuth: true }
-    }
+    },
+    {
+      path: '/planning',
+      name: 'planning',
+      component: PlanningView,
+      meta: { requiresAuth: true }
+    }    
   ]
 })
 

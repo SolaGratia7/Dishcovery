@@ -1,241 +1,188 @@
 <template>
   <AppLayout>
+    <AnimatedBackground />
+    
     <div class="recipe-page">
-      <!-- Hero Section -->
-      <div class="hero-section">
-        <div class="container text-center">
-          <h1 class="hero-title">Discover Your Next Meal</h1>
-          <p class="hero-subtitle">Find amazing recipes based on what you have or what you crave</p>
+      <!-- Header -->
+      <div class="recipe-header">
+        <div class="container">
+          <div class="header-content">
+            <div class="recipe-text">
+              <h1>Discover Recipes</h1>
+              <p>Find amazing recipes based on what you have or what you crave</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="container my-5">
+      <div class="container my-4">
         <!-- Search Card -->
         <div class="search-card">
-          <div class="search-header">
-            <i class="bi bi-search-heart"></i>
-            <h2>Find Recipes</h2>
-          </div>
-          
-          <!-- Pantry Search Button -->
-          <button 
-            @click="searchByPantry"
-            :disabled="loading"
-            class="pantry-search-btn"
-          >
-            <div class="btn-content">
-              <i class="bi bi-cart3"></i>
-              <div>
-                <div class="btn-title">Use My Pantry Ingredients</div>
-                <small>Find recipes with what you already have</small>
-              </div>
-            </div>
-            <span v-if="loading" class="spinner-border spinner-border-sm"></span>
-            <i v-else class="bi bi-arrow-right"></i>
-          </button>
-          
-          <div class="divider-with-text">
-            <span>OR</span>
-          </div>
-          
-          <!-- Search Input -->
-          <div class="search-input-wrapper">
-            <i class="bi bi-search search-icon"></i>
-            <input 
-              type="text"
-              class="search-input" 
-              v-model="searchQuery"
-              placeholder="Search for any recipe... (pasta, chicken, tacos)"
-              @keyup.enter="searchRecipes"
-            >
+          <div class="search-buttons">
             <button 
-              @click="searchRecipes"
-              :disabled="loading || !searchQuery.trim()"
-              class="search-btn"
+              @click="searchByPantry"
+              :disabled="loading"
+              class="pantry-search-btn"
             >
-              <span v-if="loading" class="spinner-border spinner-border-sm"></span>
-              <span v-else>Search</span>
+              <i class="bi bi-cart3 me-2"></i>
+              <span>Find Recipes with My Ingredients</span>
+              <span v-if="loading" class="spinner-border spinner-border-sm ms-2"></span>
             </button>
+            
+            <div class="divider-text">OR</div>
+            
+            <div class="search-input-group">
+              <i class="bi bi-search"></i>
+              <input 
+                type="text"
+                v-model="searchQuery"
+                placeholder="Search for any recipe... (pasta, chicken, tacos)"
+                @keyup.enter="searchRecipes"
+                class="search-input"
+              >
+              <button 
+                @click="searchRecipes"
+                :disabled="loading || !searchQuery.trim()"
+                class="search-btn"
+              >
+                Search
+              </button>
+            </div>
           </div>
 
           <!-- Filters -->
-          <div class="filters-section">
-            <h6 class="filters-title">
-              <i class="bi bi-funnel me-2"></i>
-              Refine Your Search
-            </h6>
-            <div class="filters-grid">
-              <div class="filter-item">
-                <label>
-                  <i class="bi bi-heart-pulse me-1"></i>
-                  Diet
-                </label>
-                <select v-model="filters.diet" class="filter-select">
-                  <option value="">Any Diet</option>
-                  <option value="vegetarian">Vegetarian</option>
-                  <option value="vegan">Vegan</option>
-                  <option value="gluten free">Gluten Free</option>
-                  <option value="ketogenic">Ketogenic</option>
-                  <option value="paleo">Paleo</option>
-                </select>
-              </div>
+          <div class="filters-row">
+            <div class="filter-item">
+              <label><i class="bi bi-heart-pulse me-1"></i> Diet</label>
+              <select v-model="filters.diet" class="filter-select">
+                <option value="">Any Diet</option>
+                <option value="vegetarian">Vegetarian</option>
+                <option value="vegan">Vegan</option>
+                <option value="gluten free">Gluten Free</option>
+                <option value="ketogenic">Ketogenic</option>
+                <option value="paleo">Paleo</option>
+              </select>
+            </div>
 
-              <div class="filter-item">
-                <label>
-                  <i class="bi bi-globe me-1"></i>
-                  Cuisine
-                </label>
-                <select v-model="filters.cuisine" class="filter-select">
-                  <option value="">Any Cuisine</option>
-                  <option value="italian">Italian</option>
-                  <option value="chinese">Chinese</option>
-                  <option value="mexican">Mexican</option>
-                  <option value="indian">Indian</option>
-                  <option value="thai">Thai</option>
-                  <option value="american">American</option>
-                  <option value="japanese">Japanese</option>
-                  <option value="french">French</option>
-                </select>
-              </div>
+            <div class="filter-item">
+              <label><i class="bi bi-globe me-1"></i> Cuisine</label>
+              <select v-model="filters.cuisine" class="filter-select">
+                <option value="">Any Cuisine</option>
+                <option value="italian">Italian</option>
+                <option value="chinese">Chinese</option>
+                <option value="mexican">Mexican</option>
+                <option value="indian">Indian</option>
+                <option value="thai">Thai</option>
+                <option value="american">American</option>
+              </select>
+            </div>
 
-              <div class="filter-item">
-                <label>
-                  <i class="bi bi-clock me-1"></i>
-                  Cook Time
-                </label>
-                <select v-model="filters.maxReadyTime" class="filter-select">
-                  <option value="">Any Time</option>
-                  <option value="15">Under 15 min</option>
-                  <option value="30">Under 30 min</option>
-                  <option value="60">Under 1 hour</option>
-                </select>
-              </div>
+            <div class="filter-item">
+              <label><i class="bi bi-clock me-1"></i> Cook Time</label>
+              <select v-model="filters.maxReadyTime" class="filter-select">
+                <option value="">Any Time</option>
+                <option value="15">Under 15 min</option>
+                <option value="30">Under 30 min</option>
+                <option value="60">Under 1 hour</option>
+              </select>
             </div>
           </div>
         </div>
 
         <!-- Results Count -->
-        <div v-if="recipes.length > 0" class="results-header">
-          <h3>
-            <i class="bi bi-stars me-2"></i>
-            Found {{ recipes.length }} Delicious Recipe{{ recipes.length !== 1 ? 's' : '' }}
-          </h3>
+        <div v-if="recipes.length > 0" class="results-info">
+          Found {{ recipes.length }} delicious recipe{{ recipes.length !== 1 ? 's' : '' }}
         </div>
 
         <!-- Recipe Grid -->
         <div v-if="recipes.length > 0" class="recipes-grid">
-          <div v-for="recipe in recipes" :key="recipe.id" class="recipe-card" @click="showRecipeDetails(recipe)">
-            <div class="recipe-image-wrapper">
+          <div v-for="recipe in recipes" :key="recipe.id" class="recipe-card">
+            <!-- Recipe Image -->
+            <div class="recipe-image-container">
               <img 
                 :src="recipe.image" 
                 :alt="recipe.title"
                 class="recipe-image"
+                @click="showRecipeDetails(recipe)"
               >
-              <div class="recipe-overlay">
-                <i class="bi bi-eye-fill"></i>
-                <span>View Recipe</span>
-              </div>
+              <button class="favorite-btn" @click.stop="toggleFavorite(recipe.id)">
+                <i class="bi bi-heart"></i>
+              </button>
             </div>
-            <div class="recipe-body">
+
+            <!-- Recipe Info -->
+            <div class="recipe-info">
               <h5 class="recipe-title">{{ recipe.title }}</h5>
+              <p class="recipe-description" v-if="recipe.summary">
+                {{ stripHtml(recipe.summary).substring(0, 80) }}...
+              </p>
+
+              <!-- Tags -->
+              <div class="recipe-tags">
+                <span v-if="recipe.vegetarian" class="tag vegetarian">Vegetarian</span>
+                <span v-if="recipe.vegan" class="tag vegan">Vegan</span>
+                <span v-if="recipe.glutenFree" class="tag gluten-free">Gluten-Free</span>
+              </div>
+
+              <!-- Stats -->
               <div class="recipe-stats">
                 <div class="stat">
-                  <i class="bi bi-clock-fill"></i>
+                  <i class="bi bi-clock"></i>
                   <span>{{ recipe.readyInMinutes }} min</span>
                 </div>
                 <div class="stat">
-                  <i class="bi bi-heart-fill"></i>
+                  <i class="bi bi-people"></i>
+                  <span>{{ recipe.servings }} servings</span>
+                </div>
+                <div class="stat">
+                  <i class="bi bi-heart-fill text-danger"></i>
                   <span>{{ recipe.aggregateLikes }}</span>
                 </div>
               </div>
+
+              <!-- View Button -->
+              <button 
+                @click="showRecipeDetails(recipe)"
+                class="btn-view-recipe"
+              >
+                <i class="bi bi-book me-2"></i>
+                View Recipe
+              </button>
             </div>
           </div>
         </div>
 
         <!-- Empty State -->
         <div v-else-if="!loading" class="empty-state">
-          <div class="empty-icon">
-            <i class="bi bi-search"></i>
-          </div>
+          <i class="bi bi-search"></i>
           <h3>Ready to Cook Something Amazing?</h3>
           <p>Search by recipe name or use your pantry ingredients to discover delicious meals!</p>
         </div>
 
         <!-- Loading State -->
         <div v-if="loading" class="loading-state">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
+          <div class="spinner-border text-primary"></div>
           <p>Searching for delicious recipes...</p>
         </div>
       </div>
 
-      <!-- Recipe Details Modal -->
-      <div class="modal fade" id="recipeModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
-          <div class="modal-content recipe-modal" v-if="selectedRecipe">
-            <div class="modal-header border-0">
-              <h5 class="modal-title">{{ selectedRecipe.title }}</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-              <img :src="selectedRecipe.image" :alt="selectedRecipe.title" class="modal-recipe-image">
-              
-              <div class="recipe-info-cards">
-                <div class="info-card">
-                  <i class="bi bi-clock-fill"></i>
-                  <div>
-                    <small>Cook Time</small>
-                    <strong>{{ selectedRecipe.readyInMinutes }} min</strong>
-                  </div>
-                </div>
-                <div class="info-card">
-                  <i class="bi bi-people-fill"></i>
-                  <div>
-                    <small>Servings</small>
-                    <strong>{{ selectedRecipe.servings }}</strong>
-                  </div>
-                </div>
-                <div class="info-card">
-                  <i class="bi bi-heart-fill"></i>
-                  <div>
-                    <small>Likes</small>
-                    <strong>{{ selectedRecipe.aggregateLikes }}</strong>
-                  </div>
-                </div>
-              </div>
-
-              <div class="instructions-section">
-                <h4>
-                  <i class="bi bi-list-ol me-2"></i>
-                  Instructions
-                </h4>
-                <ol v-if="selectedRecipe.analyzedInstructions && selectedRecipe.analyzedInstructions.length > 0" class="instructions-list">
-                  <li v-for="(step, index) in selectedRecipe.analyzedInstructions[0].steps" :key="index">
-                    <span class="step-number">{{ index + 1 }}</span>
-                    <span class="step-text">{{ step.step }}</span>
-                  </li>
-                </ol>
-                <div v-else class="no-instructions">
-                  <i class="bi bi-info-circle me-2"></i>
-                  <span>Detailed instructions not available for this recipe.</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <RecipeModal 
+        :recipe="selectedRecipe" 
+        @close="selectedRecipe = null" 
+      />
     </div>
   </AppLayout>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import axios from 'axios'
-import { Modal } from 'bootstrap'
 import AppLayout from '@/components/AppLayout.vue'
+import AnimatedBackground from '@/components/AnimatedBackground.vue'
+import RecipeModal from '@/components/RecipeModal.vue'
+
 
 const router = useRouter()
 const currentUser = ref(null)
@@ -243,7 +190,6 @@ const loading = ref(false)
 const recipes = ref([])
 const searchQuery = ref('')
 const selectedRecipe = ref(null)
-let modalInstance = null
 
 const SPOONACULAR_API_KEY = '0ca96dd220c842a6bfdcddfcbcf15b5d'
 const SPOONACULAR_URL = 'https://api.spoonacular.com/recipes/complexSearch'
@@ -289,7 +235,7 @@ const searchByPantry = async () => {
     recipes.value = response.data.results || []
 
     if (recipes.value.length === 0) {
-      alert('No recipes found with your pantry ingredients. Try adjusting filters!')
+      alert('No recipes found with your pantry ingredients.')
     }
   } catch (error) {
     console.error('Error:', error)
@@ -333,17 +279,19 @@ const searchRecipes = async () => {
   }
 }
 
-const showRecipeDetails = async (recipe) => {
+const showRecipeDetails = (recipe) => {
   selectedRecipe.value = recipe
-  await nextTick()
-  
-  const modalElement = document.getElementById('recipeModal')
-  if (modalElement) {
-    if (!modalInstance) {
-      modalInstance = new Modal(modalElement)
-    }
-    modalInstance.show()
-  }
+}
+
+const toggleFavorite = (id) => {
+  // Placeholder for favorite functionality
+  console.log('Toggle favorite:', id)
+}
+
+const stripHtml = (html) => {
+  const div = document.createElement('div')
+  div.innerHTML = html
+  return div.textContent || div.innerText || ''
 }
 
 onMounted(async () => {
@@ -358,193 +306,117 @@ onMounted(async () => {
 
 <style scoped>
 .recipe-page {
-  background: linear-gradient(to bottom, #faf8f5 0%, #f5f5f5 100%);
   min-height: 100vh;
+  padding-bottom: 4rem;
 }
 
-/* Hero Section */
-.hero-section {
-  background: linear-gradient(135deg, #f5e6d3 0%, #e8d5c4 50%, #d4a574 100%);
-  padding: 4rem 2rem;
-  margin-bottom: 3rem;
-  position: relative;
-  overflow: hidden;
+/* Header */
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
 }
 
-.hero-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-  opacity: 0.3;
-}
-
-.hero-title {
-  color: #8b6f47;
-  font-size: 3rem;
+.recipe-text h1 {
+  color: #6b46c1;
+  font-size: 2rem;
   font-weight: 700;
-  margin-bottom: 1rem;
-  position: relative;
-  z-index: 1;
+  margin-bottom: 0.5rem;
 }
 
-.hero-subtitle {
-  color: #6b5d52;
-  font-size: 1.25rem;
+.recipe-text p {
+  color: #666;
   margin: 0;
-  position: relative;
-  z-index: 1;
 }
 
 /* Search Card */
 .search-card {
-  background: white;
-  border-radius: 20px;
-  padding: 2.5rem;
-  box-shadow: 0 4px 20px rgba(139, 111, 71, 0.1);
-  margin-bottom: 3rem;
-}
-
-.search-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid #ffd4b3;
+  border-radius: 12px;
+  padding: 1rem;
   margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.search-header i {
-  font-size: 2rem;
-  color: #c89960;
+.search-buttons {
+  margin-bottom: 1rem;
 }
 
-.search-header h2 {
-  color: #8b6f47;
-  font-weight: 700;
-  margin: 0;
-  font-size: 1.75rem;
-}
-
-/* Pantry Search Button */
 .pantry-search-btn {
   width: 100%;
-  padding: 1.5rem;
-  background: linear-gradient(135deg, #d4a574 0%, #c89960 100%);
-  border: none;
-  border-radius: 15px;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
-  font-size: 1.1rem;
+  border: none;
+  border-radius: 10px;
   font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(200, 153, 96, 0.3);
+  justify-content: center;
+  margin-bottom: 1rem;
 }
 
 .pantry-search-btn:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 25px rgba(200, 153, 96, 0.4);
-  background: linear-gradient(135deg, #c89960 0%, #b8895a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
 }
 
 .pantry-search-btn:disabled {
-  opacity: 0.7;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
-.btn-content {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  text-align: left;
-}
-
-.btn-content i {
-  font-size: 2rem;
-}
-
-.btn-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.btn-content small {
-  opacity: 0.9;
-  font-size: 0.85rem;
-}
-
-/* Divider */
-.divider-with-text {
-  display: flex;
-  align-items: center;
+.divider-text {
   text-align: center;
-  margin: 2rem 0;
   color: #999;
   font-weight: 600;
+  margin: 1rem 0;
 }
 
-.divider-with-text::before,
-.divider-with-text::after {
-  content: '';
-  flex: 1;
-  border-bottom: 2px solid #e8d7c3;
-}
-
-.divider-with-text span {
-  padding: 0 1rem;
-  background: white;
-}
-
-/* Search Input */
-.search-input-wrapper {
-  position: relative;
+.search-input-group {
   display: flex;
-  align-items: center;
   gap: 0.5rem;
-  margin-bottom: 2rem;
+  position: relative;
+  align-items: center;
 }
 
-.search-icon {
+.search-input-group i {
   position: absolute;
-  left: 1.25rem;
-  color: #c89960;
-  font-size: 1.25rem;
-  z-index: 1;
+  left: 1rem;
+  color: #999;
+  font-size: 1.1rem;
 }
 
 .search-input {
   flex: 1;
-  padding: 1rem 1rem 1rem 3.5rem;
-  border: 2px solid #e8d7c3;
-  border-radius: 12px;
+  padding: 0.65rem 1rem 0.75rem 3rem;
+  border: 2px solid #ffd4b3;
+  border-radius: 10px;
   font-size: 1rem;
-  transition: all 0.3s;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #c89960;
-  box-shadow: 0 0 0 4px rgba(200, 153, 96, 0.1);
+  border-color: #ff6b1a;
 }
 
 .search-btn {
-  padding: 1rem 2rem;
-  background: #c89960;
+  padding: 0.75rem 1.5rem;
+  background: #ff6b1a;
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
 }
 
 .search-btn:hover:not(:disabled) {
-  background: #b8895a;
-  transform: translateY(-2px);
+  background: #e55f17;
 }
 
 .search-btn:disabled {
@@ -553,139 +425,119 @@ onMounted(async () => {
 }
 
 /* Filters */
-.filters-section {
-  background: #faf8f5;
-  padding: 1.5rem;
-  border-radius: 15px;
-  border: 2px dashed #e8d7c3;
-}
-
-.filters-title {
-  color: #8b6f47;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-}
-
-.filters-grid {
+.filters-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #f0e8dc;
 }
 
 .filter-item label {
   display: block;
-  color: #6b5d52;
   font-weight: 600;
+  color: #666;
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
 }
 
 .filter-select {
   width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e8d7c3;
-  border-radius: 10px;
-  background: white;
-  color: #333;
+  padding: 0.625rem;
+  border: 2px solid #ffd4b3;
+  border-radius: 8px;
   font-size: 0.95rem;
   cursor: pointer;
-  transition: all 0.3s;
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .filter-select:focus {
   outline: none;
-  border-color: #c89960;
-  box-shadow: 0 0 0 3px rgba(200, 153, 96, 0.1);
+  border-color: #ff6b1a;
 }
 
-/* Results Header */
-.results-header {
-  margin-bottom: 2rem;
-}
-
-.results-header h3 {
-  color: #8b6f47;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-}
-
-.results-header i {
-  color: #d4a574;
+/* Results Info */
+.results-info {
+  color: #666;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
 }
 
 /* Recipe Grid */
 .recipes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 2rem;
-  margin-bottom: 3rem;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
 }
 
 .recipe-card {
   background: white;
-  border-radius: 15px;
+  border-radius: 14px;
   overflow: hidden;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s;
 }
 
 .recipe-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 8px 30px rgba(139, 111, 71, 0.2);
+  transform: translateY(-6px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-.recipe-image-wrapper {
+.recipe-image-container {
   position: relative;
+  width: 100%;
+  height: 240px;
   overflow: hidden;
-  height: 220px;
 }
 
 .recipe-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
+  cursor: pointer;
+  transition: transform 0.3s;
 }
 
 .recipe-card:hover .recipe-image {
-  transform: scale(1.1);
+  transform: scale(1.05);
 }
 
-.recipe-overlay {
+.favorite-btn {
   position: absolute;
-  inset: 0;
-  background: rgba(200, 153, 96, 0.9);
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  background: white;
+  border: none;
+  border-radius: 50%;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s;
-  color: white;
-  gap: 0.5rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s;
 }
 
-.recipe-card:hover .recipe-overlay {
-  opacity: 1;
+.favorite-btn:hover {
+  transform: scale(1.1);
+  background: #fee2e2;
 }
 
-.recipe-overlay i {
-  font-size: 2.5rem;
+.favorite-btn i {
+  font-size: 1.1rem;
+  color: #ef4444;
 }
 
-.recipe-body {
-  padding: 1.5rem;
+.recipe-info {
+  padding: 1.25rem;
 }
 
 .recipe-title {
-  color: #333;
+  color: #1a1a1a;
   font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -693,56 +545,104 @@ onMounted(async () => {
   overflow: hidden;
 }
 
+.recipe-description {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+
+.recipe-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tag {
+  padding: 0.25rem 0.625rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.tag.vegetarian {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.tag.vegan {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.tag.gluten-free {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .recipe-stats {
   display: flex;
   justify-content: space-between;
-  color: #666;
-  font-size: 0.9rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 1rem;
 }
 
 .stat {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
+  color: #666;
+  font-size: 0.85rem;
 }
 
 .stat i {
-  color: #c89960;
+  color: #ff6b1a;
+  font-size: 1rem;
 }
 
-/* Empty State */
+.btn-view-recipe {
+  width: 100%;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #ff6b1a 0%, #ff9800 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-view-recipe:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 107, 26, 0.3);
+}
+
+/* Empty/Loading States */
 .empty-state {
   text-align: center;
   padding: 5rem 2rem;
+  background: white;
+  border-radius: 16px;
 }
 
-.empty-icon {
-  width: 120px;
-  height: 120px;
-  background: linear-gradient(135deg, #f5e6d3 0%, #e8d7c3 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 2rem;
-}
-
-.empty-icon i {
-  font-size: 4rem;
-  color: #c89960;
+.empty-state i {
+  font-size: 5rem;
+  color: #ddd;
+  margin-bottom: 1.5rem;
 }
 
 .empty-state h3 {
-  color: #8b6f47;
-  margin-bottom: 1rem;
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
 }
 
 .empty-state p {
-  color: #999;
-  font-size: 1.1rem;
+  color: #666;
 }
 
-/* Loading State */
 .loading-state {
   text-align: center;
   padding: 5rem 2rem;
@@ -751,160 +651,22 @@ onMounted(async () => {
 .loading-state .spinner-border {
   width: 3rem;
   height: 3rem;
-  color: #c89960;
+  color: #ff6b1a;
   margin-bottom: 1rem;
 }
 
 .loading-state p {
-  color: #8b6f47;
-  font-size: 1.1rem;
+  color: #666;
   font-weight: 500;
-}
-
-/* Modal Styles */
-.recipe-modal {
-  border-radius: 20px;
-  border: none;
-}
-
-.recipe-modal .modal-header {
-  background: linear-gradient(135deg, #f5e6d3 0%, #e8d7c3 100%);
-  padding: 1.5rem 2rem;
-}
-
-.recipe-modal .modal-title {
-  color: #8b6f47;
-  font-weight: 700;
-  font-size: 1.5rem;
-}
-
-.recipe-modal .modal-body {
-  padding: 2rem;
-}
-
-.modal-recipe-image {
-  width: 100%;
-  border-radius: 15px;
-  margin-bottom: 2rem;
-}
-
-.recipe-info-cards {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.info-card {
-  background: #faf8f5;
-  padding: 1.25rem;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  border: 2px solid #e8d7c3;
-}
-
-.info-card i {
-  font-size: 2rem;
-  color: #c89960;
-}
-
-.info-card small {
-  display: block;
-  color: #999;
-  font-size: 0.75rem;
-  margin-bottom: 0.25rem;
-}
-
-.info-card strong {
-  display: block;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-.instructions-section h4 {
-  color: #8b6f47;
-  font-weight: 700;
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-}
-
-.instructions-list {
-  list-style: none;
-  padding: 0;
-  counter-reset: step-counter;
-}
-
-.instructions-list li {
-  counter-increment: step-counter;
-  margin-bottom: 1.5rem;
-  display: flex;
-  gap: 1rem;
-  line-height: 1.6;
-}
-
-.step-number {
-  flex-shrink: 0;
-  width: 35px;
-  height: 35px;
-  background: linear-gradient(135deg, #d4a574 0%, #c89960 100%);
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.9rem;
-}
-
-.step-number::before {
-  content: counter(step-counter);
-}
-
-.step-text {
-  flex: 1;
-  color: #333;
-  padding-top: 0.5rem;
-}
-
-.no-instructions {
-  background: #faf8f5;
-  padding: 2rem;
-  border-radius: 12px;
-  text-align: center;
-  color: #999;
-  border: 2px dashed #e8d7c3;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .hero-title {
-    font-size: 2rem;
-  }
-  
-  .hero-subtitle {
-    font-size: 1rem;
-  }
-  
-  .search-card {
-    padding: 1.5rem;
-  }
-  
   .recipes-grid {
     grid-template-columns: 1fr;
   }
   
-  .recipe-info-cards {
-    grid-template-columns: 1fr;
-  }
-  
-  .filters-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .search-input-wrapper {
+  .search-input-group {
     flex-direction: column;
   }
   

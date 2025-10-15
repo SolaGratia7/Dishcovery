@@ -1,14 +1,20 @@
 <template>
   <div class="login-wrapper">
+    <!-- Animated Background -->
+    <AnimatedBackground />
+    
+    <!-- Login Card - THIS WAS MISSING! -->
     <div class="login-card">
-      
       <!-- Logo and Title -->
       <div class="text-center mb-4">
         <div class="logo-circle mx-auto mb-3">
-          <i class="bi bi-cart3"></i>
+          <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
+            <line x1="6" y1="17" x2="18" y2="17"/>
+          </svg>
         </div>
         <h1 class="app-title">Dishcovery</h1>
-        <h2 class="welcome-text">{{ activeTab === 'login' ? 'Welcome Back' : 'Create Account' }}</h2>
+        <h3 class="welcome-text">{{ activeTab === 'login' ? 'Welcome Back' : 'Create Account' }}</h3>
         <p class="switch-text">
           {{ activeTab === 'login' ? "Don't have an account?" : "Already have an account?" }}
           <a @click="toggleTab" class="switch-link">
@@ -132,8 +138,8 @@
           {{ message }}
         </div>
       </form>
-
     </div>
+    <!-- End of login-card -->
   </div>
 </template>
 
@@ -141,6 +147,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabase'
+import AnimatedBackground from '@/components/AnimatedBackground.vue'
 
 const router = useRouter()
 const activeTab = ref('login')
@@ -237,38 +244,49 @@ const handleSignup = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f5e6d3 0%, #d4a574 100%);
   padding: 2rem;
+  position: relative;
 }
 
 .login-card {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   padding: 3rem 2.5rem;
   width: 100%;
   max-width: 450px;
+  position: relative;
+  z-index: 1;
+  animation: slideUp 0.6s ease-out;
+}
+
+/* Add subtle animation to login card */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .logo-circle {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, #d4a574 0%, #c89960 100%);
+  background: linear-gradient(135deg, #ff6b1a 0%, #ffb347 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.logo-circle i {
-  font-size: 2.5rem;
-  color: white;
-}
-
 .app-title {
-  font-size: 2rem;
+  font-size: 2rem;  
   font-weight: 700;
-  color: #8b6f47;
+  color: #1a1a1a;
   margin-bottom: 0.5rem;
 }
 
@@ -285,7 +303,7 @@ const handleSignup = async () => {
 }
 
 .switch-link {
-  color: #c89960;
+  color: #ff6b1a;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
@@ -293,7 +311,7 @@ const handleSignup = async () => {
 }
 
 .switch-link:hover {
-  color: #8b6f47;
+  color: #e55f17;
   text-decoration: underline;
 }
 
@@ -303,46 +321,46 @@ const handleSignup = async () => {
 }
 
 .form-control {
-  border: 2px solid #e8d7c3;
+  border: 1px solid #ff914d;
   border-radius: 8px;
   padding: 0.75rem;
 }
 
 .form-control:focus {
-  border-color: #c89960;
+  border-color: #ff6b1a;
   box-shadow: 0 0 0 0.2rem rgba(200, 153, 96, 0.25);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #d4a574 0%, #c89960 100%);
+  background: linear-gradient(135deg, #ff6b1a 0%, #ff9800 100%);
   border: none;
   padding: 0.75rem;
   font-weight: 600;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #c89960 0%, #8b6f47 100%);
+  background: linear-gradient(135deg, #ff6b1a 0%, #e55f17 100%);
 }
 
 .btn-outline-secondary {
-  border-color: #e8d7c3;
-  color: #c89960;
+  border-color: #ffb347;
+  color: #e55f17;
 }
 
 .btn-outline-secondary:hover {
   background-color: #f5e6d3;
-  border-color: #c89960;
-  color: #8b6f47;
+  border-color: #ffb347;
+  color: #e55f17;
 }
 
 .forgot-link {
-  color: #c89960;
+  color: #ff6b1a;
   text-decoration: none;
   font-size: 0.9rem;
 }
 
 .forgot-link:hover {
-  color: #8b6f47;
+  color: #e55f17;
   text-decoration: underline;
 }
 

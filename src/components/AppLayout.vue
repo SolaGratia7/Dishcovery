@@ -3,9 +3,16 @@
     <!-- Fixed Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm fixed-top">
       <div class="container">
-        <router-link to="/pantry" class="navbar-brand">
-          <i class="bi bi-cart3 me-2" style="color: #c89960; font-size: 1.5rem;"></i>
-          <span class="fw-bold" style="color: #c89960;">Dishcovery</span>
+        <router-link to="/home" class="navbar-brand">
+          <div class="brand-icon">
+            <div class="mx-auto mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#ff6b1a" stroke-width="2">
+                <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
+                <line x1="6" y1="17" x2="18" y2="17"/>
+              </svg>
+            </div>  
+          </div>
+          <span class="brand-name">Dishcovery</span>
         </router-link>
         
         <button 
@@ -20,6 +27,12 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto align-items-lg-center">
             <li class="nav-item">
+              <router-link to="/home" class="nav-link">
+                <i class="bi bi-box-seam me-1"></i>
+                Home
+              </router-link>
+            </li>            
+            <li class="nav-item">
               <router-link to="/pantry" class="nav-link">
                 <i class="bi bi-box-seam me-1"></i>
                 Pantry
@@ -32,10 +45,10 @@
               </router-link>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#">
+              <router-link to="/planning" class="nav-link">
                 <i class="bi bi-calendar-week me-1"></i>
                 Meal Planner
-              </a>
+              </router-link>
             </li>
             <li class="nav-item">
               <button @click="handleLogout" class="btn btn-danger btn-sm ms-lg-3 mt-2 mt-lg-0">
@@ -68,12 +81,32 @@ const handleLogout = async () => {
 </script>
 
 <style scoped>
-.navbar {
-  z-index: 1000;
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
 }
 
-.navbar-brand {
+.brand-icon {
+  width: 10px;
+  height: 10px;
+  display: flex;
+  margin: 1rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-icon i,
+.brand-icon svg {
+  color: white;
   font-size: 1.5rem;
+}
+
+.brand-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ff6b1a;
 }
 
 .nav-link {
@@ -84,18 +117,17 @@ const handleLogout = async () => {
 }
 
 .nav-link:hover {
-  color: #c89960;
+  color: #ff6b1a;
 }
 
 .nav-link.router-link-active {
-  color: #c89960;
+  color: #ff6b1a;
   font-weight: 600;
 }
 
 .content-wrapper {
   padding-top: 70px; /* Offset for fixed navbar */
   min-height: 100vh;
-  background: #f8f9fa;
 }
 
 @media (max-width: 991px) {
