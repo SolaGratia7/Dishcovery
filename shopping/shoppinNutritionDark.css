@@ -1,0 +1,244 @@
+:root {
+  --primary-color: #8b9fff;
+  --secondary-color: #9c6bff;
+  --success-color: #48bb78;
+  --danger-color: #f56565;
+  --dark-bg: #121212;
+  --dark-surface: #1e1e1e;
+  --dark-card: #2a2a2a;
+  --dark-border: #333;
+  --light-text: #e0e0e0;
+  --muted-text: #aaa;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--dark-bg);
+  color: var(--light-text);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.header {
+  text-align: center;
+  padding: 2rem 0;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.navbar {
+  background: var(--dark-surface) !important;
+  border-bottom: 2px solid var(--dark-border);
+}
+
+.nav-link {
+  font-weight: 500;
+  color: var(--muted-text) !important;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--primary-color) !important;
+}
+
+.nav-link.active {
+  color: var(--primary-color) !important;
+  border-bottom-color: var(--primary-color);
+}
+
+.nutrition-card {
+  background: var(--dark-card);
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  margin-bottom: 1.5rem;
+  transition: box-shadow 0.2s ease;
+}
+
+.nutrition-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.7);
+}
+
+.nutrition-card h5 {
+  font-weight: 600;
+  color: var(--light-text);
+  margin-bottom: 1rem;
+}
+
+.shopping-item {
+  background: var(--dark-card);
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  border-radius: 8px;
+  border-left: 4px solid var(--primary-color);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  transition: all 0.2s ease;
+}
+
+.shopping-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.6);
+}
+
+.shopping-item.checked {
+  opacity: 0.5;
+  background-color: #2c2c2c;
+}
+
+.shopping-item.checked .item-name {
+  text-decoration: line-through;
+  color: #777;
+}
+
+.item-name {
+  margin-left: 0.5rem;
+  font-weight: 500;
+}
+
+.item-category-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.75rem;
+}
+
+.cat-produce { background: #234d27; color: #90ee90; }
+.cat-dairy { background: #243a60; color: #cfe2ff; }
+.cat-meat { background: #5a232a; color: #f8d7da; }
+.cat-pantry { background: #665a28; color: #fff3cd; }
+.cat-other { background: #432a5f; color: #e7d4f5; }
+
+.text-muted { color: var(--muted-text) !important; }
+
+.nutrition-stat {
+  text-align: center;
+  padding: 1rem;
+}
+
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--muted-text);
+  margin-top: 0.25rem;
+}
+
+.progress-circle {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: white;
+  margin: 0 auto 1rem;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.pc-calories { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.pc-protein { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.pc-carbs { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+.pc-fat { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+
+.chart-container {
+  position: relative;
+  height: 300px;
+  margin-bottom: 2rem;
+}
+
+.form-control, .form-select {
+  background-color: #2b2b2b;
+  border: 1px solid #444;
+  color: var(--light-text);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.2rem rgba(102,126,234,0.25);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  border: none;
+  font-weight: 500;
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #7789f3 0%, #845bff 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(140,126,234,0.4);
+}
+
+.btn-outline-danger {
+  color: #ff7b7b;
+  border: 1px solid #ff7b7b;
+}
+
+.btn-outline-danger:hover {
+  background-color: #ff7b7b;
+  color: #fff;
+}
+
+.autocomplete-results {
+  background: var(--dark-surface);
+  border: 1px solid #444;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.6);
+}
+
+.autocomplete-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #333;
+}
+
+.autocomplete-item:hover {
+  background: #2d2d2d;
+}
+
+.alert-custom {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.alert-warning {
+  background: #4a3f25;
+  color: #f8e9a1;
+  border: 1px solid #665d3e;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--muted-text);
+}
+
+.empty-state i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+@media (max-width: 768px) {
+  .header h1 { font-size: 1.8rem; }
+  .progress-circle { width: 80px; height: 80px; font-size: 1.2rem; }
+}
