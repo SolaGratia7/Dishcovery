@@ -1,59 +1,63 @@
 <template>
-  <!-- Recipe Details Modal -->
-  <div v-if="recipe" class="modal-overlay" @click="closeModal">
-    <div class="modal-content" @click.stop>
-      <button @click="closeModal" class="btn-close-modal">
-        <i class="bi bi-x-lg"></i>
-      </button>
-      
-      <img :src="recipe.image" :alt="recipe.title" class="modal-image">
-      
-      <div class="modal-body">
-        <h2>{{ recipe.title }}</h2>
-        
-        <div class="modal-stats">
-          <div class="modal-stat">
-            <i class="bi bi-clock-fill"></i>
-            <div>
-              <small>Cook Time</small>
-              <strong>{{ recipe.readyInMinutes }} min</strong>
-            </div>
-          </div>
-          <div class="modal-stat">
-            <i class="bi bi-people-fill"></i>
-            <div>
-              <small>Servings</small>
-              <strong>{{ recipe.servings }}</strong>
-            </div>
-          </div>
-          <div class="modal-stat">
-            <i class="bi bi-heart-fill"></i>
-            <div>
-              <small>Likes</small>
-              <strong>{{ recipe.aggregateLikes }}</strong>
-            </div>
-          </div>
-        </div>
+    <Teleport to="body">
+        <!-- Recipe Details Modal -->
+        <div v-if="recipe" class="modal-overlay" @click="closeModal">
+            <div class="modal-content" @click.stop>
+            <button @click="closeModal" class="btn-close-modal">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            
+            <img :src="recipe.image" :alt="recipe.title" class="modal-image">
+            
+            <div class="modal-body">
+                <h2>{{ recipe.title }}</h2>
+                
+                <div class="modal-stats">
+                <div class="modal-stat">
+                    <i class="bi bi-clock-fill"></i>
+                    <div>
+                    <small>Cook Time</small>
+                    <strong>{{ recipe.readyInMinutes }} min</strong>
+                    </div>
+                </div>
+                <div class="modal-stat">
+                    <i class="bi bi-people-fill"></i>
+                    <div>
+                    <small>Servings</small>
+                    <strong>{{ recipe.servings }}</strong>
+                    </div>
+                </div>
+                <div class="modal-stat">
+                    <i class="bi bi-heart-fill"></i>
+                    <div>
+                    <small>Likes</small>
+                    <strong>{{ recipe.aggregateLikes }}</strong>
+                    </div>
+                </div>
+                </div>
 
-        <div class="instructions-section">
-          <h4><i class="bi bi-list-ol me-2"></i>Instructions</h4>
-          <ol v-if="recipe.analyzedInstructions && recipe.analyzedInstructions.length > 0" class="instructions-list">
-            <li v-for="(step, index) in recipe.analyzedInstructions[0].steps" :key="index">
-              {{ step.step }}
-            </li>
-          </ol>
-          <p v-else class="no-instructions">
-            <i class="bi bi-info-circle me-2"></i>
-            Detailed instructions not available for this recipe.
-          </p>
+                <div class="instructions-section">
+                <h4><i class="bi bi-list-ol me-2"></i>Instructions</h4>
+                <ol v-if="instructions && instructions.length > 0 && instructions[0].steps" class="instructions-list">
+                    <li v-for="(step, index) in instructions[0].steps" :key="index">
+                    {{ step.step }}
+                    </li>
+                </ol>
+                <p v-else class="no-instructions">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Detailed instructions not available for this recipe.
+                </p>
+                </div>
+            </div>
+            </div>
         </div>
-      </div>
-    </div>
-  </div>
+    </Teleport>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   recipe: {
     type: Object,
     default: null
@@ -61,6 +65,28 @@ defineProps({
 })
 
 const emit = defineEmits(['close'])
+
+// Handle both formats: API (array) and Supabase (JSON string)
+const instructions = computed(() => {
+  if (!props.recipe) return []
+  
+  // If it's already an array (from API - fresh search)
+  if (Array.isArray(props.recipe.analyzedInstructions)) {
+    return props.recipe.analyzedInstructions
+  }
+  
+  // If it's a JSON string (from Supabase - cached recipes)
+  if (typeof props.recipe.analyzedInstructions === 'string' && props.recipe.analyzedInstructions) {
+    try {
+      return JSON.parse(props.recipe.analyzedInstructions)
+    } catch (e) {
+      console.error('Error parsing instructions:', e)
+      return []
+    }
+  }
+  
+  return []
+})
 
 const closeModal = () => {
   emit('close')

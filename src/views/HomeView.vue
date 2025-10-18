@@ -62,7 +62,7 @@
                   :key="index"
                   :class="['carousel-item', { active: index === 0 }]"
                 >
-                  <div class="carousel-item-wrapper" @click="viewCarouselRecipe(img)">
+                  <div class="carousel-item-wrapper" @click="showRecipeDetails(img)">
                     <img 
                       :src="img.image" 
                       :alt="img.title" 
@@ -77,6 +77,10 @@
                   </div>
                 </div>
               </div>
+              <RecipeModal 
+                :recipe="selectedCarouselRecipe" 
+                @close="selectedCarouselRecipe = null" 
+              />
               
               <button 
                 class="carousel-control-prev" 
@@ -275,11 +279,18 @@ import { Carousel } from 'bootstrap'
 const router = useRouter()
 const currentUser = ref(null)
 
-const SPOONACULAR_API_KEY = '0ca96dd220c842a6bfdcddfcbcf15b5d'
+const SPOONACULAR_API_KEY = [
+  '0ca96dd220c842a6bfdcddfcbcf15b5d',
+  'c96375c9282445708f1b26ce2d7e04a9',
+  '19de6749a5064deea9ebf17f2455d6bb'
+].filter(Boolean) // Remove any undefined keys
+
+let currentKeyIndex = 0
 
 // Pantry images - will be populated with popular recipes
 const pantryImages = ref([])
 const loadingPopularRecipes = ref(true)
+const selectedCarouselRecipe= ref(null)
 
 // State
 const expiringItems = ref([])
@@ -293,6 +304,26 @@ const isDragging = ref(false)
 const startX = ref(0)
 const scrollLeft = ref(0)
 const isSwipeMode = ref(true)
+
+const makeSpoonacularRequest = async (url, params, retries = SPOONACULAR_API_KEY.length) => {
+  try {
+    const response = await axios.get(url, {
+      params: {
+        ...params,
+        apiKey: SPOONACULAR_API_KEY[currentKeyIndex]
+      }
+    })
+    return response
+  } catch (error) {
+    // If rate limited (402) or unauthorized (401) and we have more keys to try
+    if ((error.response?.status === 402 || error.response?.status === 401) && retries > 1) {
+      console.log(`API key ${currentKeyIndex + 1} failed, trying next key...`)
+      currentKeyIndex = (currentKeyIndex + 1) % SPOONACULAR_API_KEY.length
+      return makeSpoonacularRequest(url, params, retries - 1)
+    }
+    throw error
+  }
+}
 
 watch(loadingPopularRecipes, async (isLoading) => {
   if (!isLoading && pantryImages.value.length > 0) {
@@ -399,9 +430,45 @@ const fetchPopularRecipes = async () => {
   loadingPopularRecipes.value = true
   
   try {
-    const response = await axios.get('https://api.spoonacular.com/recipes/complexSearch', {
-      params: {
-        apiKey: SPOONACULAR_API_KEY,
+    // First, try to get from Supabase
+    const { data: cachedRecipes, error: fetchError } = await supabase
+      .from('popular_recipes')
+      .select('*')
+      .order('aggregateLikes', { ascending: false })
+      .limit(5)
+
+    if (fetchError) throw fetchError
+
+    // Check if cache is fresh (less than 24 hours old)
+    const isCacheFresh = cachedRecipes && cachedRecipes.length > 0 && 
+      cachedRecipes.some(recipe => {
+        const updatedAt = new Date(recipe.updated_at)
+        const hoursSinceUpdate = (Date.now() - updatedAt.getTime()) / (1000 * 60 * 60)
+        return hoursSinceUpdate < 24
+      })
+
+    if (isCacheFresh && cachedRecipes.length >= 5) {
+      console.log('Using cached popular recipes')
+      
+      pantryImages.value = cachedRecipes.map(recipe => ({
+        id: recipe.id,
+        image: recipe.image,
+        title: recipe.title,
+        description: recipe.summary 
+          ? recipe.summary.replace(/<[^>]*>/g, '').substring(0, 120) + '...'
+          : `Ready in ${recipe.readyInMinutes} min • ${recipe.servings} servings`,
+        recipe: recipe
+      }))
+      
+      loadingPopularRecipes.value = false
+      return
+    }
+
+    // Cache is stale or empty, fetch from API with multiple key support
+    console.log('Fetching fresh popular recipes from API')
+    const response = await makeSpoonacularRequest(
+      'https://api.spoonacular.com/recipes/complexSearch',
+      {
         number: 5,
         sort: 'popularity',
         sortDirection: 'desc',
@@ -410,7 +477,7 @@ const fetchPopularRecipes = async () => {
         fillIngredients: true,
         minLikes: 100
       }
-    })
+    )
     
     if (!response.data.results || response.data.results.length === 0) {
       console.warn('No popular recipes found, using defaults')
@@ -418,9 +485,37 @@ const fetchPopularRecipes = async () => {
       return
     }
 
+    // Save to Supabase
+    const recipesToSave = response.data.results.map(recipe => ({
+      id: recipe.id,
+      title: recipe.title,
+      image: recipe.image,
+      summary: recipe.summary || '',
+      readyInMinutes: recipe.readyInMinutes || 0,
+      servings: recipe.servings || 0,
+      aggregateLikes: recipe.aggregateLikes || 0,
+      analyzedInstructions: recipe.analyzedInstructions 
+        ? JSON.stringify(recipe.analyzedInstructions)
+        : '',
+      dishTypes: recipe.dishTypes || [],
+      vegetarian: recipe.vegetarian || false,
+      vegan: recipe.vegan || false,
+      glutenFree: recipe.glutenFree || false,
+      updated_at: new Date().toISOString()
+    }))
+
+    const { error: upsertError } = await supabase
+      .from('popular_recipes')
+      .upsert(recipesToSave, { onConflict: 'id' })
+
+    if (upsertError) {
+      console.error('Error caching recipes:', upsertError)
+    } else {
+      console.log('Popular recipes cached successfully')
+    }
+
     // Transform recipes into carousel format
     pantryImages.value = response.data.results.map(recipe => {
-      // Create a clean description
       let description = ''
       if (recipe.summary) {
         description = recipe.summary.replace(/<[^>]*>/g, '').substring(0, 120) + '...'
@@ -433,7 +528,7 @@ const fetchPopularRecipes = async () => {
         image: recipe.image,
         title: recipe.title,
         description: description,
-        recipe: recipe // Store full recipe data
+        recipe: recipe
       }
     })
     
@@ -441,42 +536,20 @@ const fetchPopularRecipes = async () => {
   } catch (error) {
     console.error('Error fetching popular recipes:', error)
     
-    // Handle specific API errors
     if (error.response?.status === 402) {
-      console.warn('API quota exceeded')
+      console.warn('All API keys exceeded quota')
     } else if (error.response?.status === 401) {
-      console.error('API key invalid')
+      console.error('All API keys invalid')
     }
     
-    // Use default images on error
     pantryImages.value = getDefaultCarouselImages()
   } finally {
     loadingPopularRecipes.value = false
   }
 }
 
-// View carousel recipe details
-const viewCarouselRecipe = async (carouselItem) => {
-  // If this is a default image, don't show modal
-  if (carouselItem.id.toString().startsWith('default-')) {
-    return
-  }
-
-  try {
-    // If full details not loaded, fetch them
-    if (!carouselItem.recipe || !carouselItem.recipe.extendedIngredients) {
-      const response = await axios.get(
-        `https://api.spoonacular.com/recipes/${carouselItem.id}/information`,
-        { params: { apiKey: SPOONACULAR_API_KEY } }
-      )
-      selectedRecipe.value = response.data
-    } else {
-      selectedRecipe.value = carouselItem.recipe
-    }
-  } catch (error) {
-    console.error('Error fetching recipe details:', error)
-    alert('Unable to load recipe details. Please try again.')
-  }
+const showRecipeDetails = (img) => {
+  selectedCarouselRecipe.value = img.recipe
 }
 
 const fetchPantryItems = async () => {

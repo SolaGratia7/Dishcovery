@@ -105,9 +105,9 @@
                 class="recipe-image"
                 @click="showRecipeDetails(recipe)"
               >
-              <button class="favorite-btn" @click.stop="toggleFavorite(recipe.id)">
-                <i class="bi bi-heart"></i>
-              </button>
+                <button class="favorite-btn" @click.stop="toggleFavorite(recipe.id)">
+                  <i :class="isFavorited(recipe.id) ? 'bi bi-heart-fill' : 'bi bi-heart'"></i>
+                </button>
             </div>
 
             <!-- Recipe Info -->
@@ -190,8 +190,8 @@ const loading = ref(false)
 const recipes = ref([])
 const searchQuery = ref('')
 const selectedRecipe = ref(null)
+const savedRecipeIds = ref(new Set())
 
-const SPOONACULAR_API_KEY = '0ca96dd220c842a6bfdcddfcbcf15b5d'
 const SPOONACULAR_URL = 'https://api.spoonacular.com/recipes/complexSearch'
 
 const filters = ref({
@@ -200,6 +200,35 @@ const filters = ref({
   maxReadyTime: ''
 })
 
+const SPOONACULAR_API_KEY = [
+  '0ca96dd220c842a6bfdcddfcbcf15b5d',
+  'c96375c9282445708f1b26ce2d7e04a9',
+  '19de6749a5064deea9ebf17f2455d6bb'
+]
+
+let currentKeyIndex = 0
+
+const makeApiRequest = async (params, retries = SPOONACULAR_API_KEY.length) => {
+  try {
+    const response = await axios.get(SPOONACULAR_URL, {
+      params: {
+        ...params,
+        apiKey: SPOONACULAR_API_KEY[currentKeyIndex]
+      }
+    })
+    return response
+  } catch (error) {
+    // If rate limited and we have more keys to try
+    if (error.response?.status === 402 && retries > 1) {
+      console.log('Rate limit hit, trying next API key...')
+      currentKeyIndex = (currentKeyIndex + 1) % SPOONACULAR_API_KEY.length
+      return makeApiRequest(params, retries - 1)
+    }
+    throw error
+  }
+}
+
+// Then update your search functions:
 const searchByPantry = async () => {
   loading.value = true
   try {
@@ -219,7 +248,6 @@ const searchByPantry = async () => {
     const ingredients = pantryItems.map(item => item.name).join(',')
 
     const params = {
-      apiKey: SPOONACULAR_API_KEY,
       includeIngredients: ingredients,
       number: 12,
       addRecipeInformation: true,
@@ -231,7 +259,7 @@ const searchByPantry = async () => {
     if (filters.value.cuisine) params.cuisine = filters.value.cuisine
     if (filters.value.maxReadyTime) params.maxReadyTime = filters.value.maxReadyTime
 
-    const response = await axios.get(SPOONACULAR_URL, { params })
+    const response = await makeApiRequest(params)
     recipes.value = response.data.results || []
 
     if (recipes.value.length === 0) {
@@ -254,7 +282,6 @@ const searchRecipes = async () => {
   loading.value = true
   try {
     const params = {
-      apiKey: SPOONACULAR_API_KEY,
       query: searchQuery.value,
       number: 12,
       addRecipeInformation: true,
@@ -265,7 +292,7 @@ const searchRecipes = async () => {
     if (filters.value.cuisine) params.cuisine = filters.value.cuisine
     if (filters.value.maxReadyTime) params.maxReadyTime = filters.value.maxReadyTime
 
-    const response = await axios.get(SPOONACULAR_URL, { params })
+    const response = await makeApiRequest(params)
     recipes.value = response.data.results || []
 
     if (recipes.value.length === 0) {
@@ -283,9 +310,80 @@ const showRecipeDetails = (recipe) => {
   selectedRecipe.value = recipe
 }
 
-const toggleFavorite = (id) => {
-  // Placeholder for favorite functionality
-  console.log('Toggle favorite:', id)
+const loadSavedRecipes = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('saved_recipes')
+      .select('recipe_id')
+      .eq('user_id', currentUser.value.id)
+
+    if (error) throw error
+
+    savedRecipeIds.value = new Set(data.map(r => r.recipe_id))
+  } catch (error) {
+    console.error('Error loading saved recipes:', error)
+  }
+}
+
+const isFavorited = (recipeId) => {
+  return savedRecipeIds.value.has(recipeId)
+}
+
+const toggleFavorite = async (recipeId) => {
+  try {
+    const recipe = recipes.value.find(r => r.id === recipeId)
+    if (!recipe) return
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('saved_recipes')
+      .select('id')
+      .eq('user_id', currentUser.value.id)
+      .eq('recipe_id', recipeId)
+      .maybeSingle()
+
+    if (fetchError) throw fetchError
+
+    if (existing) {
+      // Remove from favorites
+      const { error } = await supabase
+        .from('saved_recipes')
+        .delete()
+        .eq('user_id', currentUser.value.id)
+        .eq('recipe_id', recipeId)
+
+      if (error) throw error
+      
+      savedRecipeIds.value.delete(recipeId) // Update UI
+      
+    } else {
+      // Add to favorites
+      const { error } = await supabase
+        .from('saved_recipes')
+        .insert({
+          user_id: currentUser.value.id,
+          recipe_id: recipe.id,
+          title: recipe.title,
+          image: recipe.image,
+          readyInMinutes: recipe.readyInMinutes || 0,
+          servings: recipe.servings || 0,
+          aggregateLikes: recipe.aggregateLikes || 0,
+          summary: recipe.summary || '',
+          analyzedInstructions: recipe.analyzedInstructions || '',
+          dishTypes: recipe.dishTypes || [],
+          vegetarian: recipe.vegetarian || false,
+          vegan: recipe.vegan || false,
+          glutenFree: recipe.glutenFree || false
+        })
+
+      if (error) throw error
+      
+      savedRecipeIds.value.add(recipeId) // Update UI
+    }
+
+  } catch (error) {
+    console.error('Error toggling favorite:', error)
+    alert('Failed to update favorites. Please try again.')
+  }
 }
 
 const stripHtml = (html) => {
@@ -297,6 +395,7 @@ const stripHtml = (html) => {
 onMounted(async () => {
   try {
     currentUser.value = await getCurrentUser()
+    await loadSavedRecipes()
   } catch (error) {
     console.error('Error:', error)
     router.push('/login')
