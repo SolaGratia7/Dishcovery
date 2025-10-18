@@ -1,4 +1,4 @@
-<template>
+  <template>
   <AppLayout>
     <AnimatedBackground />
     
@@ -78,7 +78,47 @@
               <button @click="changeWeek(-1)" class="btn btn-sm btn-secondary">
                 <i class="bi bi-chevron-left"></i>
               </button>
-              <span class="current-week">{{ currentWeekDisplay }}</span>
+              <div class="current-week-container">
+                <i class="bi bi-calendar-week calendar-icon" @click="toggleCalendarDropdown"></i>
+                <span class="current-week" @click="toggleCalendarDropdown">{{ currentWeekDisplay }}</span>
+                <!-- Calendar Dropdown -->
+                <div v-if="showCalendarDropdown" class="calendar-dropdown">
+                  <div class="dropdown-backdrop" @click="showCalendarDropdown = false"></div>
+                  <div class="dropdown-content">
+                    <div class="mini-calendar">
+                      <div class="mini-calendar-header">
+                        <button @click="changeMonth(-1)" class="month-nav-btn">
+                          <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <span class="current-month-year">{{ miniCalendarMonthYear }}</span>
+                        <button @click="changeMonth(1)" class="month-nav-btn">
+                          <i class="bi bi-chevron-right"></i>
+                        </button>
+                      </div>
+                      <div class="mini-calendar-weekdays">
+                        <div v-for="day in ['S', 'M', 'T', 'W', 'T', 'F', 'S']" :key="day" class="weekday-label">
+                          {{ day }}
+                        </div>
+                      </div>
+                      <div class="mini-calendar-days">
+                        <div
+                          v-for="day in miniCalendarDays"
+                          :key="day.dateStr"
+                          :class="['mini-calendar-day', {
+                            'today': day.isToday,
+                            'selected': day.isSelected,
+                            'current-month': day.isCurrentMonth,
+                            'other-month': !day.isCurrentMonth
+                          }]"
+                          @click="selectDate(day.date)"
+                        >
+                          {{ day.day }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <button @click="changeWeek(1)" class="btn btn-sm btn-secondary">
                 <i class="bi bi-chevron-right"></i>
               </button>
@@ -97,24 +137,30 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(day) in weekDays" :key="day.dateStr">
+                  <tr v-for="(day) in weekDays" :key="day.dateStr" :class="{ 'highlighted-row': highlightedTableDate.value === day.dateStr }" :data-date="day.dateStr">
                     <td class="day-cell">
                       <strong>{{ day.name }}</strong><br>
                       <small class="text-muted">{{ day.dateDisplay }}</small>
                     </td>
-                    <td 
-                      v-for="mealType in ['breakfast', 'lunch', 'dinner']" 
+                    <td
+                      v-for="mealType in ['breakfast', 'lunch', 'dinner']"
                       :key="mealType"
                       class="meal-cell"
                     >
-                      <div 
+                      <div
                         :id="`slot-${day.dateStr}-${mealType}`"
                         :class="['meal-slot', { 'empty': !getMeal(day.dateStr, mealType), 'highlight': isHighlighted(day.dateStr, mealType) }]"
                         @click="planMeal(day.dateStr, mealType)"
                       >
-                        <span v-if="getMeal(day.dateStr, mealType)" class="meal-title">
-                          {{ getMeal(day.dateStr, mealType).title }}
-                        </span>
+                        <div v-if="getMeal(day.dateStr, mealType)" class="meal-content">
+                          <img
+                            :src="getMeal(day.dateStr, mealType).image"
+                            :alt="getMeal(day.dateStr, mealType).title"
+                            class="meal-image"
+                            @error="handleImageError"
+                          >
+                          <span class="meal-title">{{ getMeal(day.dateStr, mealType).title }}</span>
+                        </div>
                         <span v-else class="plus-sign">+</span>
                       </div>
                     </td>
@@ -294,7 +340,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout.vue'
@@ -304,7 +350,7 @@ import axios from 'axios'
 const router = useRouter()
 const currentUser = ref(null)
 
-const SPOONACULAR_API_KEY = '0ca96dd220c842a6bfdcddfcbcf15b5d'
+const SPOONACULAR_API_KEY = 'c96375c9282445708f1b26ce2d7e04a9'
 
 // State
 const currentWeek = ref(new Date())
@@ -331,6 +377,14 @@ const historyMealType = ref('')
 const historyResults = ref([])
 const highlightedSlot = ref({ date: '', meal: '' })
 
+// Calendar dropdown
+const showCalendarDropdown = ref(false)
+const selectedMonth = ref('')
+const miniCalendarDate = ref(new Date())
+const highlightedTableDate = ref('')
+const isFirstCalendarOpen = ref(true)
+const miniCalendarWeekStart = ref(new Date())
+
 // Toast
 const showToast = ref(false)
 const toastMessage = ref('')
@@ -342,7 +396,7 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 const weekDays = computed(() => {
   const startOfWeek = new Date(currentWeek.value)
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
-  
+
   return Array.from({ length: 7 }, (_, i) => {
     const date = new Date(startOfWeek)
     date.setDate(date.getDate() + i)
@@ -385,6 +439,45 @@ const canSaveMeal = computed(() => {
   }
 })
 
+const miniCalendarMonthYear = computed(() => {
+  return miniCalendarDate.value.toLocaleString('default', { month: 'long', year: 'numeric' })
+})
+
+const miniCalendarDays = computed(() => {
+  const year = miniCalendarDate.value.getFullYear()
+  const month = miniCalendarDate.value.getMonth()
+
+  const firstDay = new Date(year, month, 1)
+  const lastDay = new Date(year, month + 1, 0)
+  const startDate = new Date(firstDay)
+  startDate.setDate(startDate.getDate() - firstDay.getDay())
+
+  const days = []
+  const today = new Date()
+  // Use miniCalendarWeekStart for consistent highlighting
+  const weekStart = new Date(miniCalendarWeekStart.value)
+
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(startDate)
+    date.setDate(startDate.getDate() + i)
+
+    const isToday = date.toDateString() === today.toDateString()
+    const isSelected = date >= weekStart && date < new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000) && date.getMonth() === month && date.getFullYear() === year
+    const isCurrentMonth = date.getMonth() === month
+
+    days.push({
+      date: new Date(date),
+      dateStr: formatDateLocal(date),
+      day: date.getDate(),
+      isToday,
+      isSelected,
+      isCurrentMonth
+    })
+  }
+
+  return days
+})
+
 // Helper functions
 function formatDateLocal(date) {
   const y = date.getFullYear()
@@ -416,6 +509,79 @@ function changeWeek(direction) {
   const newWeek = new Date(currentWeek.value)
   newWeek.setDate(newWeek.getDate() + (direction * 7))
   currentWeek.value = newWeek
+}
+
+function toggleCalendarDropdown() {
+  showCalendarDropdown.value = !showCalendarDropdown.value
+  if (showCalendarDropdown.value) {
+    // Sync mini calendar with current week
+    const currentWeekStart = new Date(currentWeek.value)
+    if (isFirstCalendarOpen.value) {
+      // First time opening: adjust to highlight the correct week (move back by one day)
+      currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() - 1)
+      miniCalendarWeekStart.value = new Date(currentWeekStart)
+      isFirstCalendarOpen.value = false
+    } else {
+      // Subsequent opens: start from Sunday
+      currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay())
+      miniCalendarWeekStart.value = new Date(currentWeekStart)
+    }
+    miniCalendarDate.value = new Date(miniCalendarWeekStart.value)
+    // Highlight the current week's start date
+    highlightedTableDate.value = formatDateLocal(miniCalendarWeekStart.value)
+    // Manually add the class
+    nextTick(() => {
+      const row = document.querySelector(`tr[data-date="${formatDateLocal(miniCalendarWeekStart.value)}"]`)
+      if (row) {
+        row.classList.add('highlighted-row')
+      }
+    })
+    setTimeout(() => {
+      highlightedTableDate.value = ''
+      // Also remove manually
+      const row = document.querySelector(`tr[data-date="${formatDateLocal(miniCalendarWeekStart.value)}"]`)
+      if (row) {
+        row.classList.remove('highlighted-row')
+      }
+    }, 1000)
+  }
+}
+
+function changeMonth(direction) {
+  const newDate = new Date(miniCalendarDate.value)
+  newDate.setMonth(newDate.getMonth() + direction)
+  miniCalendarDate.value = newDate
+}
+
+function selectDate(date) {
+  // Highlight the entire row for the selected date
+  const dateStr = formatDateLocal(date)
+  highlightedTableDate.value = dateStr
+
+  // Force reactivity update
+  nextTick(() => {
+    // Check if the row exists
+    const row = document.querySelector(`tr[data-date="${dateStr}"]`)
+    if (row) {
+      row.classList.add('highlighted-row')
+    }
+  })
+
+  // Remove highlight after 1 second
+  setTimeout(() => {
+    highlightedTableDate.value = ''
+    // Also remove manually
+    const row = document.querySelector(`tr[data-date="${dateStr}"]`)
+    if (row) {
+      row.classList.remove('highlighted-row')
+    }
+  }, 1000)
+
+  // Find the start of the week containing this date
+  const weekStart = new Date(date)
+  weekStart.setDate(date.getDate() - date.getDay())
+  currentWeek.value = weekStart
+  showCalendarDropdown.value = false
 }
 
 function planMeal(dateStr, mealType) {
@@ -637,6 +803,11 @@ function displayToast(message) {
   }, 3000)
 }
 
+function handleImageError(event) {
+  // Hide the broken image and show a placeholder
+  event.target.style.display = 'none'
+}
+
 // Supabase functions
 async function fetchSavedRecipes() {
   try {
@@ -823,11 +994,155 @@ onMounted(async () => {
   gap: 1rem;
 }
 
+.current-week-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 150px;
+  justify-content: center;
+}
+
 .current-week {
   font-weight: 600;
   color: #666;
-  min-width: 150px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.current-week:hover {
+  color: #ff6b1a;
+}
+
+.calendar-icon {
+  cursor: pointer;
+  color: #666;
+  transition: color 0.2s;
+  margin-right: 0.5rem;
+}
+
+.calendar-icon:hover {
+  color: #ff6b1a;
+}
+
+.calendar-dropdown {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: 300px;
+}
+
+.dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+}
+
+.dropdown-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+  width: 280px;
+}
+
+.mini-calendar {
+  padding: 1rem;
+}
+
+.mini-calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.month-nav-btn {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.month-nav-btn:hover {
+  background: #f0f0f0;
+  color: #ff6b1a;
+}
+
+.current-month-year {
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 1rem;
+}
+
+.mini-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.weekday-label {
   text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #666;
+  padding: 0.25rem;
+}
+
+.mini-calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+}
+
+.mini-calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.mini-calendar-day:hover {
+  background: #f0f0f0;
+}
+
+.mini-calendar-day.today {
+  background: rgba(255, 107, 26, 0.1);
+  color: #ea580c !important;
+  font-weight: 700;
+}
+
+.mini-calendar-day.selected {
+  background: rgba(255, 107, 26, 0.2);
+  color: #ff6b1a;
+  font-weight: 700;
+}
+
+.mini-calendar-day.selected.today {
+  background: rgba(255, 107, 26, 0.15);
+  color: #ea580c !important;
+  font-weight: 700;
+}
+
+.mini-calendar-day.current-month {
+  color: #1a1a1a;
+}
+
+.mini-calendar-day.other-month {
+  color: #ccc;
 }
 
 .card-body {
@@ -880,6 +1195,22 @@ onMounted(async () => {
   border: 2px solid rgba(255, 107, 26, 0.1);
 }
 
+.meal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.meal-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 107, 26, 0.2);
+}
+
 .meal-slot.empty {
   background: rgba(255, 255, 255, 0.4);
 }
@@ -896,6 +1227,42 @@ onMounted(async () => {
   animation: pulse 1s ease-in-out;
 }
 
+.highlighted-row {
+  background: rgba(255, 107, 26, 0.1) !important;
+  position: relative;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 15px rgba(255, 107, 26, 0.3) !important;
+  animation: glow 1s ease-in-out;
+}
+
+.highlighted-row td:first-child {
+  position: relative;
+}
+
+.highlighted-row td:first-child::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #ff6b1a;
+  z-index: 3;
+}
+
+.highlighted-row td {
+  background: rgba(255, 107, 26, 0.05) !important;
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 107, 26, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 107, 26, 0.5);
+  }
+}
+
 @keyframes pulse {
   0%, 100% {
     transform: scale(1);
@@ -909,6 +1276,9 @@ onMounted(async () => {
   font-weight: 600;
   color: #1a1a1a;
   word-break: break-word;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .plus-sign {
@@ -1124,22 +1494,22 @@ onMounted(async () => {
   .day-col {
     width: 30%;
   }
-  
+
   .meal-col {
     width: 23.333%;
   }
-  
+
   .meal-slot {
     min-height: 60px;
     padding: 0.5rem;
     font-size: 0.875rem;
   }
-  
+
   .week-nav {
     flex-direction: column;
     gap: 0.5rem;
   }
-  
+
   .current-week {
     font-size: 0.875rem;
   }
@@ -1151,7 +1521,7 @@ onMounted(async () => {
     gap: 1rem;
     align-items: flex-start;
   }
-  
+
   .meal-planner-table th,
   .meal-planner-table td {
     padding: 0.5rem;
