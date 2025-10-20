@@ -1,116 +1,171 @@
 <template>
   <AppLayout>
     <AnimatedBackground />
-    
+
     <div class="pantry-page">
-        <!-- Header -->
-        <div class="pantry-header">
-            <div class="container">
-                <div class="header-content">
-                <div class="pantry-text">
-                    <h1>My Pantry</h1>
-                    <p>Track your ingredients and reduce food waste</p>
-                </div>
-                <button @click="showAddModal = true" class="btn-add-item">
-                    <i class="bi bi-plus-lg"></i>
-                    <span>Add Item</span>
-                </button>
-                </div>
+      <!-- Header -->
+      <div class="pantry-header">
+        <div class="container">
+          <div class="header-content">
+            <div class="pantry-text">
+              <h1>My Pantry</h1>
+              <p>Track your ingredients and reduce food waste</p>
             </div>
+            <button @click="showAddModal = true" class="btn-add-item">
+              <i class="bi bi-plus-lg"></i>
+              <span>Add Item</span>
+            </button>
+          </div>
         </div>
+      </div>
 
       <div class="container my-4">
-        <!-- Search and Filter Bar -->
+        <!-- Search and Filter Card -->
         <div class="search-filter-card">
-            <div class="search-filter-content">
-                <div class="search-box-wrapper">
-                    <i class="bi bi-search search-icon"></i>
-                    <input 
-                        type="text" 
-                        v-model="searchQuery"
-                        placeholder="Search items..."
-                        class="search-input"
-                    >
-                </div>
-                
-                <select v-model="filters.category" class="category-filter">
-                    <option value="">All Categories</option>
-                    <option v-for="cat in categories" :key="cat" :value="cat">
-                        {{ cat }}
-                    </option>
-                </select>
+          <div class="search-filter-content">
+            <div class="search-box-wrapper">
+              <i class="bi bi-search search-icon"></i>
+              <input
+                type="text"
+                v-model="searchQuery"
+                placeholder="Search items..."
+                class="search-input"
+              />
             </div>
+
+            <select v-model="filters.category" class="category-filter">
+              <option value="">All Categories</option>
+              <option v-for="cat in dbCategories" :key="cat" :value="cat">{{ cat }}</option>
+            </select>
+          </div>
+
+          <!-- Sort by expiration -->
+          <div class="sort-option mt-3">
+            <label class="sort-label">
+              <input type="checkbox" v-model="sortByExpiration" />
+              Sort by Expiration Date (Soonest First)
+            </label>
+          </div>
         </div>
 
         <!-- Stats Cards -->
         <div class="stats-grid">
-          <div class="stat-card">
+          <div
+            class="stat-card total-card"
+            :class="{ active: !showExpiredOnly && !showExpiringOnly }"
+            @click="showAllItems"
+          >
             <div class="stat-header">
               <span>Total Items</span>
               <i class="bi bi-box-seam stat-icon"></i>
             </div>
-            <div class="stat-value">{{ pantryData.length }}</div>
+            <div class="stat-value">{{ filteredItems.length }}</div>
+            <button
+              v-if="!showExpiredOnly && !showExpiringOnly && filteredItems.length"
+              class="btn-clear-stat"
+              @click.stop="confirmClear('total')"
+              title="Clear all visible (Total) items"
+            >
+              Clear All Items
+            </button>
           </div>
 
-          <div class="stat-card">
+          <div
+            class="stat-card expired-card"
+            :class="{ active: showExpiredOnly }"
+            @click="toggleExpiredOnly"
+          >
+            <div class="stat-header">
+              <span>Expired Items</span>
+              <i class="bi bi-exclamation-octagon stat-icon expired"></i>
+            </div>
+            <div class="stat-value expired">{{ expiredCount }}</div>
+            <button
+              v-if="showExpiredOnly && expiredCount"
+              class="btn-clear-stat"
+              @click.stop="confirmClear('expired')"
+              title="Clear all visible expired items"
+            >
+              Clear All Expired Items
+            </button>
+          </div>
+
+          <div
+            class="stat-card expiring-card"
+            :class="{ active: showExpiringOnly }"
+            @click="toggleExpiringOnly"
+          >
             <div class="stat-header">
               <span>Expiring Soon</span>
               <i class="bi bi-calendar-x stat-icon expiring"></i>
             </div>
-            <div class="stat-value expiring">{{ getExpiringSoonCount() }}</div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-header">
-              <span>Categories</span>
-              <i class="bi bi-grid-3x3-gap stat-icon categories"></i>
-            </div>
-            <div class="stat-value categories">{{ getUniqueCategoriesCount() }}</div>
+            <div class="stat-value expiring">{{ expiringSoonCount }}</div>
+            <button
+              v-if="showExpiringOnly && expiringSoonCount"
+              class="btn-clear-stat"
+              @click.stop="confirmClear('expiring')"
+              title="Clear all visible expiring items"
+            >
+              Clear All Expiring Soon Items
+            </button>
           </div>
         </div>
 
-        <!-- Pantry Items Grid -->
+        <!-- Table or Empty -->
         <div v-if="filteredItems.length === 0" class="empty-state">
           <i class="bi bi-basket"></i>
           <h3>Your pantry is empty</h3>
           <p>Start adding ingredients to track your inventory</p>
         </div>
 
-        <div v-else class="items-grid">
-          <div v-for="item in filteredItems" :key="item.id" class="item-card">
-            <div class="item-card-header">
-              <div>
-                <h5 class="item-name">{{ item.name }}</h5>
-                <span class="item-category">{{ item.category }}</span>
-              </div>
-              <span :class="['freshness-badge', getFreshnessClass(item.expiration)]">
-                {{ getFreshnessLabel(item.expiration) }}
-              </span>
+        <!-- Table Container -->
+        <div class="pantry-table-container">
+          <div class="pantry-table-scroll-area">
+            <div class="pantry-table-header">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item Name</th>
+                    <th>Category</th>
+                    <th>Quantity</th>
+                    <th>Expiration Date</th>
+                    <th>Days to Expiration</th>
+                    <th>Status</th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+              </table>
             </div>
 
-            <div class="item-details">
-              <div class="detail-row">
-                <span class="detail-label">Quantity:</span>
-                <span class="detail-value">{{ item.quantity }} {{ item.unit }}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Expires:</span>
-                <span class="detail-value">{{ formatDate(item.expiration) }}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Added:</span>
-                <span class="detail-value">{{ formatDate(item.created_at) }}</span>
-              </div>
-            </div>
-
-            <div class="item-actions">
-              <button @click="startEdit(item)" class="btn-edit">
-                <i class="bi bi-pencil me-1"></i>
-                Edit
-              </button>
-              <button @click="deleteItem(item.id)" class="btn-delete">
-                <i class="bi bi-trash"></i>
-              </button>
+            <div class="pantry-table-body" ref="scrollBody">
+              <table>
+                <tbody>
+                  <tr
+                    v-for="item in displayedItems"
+                    :key="item.id"
+                    :class="['table-row', getFreshnessClass(item.expiration)]"
+                  >
+                    <td class="name-col">{{ item.name }}</td>
+                    <td>{{ item.category }}</td>
+                    <td>{{ item.quantity }} {{ item.unit }}</td>
+                    <td>{{ formatDate(item.expiration) }}</td>
+                    <td>{{ getDaysUntil(item.expiration) }}</td>
+                    <td>
+                      <span :class="['freshness-badge', getFreshnessClass(item.expiration)]">
+                        {{ getFreshnessLabel(item.expiration) }}
+                      </span>
+                    </td>
+                    <td class="actions-col">
+                      <button @click="startEdit(item)" class="btn-edit-table" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                      <button @click="deleteItem(item.id)" class="btn-delete-table" title="Delete">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -130,40 +185,46 @@
           </div>
 
           <form @submit.prevent="editingItem ? updateItem() : addItem()">
+            <!-- Item Name + Get Category Button -->
             <div class="form-group">
               <label>Item Name</label>
-              <input 
-                type="text" 
-                v-model="form.name"
-                placeholder="e.g., Whole Wheat Flour"
-                required
-                class="form-input"
-              >
+              <div class="item-name-row" style="display:flex; gap:0.5rem;">
+                <input
+                  type="text"
+                  v-model="form.name"
+                  placeholder="e.g., Whole Wheat Flour"
+                  required
+                  class="form-input"
+                />
+                <button
+                  type="button"
+                  class="btn-submit"
+                  style="padding:0.5rem 1rem; font-size:0.9rem;"
+                  @click="detectCategory"
+                >
+                  Get Category
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Category</label>
+              <input type="text" v-model="form.category" class="form-input" />
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>Category</label>
-                <select v-model="form.category" required class="form-input">
-                  <option value="">Select category</option>
-                  <option v-for="cat in categories" :key="cat" :value="cat">
-                    {{ cat }}
-                  </option>
-                </select>
-              </div>
-
-              <div class="form-group">
                 <label>Quantity</label>
                 <div class="quantity-row">
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     v-model="form.quantity"
-                    min="0" 
+                    min="0"
                     step="any"
                     placeholder="0"
                     required
                     class="form-input"
-                  >
+                  />
                   <select v-model="form.unit" required class="unit-select">
                     <option value="pcs">pcs</option>
                     <option value="grams">grams</option>
@@ -176,13 +237,9 @@
             </div>
 
             <div class="form-group">
-              <label>Expiration Date</label>
-              <input 
-                type="date" 
-                v-model="form.expiration"
-                required
-                class="form-input"
-              >
+              <label>Expiration Date
+              <input type="date" v-model="form.expiration" required class="form-input" />
+              </label>
             </div>
 
             <button type="submit" :disabled="loading" class="btn-submit">
@@ -197,7 +254,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout.vue'
@@ -210,13 +267,15 @@ const pantryData = ref([])
 const editingItem = ref(null)
 const showAddModal = ref(false)
 const searchQuery = ref('')
+const sortByExpiration = ref(false)
 
-const categories = [
-  'Vegetables', 'Dairy', 'Carbohydrates', 'Protein', 
-  'Fruits', 'Snacks', 'Condiments', 'Beverages', 
-  'Frozen Foods', 'Canned Goods', 'Grains', 'Oils'
-]
+// add categories into filter
+const dbCategories = computed(() => {
+  const cats = new Set(pantryData.value.map(item => item.category).filter(Boolean))
+  return Array.from(cats).sort()
+})
 
+// Form fields
 const form = ref({
   name: '',
   category: '',
@@ -225,28 +284,87 @@ const form = ref({
   expiration: ''
 })
 
-const filters = ref({
-  category: ''
-})
+// Filter state
+const filters = ref({ category: '' })
 
-// Computed filtered items
-const filteredItems = computed(() => {
-  let items = [...pantryData.value]
-  
-  if (searchQuery.value) {
-    items = items.filter(item => 
-      item.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-    )
-  }
-  
-  if (filters.value.category) {
-    items = items.filter(item => item.category === filters.value.category)
-  }
-  
-  return items
-})
+const SPOONACULAR_API_KEYS = [
+  "c1966f7a03c849abb78e38fe424d3237",
+  "c9c026de53dd4dc38768a9d0bc9e823e",
+  "19de6749a5064deea9ebf17f2455d6bb",
+  "c96375c9282445708f1b26ce2d7e04a9"
+];
 
-// Helper functions
+let apiKeyIndex = 0; // Start with the first key
+
+const getFoodCategory = async (itemName) => {
+  let attempts = 0;
+  const maxAttempts = SPOONACULAR_API_KEYS.length;
+
+  while (attempts < maxAttempts) {
+    const apiKey = SPOONACULAR_API_KEYS[apiKeyIndex];
+
+    try {
+      const response = await fetch(
+        `https://api.spoonacular.com/food/products/classify?apiKey=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: itemName })
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.error(`Spoonacular API error with key ${apiKey}:`, response.status, text);
+
+        // Rotate to the next key
+        apiKeyIndex = (apiKeyIndex + 1) % SPOONACULAR_API_KEYS.length;
+        attempts++;
+
+        // If the error is a rate limit (429) or any other issue, retry with next key
+        continue;
+      }
+
+      const data = await response.json();
+      return data.breadcrumbs[0] || "no category found!";
+
+    } catch (error) {
+      console.error("Error fetching category:", error);
+
+      // Rotate to next key in case of network or other errors
+      apiKeyIndex = (apiKeyIndex + 1) % SPOONACULAR_API_KEYS.length;
+      attempts++;
+      continue;
+    }
+  }
+
+  // If all keys fail
+  return "no category found!";
+};
+
+
+// New function: Detect category button
+const detectCategory = async () => {
+  if (!form.value.name.trim()) {
+    alert('Please enter an item name first')
+    return
+  }
+  loading.value = true
+  try {
+    const data = await getFoodCategory(form.value.name)
+    form.value.category = data || "Can't detect category"
+  } catch (err) {
+    console.error(err)
+    form.value.category = "Can't detect category"
+  } finally {
+    loading.value = false
+  }
+}
+
+
+// --------------------
+// Helper Functions
+// --------------------
 const getDaysUntil = (dateStr) => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -259,16 +377,16 @@ const getDaysUntil = (dateStr) => {
 const getFreshnessClass = (dateStr) => {
   const days = getDaysUntil(dateStr)
   if (days < 0) return 'expired'
-  if (days <= 3) return 'critical'
-  if (days <= 7) return 'warning'
+  if (days <= 2) return 'critical'
+  if (days <= 5) return 'warning'
   return 'fresh'
 }
 
 const getFreshnessLabel = (dateStr) => {
   const days = getDaysUntil(dateStr)
   if (days < 0) return 'Expired'
-  if (days <= 3) return 'Use Soon'
-  if (days <= 7) return 'Expiring'
+  if (days <= 2) return 'Going bad!'
+  if (days <= 5) return 'Use soon'
   return 'Fresh'
 }
 
@@ -277,19 +395,144 @@ const formatDate = (dateStr) => {
   return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
 }
 
-const getExpiringSoonCount = () => {
-  return pantryData.value.filter(item => {
+// --------------------
+// Computed Filters
+// --------------------
+const filteredItems = computed(() => {
+  let items = [...pantryData.value]
+
+  if (searchQuery.value) {
+    items = items.filter((item) =>
+      item.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchQuery.value.toLowerCase())
+    )
+  }
+
+  if (filters.value.category) {
+    items = items.filter((item) => item.category === filters.value.category)
+  }
+
+  if (sortByExpiration.value) {
+    items.sort((a, b) => new Date(a.expiration) - new Date(b.expiration))
+  }
+
+  return items
+})
+
+// --------------------
+// Expiring / Expired Filters
+// --------------------
+const showExpiringOnly = ref(false)
+const showExpiredOnly = ref(false)
+
+// Counts react to filtered list
+const expiringSoonCount = computed(() => {
+  return filteredItems.value.filter((item) => {
     const days = getDaysUntil(item.expiration)
-    return days >= 0 && days <= 7
+    return days >= 0 && days <= 5
   }).length
+})
+
+const expiredCount = computed(() => {
+  return filteredItems.value.filter((item) => getDaysUntil(item.expiration) < 0).length
+})
+
+// Toggle logic — only one active at a time
+const showAllItems = () => {
+  showExpiredOnly.value = false
+  showExpiringOnly.value = false
 }
 
-const getUniqueCategoriesCount = () => {
-  const uniqueCategories = new Set(pantryData.value.map(item => item.category))
-  return uniqueCategories.size
+const toggleExpiringOnly = () => {
+  if (showExpiringOnly.value) {
+    showExpiringOnly.value = false
+  } else {
+    showExpiringOnly.value = true
+    showExpiredOnly.value = false
+  }
 }
 
-// Fetch pantry items
+const toggleExpiredOnly = () => {
+  if (showExpiredOnly.value) {
+    showExpiredOnly.value = false
+  } else {
+    showExpiredOnly.value = true
+    showExpiringOnly.value = false
+  }
+}
+
+// Master list for the table
+const displayedItems = computed(() => {
+  if (showExpiringOnly.value) {
+    return filteredItems.value.filter((item) => {
+      const days = getDaysUntil(item.expiration)
+      return days >= 0 && days <= 5
+    })
+  }
+  if (showExpiredOnly.value) {
+    return filteredItems.value.filter((item) => getDaysUntil(item.expiration) < 0)
+  }
+  return filteredItems.value
+})
+
+/**
+ * confirmClear
+ * type: 'total' | 'expired' | 'expiring'
+ * Only deletes when corresponding stat view is active.
+ * Deletes the currently visible items (displayedItems).
+ */
+const confirmClear = async (type) => {
+  // Ensure correct active state
+  if (type === 'total' && (showExpiredOnly.value || showExpiringOnly.value)) {
+    alert('Select the Total card first to clear Total items.')
+    return
+  }
+  if (type === 'expired' && !showExpiredOnly.value) {
+    alert('Select the Expired card first to clear Expired items.')
+    return
+  }
+  if (type === 'expiring' && !showExpiringOnly.value) {
+    alert('Select the Expiring card first to clear Expiring items.')
+    return
+  }
+
+  // Items to delete = currently visible (respects category/search)
+  const itemsToDelete = displayedItems.value || []
+  if (!itemsToDelete.length) {
+    alert('No items to clear in this view.')
+    return
+  }
+
+  // double confirm
+  const first = confirm(
+    `Are you sure you want to delete all ${itemsToDelete.length} items currently shown?`
+  )
+  if (!first) return
+  const second = confirm('This action cannot be undone. Confirm again to proceed.')
+  if (!second) return
+
+  // Delete by IDs
+  try {
+    const idsToDelete = itemsToDelete.map((i) => i.id)
+    const { error } = await supabase
+      .from('pantry_items')
+      .delete()
+      .in('id', idsToDelete)
+      .eq('user_id', currentUser.value.id)
+
+    if (error) throw error
+
+    alert(`Successfully cleared ${itemsToDelete.length} items.`)
+    await fetchPantry()
+  } catch (err) {
+    console.error('Error clearing items:', err)
+    alert('Failed to clear items: ' + (err.message || err))
+  }
+}
+
+// --------------------
+// Supabase Operations
+// --------------------
 const fetchPantry = async () => {
   try {
     const { data, error } = await supabase
@@ -299,43 +542,42 @@ const fetchPantry = async () => {
       .order('created_at', { ascending: false })
 
     if (error) throw error
-
     pantryData.value = data || []
   } catch (error) {
     console.error('Error fetching pantry:', error)
-    alert('Error loading pantry: ' + error.message)
+    alert('Error loading pantry: ' + (error.message || error))
   }
 }
 
-// Add new item
 const addItem = async () => {
   loading.value = true
-  
   try {
-    const { error } = await supabase
-      .from('pantry_items')
-      .insert([{
-        user_id: currentUser.value.id,
-        name: form.value.name,
-        category: form.value.category,
-        quantity: parseFloat(form.value.quantity),
-        unit: form.value.unit,
-        expiration: form.value.expiration
-      }])
+    // Fetch category automatically from Spoonacular
+    const category = await getFoodCategory(form.value.name)
 
+    const payload = {
+      user_id: currentUser.value.id,
+      name: form.value.name,
+      category, // 👈 Auto-assigned category
+      quantity: parseFloat(form.value.quantity),
+      unit: form.value.unit,
+      expiration: form.value.expiration,
+    }
+
+    const { error } = await supabase.from("pantry_items").insert([payload])
     if (error) throw error
 
     closeModal()
     await fetchPantry()
   } catch (error) {
-    console.error('Error adding item:', error)
-    alert('Failed to add item: ' + error.message)
+    console.error("Error adding item:", error)
+    alert("Failed to add item: " + (error.message || error))
   } finally {
     loading.value = false
   }
 }
 
-// Start editing
+
 const startEdit = (item) => {
   editingItem.value = item
   form.value = {
@@ -345,40 +587,56 @@ const startEdit = (item) => {
     unit: item.unit,
     expiration: item.expiration
   }
+  showAddModal.value = true
 }
 
-// Update item
 const updateItem = async () => {
   if (!editingItem.value) return
-  
   loading.value = true
-  
   try {
+    const category = await getFoodCategory(form.value.name)
+
     const { error } = await supabase
-      .from('pantry_items')
+      .from("pantry_items")
       .update({
         name: form.value.name,
-        category: form.value.category,
+        category,
         quantity: parseFloat(form.value.quantity),
         unit: form.value.unit,
-        expiration: form.value.expiration
+        expiration: form.value.expiration,
       })
-      .eq('id', editingItem.value.id)
-      .eq('user_id', currentUser.value.id)
+      .eq("id", editingItem.value.id)
+      .eq("user_id", currentUser.value.id)
 
     if (error) throw error
 
     closeModal()
     await fetchPantry()
   } catch (error) {
-    console.error('Error updating item:', error)
-    alert('Failed to update item: ' + error.message)
+    console.error("Error updating item:", error)
+    alert("Failed to update item: " + (error.message || error))
   } finally {
     loading.value = false
   }
 }
 
-// Close modal
+
+const deleteItem = async (id) => {
+  if (!confirm('Delete this item?')) return
+  try {
+    const { error } = await supabase
+      .from('pantry_items')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', currentUser.value.id)
+    if (error) throw error
+    await fetchPantry()
+  } catch (error) {
+    console.error('Error deleting item:', error)
+    alert('Delete failed: ' + (error.message || error))
+  }
+}
+
 const closeModal = () => {
   showAddModal.value = false
   editingItem.value = null
@@ -391,34 +649,37 @@ const closeModal = () => {
   }
 }
 
-// Delete item
-const deleteItem = async (id) => {
-  if (!confirm('Delete this item?')) return
+const scrollBody = ref(null)
 
-  try {
-    const { error } = await supabase
-      .from('pantry_items')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', currentUser.value.id)
+onMounted(() => {
+  const header = document.querySelector(".pantry-table-header")
+  const body = scrollBody.value
 
-    if (error) throw error
-
-    await fetchPantry()
-  } catch (error) {
-    console.error('Error deleting item:', error)
-    alert('Delete failed: ' + error.message)
+  if (header && body) {
+    body.addEventListener("scroll", () => {
+      header.scrollLeft = body.scrollLeft
+    })
   }
-}
+})
 
-// Initialize
+
+// --------------------
+// Lifecycle
+// --------------------
+let pantrySubscription = null
+
 onMounted(async () => {
   try {
     currentUser.value = await getCurrentUser()
+    if (!currentUser.value || !currentUser.value.id) {
+      router.push('/login')
+      return
+    }
+
     await fetchPantry()
 
     // Set up real-time subscription
-    const subscription = supabase
+    pantrySubscription = supabase
       .channel('pantry_changes')
       .on(
         'postgres_changes',
@@ -433,16 +694,23 @@ onMounted(async () => {
         }
       )
       .subscribe()
-
-    return () => {
-      subscription.unsubscribe()
-    }
   } catch (error) {
     console.error('Error initializing:', error)
     router.push('/login')
   }
 })
+
+onBeforeUnmount(() => {
+  try {
+    if (pantrySubscription && typeof pantrySubscription.unsubscribe === 'function') {
+      pantrySubscription.unsubscribe()
+    }
+  } catch (e) {
+    console.warn('Error unsubscribing:', e)
+  }
+})
 </script>
+
 
 <style scoped>
 .pantry-page {
@@ -450,6 +718,7 @@ onMounted(async () => {
   padding-bottom: 4rem;
   position: relative;
   z-index: 1;
+  font-family: "Inter", "Poppins", sans-serif;
 }
 
 /* Header */
@@ -486,12 +755,7 @@ onMounted(async () => {
   align-items: center;
 }
 
-.btn-add-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 107, 26, 0.4);
-}
-
-/* Search and Filter Card */
+/* Search/filter card */
 .search-filter-card {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(10px);
@@ -504,14 +768,10 @@ onMounted(async () => {
 
 .search-filter-content {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 1rem;
-}
-
-@media (min-width: 768px) {
-  .search-filter-content {
-    flex-direction: row;
-  }
+  justify-content: space-between;
 }
 
 .search-box-wrapper {
@@ -537,6 +797,7 @@ onMounted(async () => {
   font-size: 0.95rem;
   background: rgba(255, 255, 255, 0.5);
   transition: all 0.3s;
+  font-family: "Inter", "Poppins", sans-serif;
 }
 
 .search-input:focus {
@@ -554,6 +815,7 @@ onMounted(async () => {
   background: rgba(255, 255, 255, 0.5);
   min-width: 200px;
   transition: all 0.3s;
+  font-family: "Inter", "Poppins", sans-serif;
 }
 
 .category-filter:focus {
@@ -562,13 +824,52 @@ onMounted(async () => {
   background: white;
 }
 
-@media (max-width: 767px) {
-  .category-filter {
-    width: 100%;
-  }
+/* Styled checkbox aligned right */
+.sort-option {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 1rem;
 }
 
-/* Stats Cards */
+.sort-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  color: #6b46c1;
+  cursor: pointer;
+  user-select: none;
+  font-family: "Inter", "Poppins", sans-serif;
+}
+
+.sort-label input[type='checkbox'] {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #ffb366;
+  border-radius: 6px;
+  background: white;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.sort-label input[type='checkbox']:checked {
+  background: linear-gradient(135deg, #ff6b1a, #ff9800);
+  border-color: #ff6b1a;
+}
+
+.sort-label input[type='checkbox']:checked::after {
+  content: '✓';
+  position: absolute;
+  color: white;
+  font-size: 0.9rem;
+  top: 0.5px;
+  left: 4.5px;
+}
+
+/* Stats */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -583,6 +884,124 @@ onMounted(async () => {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
+
+.stat-icon.expired {
+  color: #dc2626;
+}
+
+.stat-value.expired {
+  color: #dc2626;
+}
+
+.expiring-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.expiring-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+}
+
+.expiring-card.active {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(255, 237, 213, 0.9), rgba(255, 251, 235, 0.9));
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
+}
+
+.stat-icon.expired {
+  color: #4c1d95;
+}
+
+.stat-value.expired {
+  color: #4c1d95;
+}
+
+.total-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+.total-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.25);
+}
+
+.expired-card,
+.expiring-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.expired-card:hover,
+.expiring-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Active states */
+.total-card.active {
+  border: 2px solid #ff6b1a;
+  background: linear-gradient(135deg, rgba(255, 237, 213, 0.95), rgba(255, 251, 235, 0.95));
+  box-shadow: 0 0 15px rgba(255, 152, 0, 0.3);
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
+.expiring-card.active {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(255, 237, 213, 0.9), rgba(255, 251, 235, 0.9));
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
+}
+
+.expired-card.active {
+  border-color: #7c3aed;
+  background: linear-gradient(135deg, rgba(237,233,254,0.95), rgba(245,243,255,0.95));
+  box-shadow: 0 0 15px rgba(124,58,237,0.3);
+}
+
+/* small clear button inside each stat card */
+.stat-card {
+  position: relative;
+  padding-bottom: 3rem; /* make room for the button */
+}
+
+.btn-clear-stat {
+  position: absolute;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid rgba(180,83,9,0.15);
+  background: transparent;
+  color: #b45309;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-clear-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(107,70,193,0.08);
+  background: rgba(107,70,193,0.04);
+}
+
+.total-card .btn-clear-stat {
+  color: #c2410c;
+  border-color: rgba(194,65,12,0.2);
+}
+.expired-card .btn-clear-stat {
+  color: #5b21b6;
+  border-color: rgba(91,33,182,0.2);
+}
+.expiring-card .btn-clear-stat {
+  color: #b45309;
+  border-color: rgba(180,83,9,0.2);
+}
+
 
 .stat-header {
   display: flex;
@@ -602,10 +1021,6 @@ onMounted(async () => {
   color: #f59e0b;
 }
 
-.stat-icon.categories {
-  color: #8b5cf6;
-}
-
 .stat-value {
   font-size: 2.5rem;
   font-weight: 700;
@@ -616,59 +1031,218 @@ onMounted(async () => {
   color: #f59e0b;
 }
 
-.stat-value.categories {
-  color: #8b5cf6;
-}
+/* Table styling */
 
-/* Items Grid */
-.items-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
-}
-
-.item-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+.pantry-table-container {
+  position: relative;
+  background: rgba(255, 255, 255, 0.98);
   border-radius: 12px;
-  padding: 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s;
-}
-
-.item-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-}
-
-.item-card-header {
+  overflow: hidden;
+  height: 70vh; /* Fixed window height for table area */
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #f0f0f0;
+  flex-direction: column;
 }
 
-.item-name {
+/* Header stays fixed inside this window */
+.pantry-table-header {
+  flex-shrink: 0;
+  background: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid #eee;
+}
+
+.pantry-table-header table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pantry-table-header th {
   color: #6b46c1;
-  font-size: 1.1rem;
   font-weight: 700;
-  margin-bottom: 0.25rem;
-}
-
-.item-category {
-  color: #666;
+  text-transform: uppercase;
   font-size: 0.85rem;
+  padding: 1rem 1.25rem;
+  text-align: left;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+/* Scrollable table body below */
+.pantry-table-body {
+  overflow-y: auto;
+  flex-grow: 1;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.pantry-table-body table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pantry-table-body td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f7f7f7;
+  font-size: 0.95rem;
+  color: #1a1a1a;
+}
+
+/* Make sure header never shows rows behind it */
+.pantry-table-header,
+.pantry-table-header th {
+  background: white !important;
+}
+
+/* Responsive fix — add horizontal scroll & spacing for narrow widths */
+@media (max-width: 900px) {
+  .pantry-table-body {
+    overflow-x: auto;
+  }
+
+  .pantry-table-body table {
+    min-width: 800px;
+  }
+
+  .pantry-table-body td,
+  .pantry-table-header th {
+    padding: 1rem 1.5rem; /* add extra breathing space */
+  }
+}
+
+.pantry-table-container {
+  position: relative;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Scroll area allows horizontal scroll for both header + body */
+.pantry-table-scroll-area {
+  position: relative;
+  overflow-x: auto;
+}
+
+/* Sticky header inside scroll area */
+.pantry-table-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: white;
+  border-bottom: 1px solid #eee;
+}
+
+/* .pantry-table-header table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+} */
+
+.pantry-table-header th {
+  color: #6b46c1;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  padding: 1rem 1.25rem;
+  text-align: left;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Scrollable body */
+.pantry-table-body {
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.pantry-table-header table,
+.pantry-table-body table {
+  min-width: 900px; /* ✅ force table wider on narrow viewports */
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.pantry-table-body td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f7f7f7;
+  font-size: 0.95rem;
+  color: #1a1a1a;
+}
+
+/* Responsive horizontal scroll */
+@media (max-width: 900px) {
+  .pantry-table-scroll-area {
+    overflow-x: auto;
+  }
+
+  .pantry-table-body table,
+  .pantry-table-header table {
+    min-width: 900px;
+  }
+}
+
+/* Match columns of header & body */
+.pantry-table-header th,
+.pantry-table td {
+  width: calc(100% / 7);
+}
+
+
+/* bold + bigger item name */
+.name-col {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #4a2ea5;
+}
+
+/* hover */
+.pantry-table-body tr.table-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.04);
+}
+
+/* Freshness backgrounds */
+.pantry-table-body tr.table-row.fresh {
+  background: linear-gradient(90deg, rgba(209,250,229,0.3), transparent);
+}
+
+.pantry-table-body tr.table-row.warning {
+  background: linear-gradient(90deg, rgba(254,243,199,0.35), transparent);
+}
+
+.pantry-table-body tr.table-row.critical {
+  background: linear-gradient(90deg, rgba(254,226,226,0.4), transparent);
+}
+
+/* expired = solid light red row */
+.pantry-table-body tr.table-row.expired {
+  background: linear-gradient(90deg, #ede9fe, transparent);
+}
+
+/* badges */
 .freshness-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.35rem 0.75rem;
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
+  text-align: center;
+  line-height: 1.1;
+  min-width: 80px;
+  white-space: normal;
+  word-break: break-word;
 }
+
 
 .freshness-badge.fresh {
   background: #d1fae5;
@@ -686,69 +1260,43 @@ onMounted(async () => {
 }
 
 .freshness-badge.expired {
-  background: #fca5a5;
-  color: #7f1d1d;
+  background: #c4b5fd;
+  color: #4c1d95;
 }
 
-.item-details {
-  margin-bottom: 1rem;
+/* Action buttons */
+.actions-col {
+  width: 120px;
+  text-align: right;
 }
 
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.5rem 0;
-}
-
-.detail-label {
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.detail-value {
-  color: #1a1a1a;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.item-actions {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.btn-edit {
-  flex: 1;
-  padding: 0.625rem;
-  background: white;
-  color: #ff6b1a;
-  border: 2px solid #ff6b1a;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.btn-edit:hover {
-  background: #ff6b1a;
-  color: white;
-}
-
-.btn-delete {
-  padding: 0.625rem 1rem;
-  background: #fee2e2;
-  color: #dc2626;
+.btn-edit-table,
+.btn-delete-table {
+  background: none;
   border: none;
-  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s;
+  font-size: 1.05rem;
+  padding: 0.25rem 0.5rem;
+  margin-left: 0.25rem;
 }
 
-.btn-delete:hover {
-  background: #dc2626;
-  color: white;
+.btn-edit-table {
+  color: #ff6b1a;
 }
 
-/* Modal */
+.btn-edit-table:hover {
+  color: #ff9800;
+}
+
+.btn-delete-table {
+  color: #dc2626;
+}
+
+.btn-delete-table:hover {
+  color: #a00;
+}
+
+/* Modal and form (unchanged) */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -777,33 +1325,6 @@ onMounted(async () => {
   margin-bottom: 2rem;
 }
 
-.modal-header h3 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 0.5rem;
-}
-
-.modal-header p {
-  color: #666;
-  font-size: 0.9rem;
-  margin: 0;
-}
-
-.btn-close-modal {
-  background: none;
-  border: none;
-  font-size: 1.25rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  color: #666;
-}
-
-.btn-close-modal:hover {
-  color: #1a1a1a;
-}
-
-/* Form */
 .form-group {
   margin-bottom: 1.5rem;
 }
@@ -840,10 +1361,6 @@ onMounted(async () => {
   gap: 0.5rem;
 }
 
-.quantity-row .form-input {
-  flex: 1;
-}
-
 .unit-select {
   padding: 0.875rem;
   border: 2px solid #f0f0f0;
@@ -866,66 +1383,29 @@ onMounted(async () => {
   margin-top: 1rem;
 }
 
-.btn-submit:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 107, 26, 0.4);
-}
-
-.btn-submit:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Empty State */
-.empty-state {
-  text-align: center;
-  padding: 5rem 2rem;
-  background: white;
-  border-radius: 16px;
-}
-
-.empty-state i {
-  font-size: 5rem;
-  color: #ddd;
-  margin-bottom: 1.5rem;
-}
-
-.empty-state h3 {
-  color: #1a1a1a;
-  margin-bottom: 0.5rem;
-}
-
-.empty-state p {
-  color: #666;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
+  .pantry-table {
+    min-width: 700px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
   .header-content {
     flex-direction: column;
     gap: 1rem;
     align-items: flex-start;
   }
-  
+
   .btn-add-item {
     width: 100%;
     justify-content: center;
   }
-  
-  .search-filter-bar {
-    flex-direction: column;
-  }
-  
-  .category-filter {
-    width: 100%;
-  }
-  
-  .items-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .form-row {
-    grid-template-columns: 1fr;
+
+  .sort-option {
+    justify-content: flex-start;
   }
 }
 </style>
