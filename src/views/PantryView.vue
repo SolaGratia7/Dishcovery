@@ -1127,26 +1127,26 @@ onBeforeUnmount(() => {
 }
 
 /* hover */
-.pantry-table tbody tr.table-row:hover {
+.pantry-table-body tr.table-row:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0,0,0,0.04);
 }
 
 /* Freshness backgrounds */
-.pantry-table tbody tr.table-row.fresh {
+.pantry-table-body tr.table-row.fresh {
   background: linear-gradient(90deg, rgba(209,250,229,0.3), transparent);
 }
 
-.pantry-table tbody tr.table-row.warning {
+.pantry-table-body tr.table-row.warning {
   background: linear-gradient(90deg, rgba(254,243,199,0.35), transparent);
 }
 
-.pantry-table tbody tr.table-row.critical {
+.pantry-table-body tr.table-row.critical {
   background: linear-gradient(90deg, rgba(254,226,226,0.4), transparent);
 }
 
 /* expired = solid light red row */
-.pantry-table tbody tr.table-row.expired {
+.pantry-table-body tr.table-row.expired {
   background: linear-gradient(90deg, #ede9fe, transparent);
 }
 
