@@ -53,12 +53,24 @@
 
                 <!-- Stats Cards -->
         <div class="stats-grid">
-          <div class="stat-card">
+          <div
+            class="stat-card total-card"
+            :class="{ active: !showExpiredOnly && !showExpiringOnly }"
+            @click="showAllItems"
+          >
             <div class="stat-header">
               <span>Total Items</span>
               <i class="bi bi-box-seam stat-icon"></i>
             </div>
             <div class="stat-value">{{ filteredItems.length }}</div>
+            <button
+              v-if="!showExpiredOnly && !showExpiringOnly && filteredItems.length"
+              class="btn-clear-stat"
+              @click.stop="confirmClear('total')"
+              title="Clear all visible (Total) items"
+            >
+              Clear
+            </button>
           </div>
 
           <div
@@ -71,6 +83,14 @@
               <i class="bi bi-exclamation-octagon stat-icon expired"></i>
             </div>
             <div class="stat-value expired">{{ expiredCount }}</div>
+            <button
+              v-if="showExpiredOnly && expiredCount"
+              class="btn-clear-stat"
+              @click.stop="confirmClear('expired')"
+              title="Clear all visible expired items"
+            >
+              Clear
+            </button>
           </div>
 
           <div
@@ -83,8 +103,16 @@
               <i class="bi bi-calendar-x stat-icon expiring"></i>
             </div>
             <div class="stat-value expiring">{{ expiringSoonCount }}</div>
-          </div>
+          <button
+            v-if="showExpiringOnly && expiringSoonCount"
+            class="btn-clear-stat"
+            @click.stop="confirmClear('expiring')"
+            title="Clear all visible expiring items"
+          >
+            Clear
+          </button>
         </div>
+      </div>
 
 
 
@@ -335,6 +363,11 @@ const expiredCount = computed(() => {
 })
 
 // Toggle logic — only one active at a time
+const showAllItems = () => {
+  showExpiredOnly.value = false
+  showExpiringOnly.value = false
+}
+
 const toggleExpiringOnly = () => {
   if (showExpiringOnly.value) {
     showExpiringOnly.value = false
@@ -366,6 +399,61 @@ const displayedItems = computed(() => {
   }
   return filteredItems.value
 })
+
+/**
+ * confirmClear
+ * type: 'total' | 'expired' | 'expiring'
+ * Only deletes when corresponding stat view is active.
+ * Deletes the currently visible items (displayedItems).
+ */
+const confirmClear = async (type) => {
+  // Ensure correct active state
+  if (type === 'total' && (showExpiredOnly.value || showExpiringOnly.value)) {
+    alert('Select the Total card first to clear Total items.')
+    return
+  }
+  if (type === 'expired' && !showExpiredOnly.value) {
+    alert('Select the Expired card first to clear Expired items.')
+    return
+  }
+  if (type === 'expiring' && !showExpiringOnly.value) {
+    alert('Select the Expiring card first to clear Expiring items.')
+    return
+  }
+
+  // Items to delete = currently visible (respects category/search)
+  const itemsToDelete = displayedItems.value || []
+  if (!itemsToDelete.length) {
+    alert('No items to clear in this view.')
+    return
+  }
+
+  // double confirm
+  const first = confirm(
+    `Are you sure you want to delete all ${itemsToDelete.length} items currently shown?`
+  )
+  if (!first) return
+  const second = confirm('This action cannot be undone. Confirm again to proceed.')
+  if (!second) return
+
+  // Delete by IDs
+  try {
+    const idsToDelete = itemsToDelete.map((i) => i.id)
+    const { error } = await supabase
+      .from('pantry_items')
+      .delete()
+      .in('id', idsToDelete)
+      .eq('user_id', currentUser.value.id)
+
+    if (error) throw error
+
+    alert(`Successfully cleared ${itemsToDelete.length} items.`)
+    await fetchPantry()
+  } catch (err) {
+    console.error('Error clearing items:', err)
+    alert('Failed to clear items: ' + (err.message || err))
+  }
+}
 
 // --------------------
 // Supabase Operations
@@ -724,11 +812,21 @@ onBeforeUnmount(() => {
 }
 
 .stat-icon.expired {
-  color: #dc2626;
+  color: #4c1d95;
 }
 
 .stat-value.expired {
-  color: #dc2626;
+  color: #4c1d95;
+}
+
+.total-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+.total-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.25);
 }
 
 .expired-card,
@@ -745,6 +843,14 @@ onBeforeUnmount(() => {
 }
 
 /* Active states */
+.total-card.active {
+  border: 2px solid #ff6b1a;
+  background: linear-gradient(135deg, rgba(255, 237, 213, 0.95), rgba(255, 251, 235, 0.95));
+  box-shadow: 0 0 15px rgba(255, 152, 0, 0.3);
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
 .expiring-card.active {
   border-color: #f59e0b;
   background: linear-gradient(135deg, rgba(255, 237, 213, 0.9), rgba(255, 251, 235, 0.9));
@@ -752,10 +858,51 @@ onBeforeUnmount(() => {
 }
 
 .expired-card.active {
-  border-color: #dc2626;
-  background: linear-gradient(135deg, rgba(254, 226, 226, 0.95), rgba(255, 241, 241, 0.95));
-  box-shadow: 0 0 15px rgba(220, 38, 38, 0.3);
+  border-color: #7c3aed;
+  background: linear-gradient(135deg, rgba(237,233,254,0.95), rgba(245,243,255,0.95));
+  box-shadow: 0 0 15px rgba(124,58,237,0.3);
 }
+
+/* small clear button inside each stat card */
+.stat-card {
+  position: relative;
+  padding-bottom: 3rem; /* make room for the button */
+}
+
+.btn-clear-stat {
+  position: absolute;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid rgba(180,83,9,0.15);
+  background: transparent;
+  color: #b45309;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-clear-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(107,70,193,0.08);
+  background: rgba(107,70,193,0.04);
+}
+
+.total-card .btn-clear-stat {
+  color: #c2410c;
+  border-color: rgba(194,65,12,0.2);
+}
+.expired-card .btn-clear-stat {
+  color: #5b21b6;
+  border-color: rgba(91,33,182,0.2);
+}
+.expiring-card .btn-clear-stat {
+  color: #b45309;
+  border-color: rgba(180,83,9,0.2);
+}
+
 
 .stat-header {
   display: flex;
@@ -789,9 +936,11 @@ onBeforeUnmount(() => {
 .pantry-table-wrapper {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 12px;
-  overflow: auto;
+  overflow-y: auto;
+  max-height: 70vmax;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   padding: 0.5rem;
+  position: relative;
 }
 
 .pantry-table {
@@ -804,7 +953,8 @@ onBeforeUnmount(() => {
 .pantry-table thead th {
   position: sticky;
   top: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.95), white);
+  z-index: 50;
+  background: white;
   color: #6b46c1;
   font-weight: 700;
   text-transform: uppercase;
@@ -812,6 +962,7 @@ onBeforeUnmount(() => {
   padding: 0.9rem 1rem;
   border-bottom: 1px solid #f0f0f0;
   text-align: left;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .pantry-table tbody td {
@@ -854,8 +1005,8 @@ onBeforeUnmount(() => {
 }
 
 /* expired = solid light red row */
-.table-row.expired {
-  background: #fde8e8 !important;
+.pantry-table tbody tr.table-row.expired {
+  background: linear-gradient(90deg, #ede9fe, transparent);
 }
 
 /* badges */
@@ -883,8 +1034,8 @@ onBeforeUnmount(() => {
 }
 
 .freshness-badge.expired {
-  background: #fca5a5;
-  color: #7f1d1d;
+  background: #c4b5fd;
+  color: #4c1d95;
 }
 
 /* Action buttons */
