@@ -6,6 +6,7 @@ import PantryView from '@/views/PantryView.vue'
 import RecipeView from '@/views/RecipeView.vue'
 import PlanningView from '@/views/PlanningView.vue'
 import ShoppingView from '@/views/ShoppingView.vue'
+import NutritionView from '@/views/NutritionView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -49,14 +50,20 @@ const router = createRouter({
       name: 'shopping',
       component: ShoppingView,
       meta: { requiresAuth: true }
-    }      
+    },
+    {
+      path: '/nutrition',
+      name: 'nutrition',
+      component: NutritionView,
+      meta: { requiresAuth: true }
+    }
   ]
 })
 
 // Navigation guard
 router.beforeEach(async (to, from, next) => {
   const authenticated = await isAuthenticated()
-  
+
   if (to.meta.requiresAuth && !authenticated) {
     next('/login')
   } else if (to.path === '/login' && authenticated) {

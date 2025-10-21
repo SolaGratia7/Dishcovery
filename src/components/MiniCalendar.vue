@@ -1,6 +1,6 @@
 <template>
-  <div class="calendar-dropdown" @click.stop>
-    <div class="dropdown-content">
+  <div :class="['calendar-dropdown', { 'below': dropdownPosition === 'below' }]" @click.stop>
+    <div :class="['dropdown-content', { 'below': dropdownPosition === 'below' }]">
       <div class="mini-calendar">
         <div class="mini-calendar-header">
           <button @click="changeMonth(-1)" class="month-nav-btn">
@@ -90,6 +90,14 @@ const props = defineProps({
   mode: {
     type: String,
     default: 'single' // 'single' or 'range'
+  },
+  highlightSelected: {
+    type: Boolean,
+    default: false
+  },
+  dropdownPosition: {
+    type: String,
+    default: 'inline' // 'inline' or 'below'
   }
 })
 
@@ -213,9 +221,13 @@ function isToday(date) {
 
 function isSelectedDate(dateStr) {
   if (props.mode === 'single') {
-    const weekStart = new Date(props.currentWeek)
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-    return dateStr === formatDateLocal(weekStart)
+    if (props.highlightSelected) {
+      return props.selectedDates.includes(dateStr)
+    } else {
+      const weekStart = new Date(props.currentWeek)
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+      return dateStr === formatDateLocal(weekStart)
+    }
   } else {
     return props.selectedDates.includes(dateStr)
   }
@@ -255,12 +267,12 @@ function goToToday() {
 <style scoped>
 /* Existing styles ... */
 .calendar-dropdown {
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 300px;
-  z-index: 100;
+  position: relative;
+  width: 100%;
+}
+
+.calendar-dropdown.below {
+  position: static;
 }
 
 .dropdown-content {
@@ -269,6 +281,16 @@ function goToToday() {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.5);
   overflow: hidden;
+  width: 100%;
+}
+
+.dropdown-content.below {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  margin-top: 0.5rem;
   width: 280px;
 }
 
