@@ -16,8 +16,158 @@
       </div>
 
       <div class="container my-4">
+        <!--Toggle Switch between Manual vs Auto-->
+        <div class="mode-toggle-card mb-4">
+          <div class="toggle-container">
+            <div :class="['toggle-slider', { 'right': planningMode === 'auto' }]"></div>
+              <button 
+                :class="['toggle-btn', { 'active': planningMode === 'manual' }]"
+                @click="planningMode = 'manual'"
+              >
+                <i class="bi bi-hand-index me-2"></i>
+                Manual Planning   
+              </button>
+              <button 
+                :class="['toggle-btn', { 'active': planningMode === 'auto' }]"
+                @click="planningMode = 'auto'"
+              >
+                <i class="bi bi-magic me-2"></i>
+                Auto Generate
+              </button>
+           </div>     
+          </div>     
+      </div>
+
+        <!-- AUTO GENERATE MODE -->
+        <div v-if="planningMode === 'auto'" class="auto-generate-card mb-4">          
+          <div class="card-body">
+            <div class="row g-3">
+              <!-- Week Selection -->
+              <div class="col-12">
+                <label class="form-label fw-semibold">Select Week to Generate</label>
+                <div class="week-selector">
+                  <button @click="changeAutoGenWeek(-1)" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-chevron-left"></i>
+                  </button>
+                  <div class="selected-week-display" ref="autoGenCalendarRef">
+                    <i class="bi bi-calendar-week me-2"></i>
+                    <span @click="toggleAutoGenCalendar">{{ autoGenWeekDisplay }}</span>
+                    <MiniCalendar 
+                      v-if="showAutoGenCalendar"
+                      :current-week="autoGenWeek"
+                      :mode="'single'"
+                      @select-date="selectAutoGenDate"
+                    />
+                  </div>
+                  <button @click="changeAutoGenWeek(1)" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-chevron-right"></i>
+                  </button>
+                </div>
+              </div>              
+              <!-- Goal Input -->
+              <div class="col-12">
+                <label class="form-label fw-semibold">What's your goal?</label>
+                  <div class="goal-builder">
+                    <span class="goal-text">I want to</span>
+                    
+                    <!-- Lose/Gain Toggle -->
+                    <div class="goal-toggle">
+                      <button 
+                        :class="['goal-toggle-btn', { 'active': goalType === 'lose' }]"
+                        @click="goalType = 'lose'"
+                      >
+                        lose
+                      </button>
+                      <button 
+                        :class="['goal-toggle-btn', { 'active': goalType === 'gain' }]"
+                        @click="goalType = 'gain'"
+                      >
+                        gain
+                      </button>
+                    </div>
+                    
+                    <!-- Weight Input -->
+                    <input 
+                      v-model.number="weightChange"
+                      type="number" 
+                      class="goal-input"
+                      placeholder="3"
+                      min="0.5"
+                      max="20"
+                      step="0.5"
+                    >
+                    <span class="goal-text">kg in</span>
+                    
+                    <!-- Timeframe Input -->
+                    <input 
+                      v-model.number="timeframe"
+                      type="number" 
+                      class="goal-input"
+                      placeholder="1"
+                      min="1"
+                      max="12"
+                    >
+                    <span class="goal-text">month(s)</span>
+                  </div>
+                </div>
+
+              <!-- Diet Preference -->
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Diet Preference (optional)</label>
+                <select v-model="autoGenDiet" class="form-select">
+                  <option value="">No Preference</option>
+                  <option value="vegetarian">Vegetarian</option>
+                  <option value="vegan">Vegan</option>
+                  <option value="ketogenic">Keto</option>
+                  <option value="paleo">Paleo</option>
+                  <option value="gluten free">Gluten Free</option>
+                </select>
+              </div>
+
+              <!-- Excluded Ingredients -->
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Exclude Ingredients (optional)</label>
+                <input 
+                  v-model="autoGenExclude" 
+                  type="text" 
+                  class="form-control" 
+                  placeholder="e.g., nuts, shellfish"
+                >
+              </div>
+            </div>
+
+            <!-- Generate Button -->
+            <div class="mt-4">
+              <button 
+                @click="generateAutoMealPlan(calculatedCalories)" 
+                class="btn btn-primary btn-lg w-100"
+                :disabled="loadingAutoGen"
+              >
+                <span v-if="loadingAutoGen" class="spinner-border spinner-border-sm me-2"></span>
+                <i v-else class="bi bi-magic me-2"></i>
+                {{ loadingAutoGen ? 'Generating Your Meal Plan...' : 'Generate Meal Plan' }}
+              </button>
+            </div>
+
+            <!-- Progress Indicator -->
+            <div v-if="loadingAutoGen" class="mt-3">
+              <div class="progress-info text-center mb-2">
+                <small class="text-muted">{{ autoGenProgress }}</small>
+              </div>
+              <div class="progress">
+                <div 
+                  class="progress-bar progress-bar-striped progress-bar-animated" 
+                  :style="{ width: autoGenPercent + '%' }"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>      
+
+      <!--Manual Mode-->
+      <div v-if="planningMode === 'manual' || (planningMode === 'auto' && hasGeneratedPlan)">
         <!-- History Search Card -->
-        <div class="search-history-card mb-4" v-if="showHistorySearch">
+        <div class="search-history-card mb-4" v-if="planningMode === 'manual' && showHistorySearch">
           <div class="card-body">
             <div class="row g-2 align-items-center">
               <div class="col-md-6">
@@ -78,46 +228,16 @@
               <button @click="changeWeek(-1)" class="btn btn-sm btn-secondary">
                 <i class="bi bi-chevron-left"></i>
               </button>
-              <div class="current-week-container">
+              <div class="current-week-container" ref="calendarContainerRef">
                 <i class="bi bi-calendar-week calendar-icon" @click="toggleCalendarDropdown"></i>
                 <span class="current-week" @click="toggleCalendarDropdown">{{ currentWeekDisplay }}</span>
-                <!-- Calendar Dropdown -->
-                <div v-if="showCalendarDropdown" class="calendar-dropdown">
-                  <div class="dropdown-backdrop" @click="showCalendarDropdown = false"></div>
-                  <div class="dropdown-content">
-                    <div class="mini-calendar">
-                      <div class="mini-calendar-header">
-                        <button @click="changeMonth(-1)" class="month-nav-btn">
-                          <i class="bi bi-chevron-left"></i>
-                        </button>
-                        <span class="current-month-year">{{ miniCalendarMonthYear }}</span>
-                        <button @click="changeMonth(1)" class="month-nav-btn">
-                          <i class="bi bi-chevron-right"></i>
-                        </button>
-                      </div>
-                      <div class="mini-calendar-weekdays">
-                        <div v-for="day in ['S', 'M', 'T', 'W', 'T', 'F', 'S']" :key="day" class="weekday-label">
-                          {{ day }}
-                        </div>
-                      </div>
-                      <div class="mini-calendar-days">
-                        <div
-                          v-for="day in miniCalendarDays"
-                          :key="day.dateStr"
-                          :class="['mini-calendar-day', {
-                            'today': day.isToday,
-                            'selected': day.isSelected,
-                            'current-month': day.isCurrentMonth,
-                            'other-month': !day.isCurrentMonth
-                          }]"
-                          @click="selectDate(day.date)"
-                        >
-                          {{ day.day }}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <!-- Use the new component -->
+                <MiniCalendar 
+                  v-if="showCalendarDropdown"
+                  :current-week="currentWeek"
+                  :mode="'range'"
+                  @select-date="selectDate"
+                />
               </div>
               <button @click="changeWeek(1)" class="btn btn-sm btn-secondary">
                 <i class="bi bi-chevron-right"></i>
@@ -170,14 +290,7 @@
             </div>
             
             <div class="mt-4">
-              <button @click="generateShoppingList" class="btn btn-success">
-                <i class="bi bi-cart-plus me-2"></i>
-                Generate Shopping List
-              </button>
-              <button @click="toggleHistorySearch" class="btn btn-outline-secondary ms-2">
-                <i class="bi bi-clock-history me-2"></i>
-                {{ showHistorySearch ? 'Hide' : 'Show' }} History
-              </button>
+              <ShoppingGen :current-week="currentWeek" />
             </div>
           </div>
         </div>
@@ -188,173 +301,83 @@
         <div class="modal-content-custom modal-large" @click.stop>
           <button @click="closePlanMealModal" class="btn-close-modal">
             <i class="bi bi-x-lg"></i>
-          </button>
-          
-          <div class="modal-header-custom">
-            <h3>Plan Meal</h3>
-            <p class="text-muted">{{ selectedMealType }} on {{ formatDate(selectedDate) }}</p>
-          </div>
-          
-          <div class="modal-body-custom">
-            <!-- Search Toggle -->
-            <div class="mb-3">
-              <div class="btn-group w-100" role="group">
-                <button 
-                  type="button" 
-                  :class="['btn', searchMode === 'saved' ? 'btn-primary' : 'btn-outline-primary']"
-                  @click="searchMode = 'saved'"
-                >
-                  <i class="bi bi-bookmark-heart me-1"></i>
-                  Saved Recipes
-                </button>
-                <button 
-                  type="button" 
-                  :class="['btn', searchMode === 'search' ? 'btn-primary' : 'btn-outline-primary']"
-                  @click="searchMode = 'search'"
-                >
-                  <i class="bi bi-search me-1"></i>
-                  Search Online
-                </button>
-              </div>
-            </div>
-
-            <!-- Saved Recipes Mode -->
-            <div v-if="searchMode === 'saved'" class="saved-mode">
-              <div class="mb-3">
-                <label class="form-label">Select from Saved Recipes</label>
-                <select v-model="selectedRecipeId" class="form-select" required>
-                  <option value="">Choose a recipe...</option>
-                  <option v-for="recipe in savedRecipes" :key="recipe.id" :value="recipe.id">
-                    {{ recipe.title }}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Search Online Mode -->
-            <div v-if="searchMode === 'search'" class="search-mode">
-              <div class="mb-3">
-                <label class="form-label">Search for Recipes</label>
-                <div class="input-group">
-                  <input 
-                    v-model="onlineSearchQuery"
-                    type="text" 
-                    class="form-control" 
-                    placeholder="Search recipes online..."
-                    @keyup.enter="searchOnlineRecipes"
-                  >
-                  <button 
-                    @click="searchOnlineRecipes"
-                    class="btn btn-primary"
-                    :disabled="loadingSearch"
-                  >
-                    <span v-if="loadingSearch" class="spinner-border spinner-border-sm me-1"></span>
-                    <i v-else class="bi bi-search me-1"></i>
-                    Search
-                  </button>
-                </div>
-              </div>
-
-              <!-- Loading -->
-              <div v-if="loadingSearch" class="text-center py-4">
-                <div class="spinner-border text-primary" role="status">
-                  <span class="visually-hidden">Searching...</span>
-                </div>
-                <p class="text-muted mt-2">Searching recipes...</p>
-              </div>
-
-              <!-- Search Results -->
-              <div v-else-if="searchResults.length > 0" class="search-results">
-                <h6 class="mb-3">Search Results ({{ searchResults.length }})</h6>
-                <div class="results-grid">
-                  <div 
-                    v-for="recipe in searchResults" 
-                    :key="recipe.id"
-                    :class="['result-card', { 'selected': selectedOnlineRecipe?.id === recipe.id }]"
-                    @click="selectOnlineRecipe(recipe)"
-                  >
-                    <img 
-                      :src="recipe.image" 
-                      :alt="recipe.title"
-                      class="result-image"
-                    >
-                    <div class="result-info">
-                      <h6 class="result-title">{{ recipe.title }}</h6>
-                      <div class="result-meta">
-                        <span><i class="bi bi-clock"></i> {{ recipe.readyInMinutes }} min</span>
-                        <span><i class="bi bi-heart-fill"></i> {{ recipe.aggregateLikes }}</span>
-                      </div>
-                    </div>
-                    <div v-if="selectedOnlineRecipe?.id === recipe.id" class="selected-indicator">
-                      <i class="bi bi-check-circle-fill"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Empty State -->
-              <div v-else-if="hasSearched && searchResults.length === 0" class="text-center py-4 text-muted">
-                <i class="bi bi-search" style="font-size: 3rem;"></i>
-                <p class="mt-2">No recipes found. Try a different search term.</p>
-              </div>
-
-              <!-- Initial State -->
-              <div v-else class="text-center py-4 text-muted">
-                <i class="bi bi-compass" style="font-size: 3rem;"></i>
-                <p class="mt-2">Search for recipes online to add to your meal plan</p>
-              </div>
-            </div>
-          </div>
-          
-          <div class="modal-footer-custom">
-            <button @click="closePlanMealModal" class="btn btn-secondary">
-              Cancel
-            </button>
-            <button 
-              v-if="getMeal(selectedDate, selectedMealType)"
-              @click="removeMeal"
-              class="btn btn-danger ms-2"
-            >
-              <i class="bi bi-trash me-1"></i>
-              Remove Meal
-            </button>
-            <button 
-              @click="saveMealPlan" 
-              class="btn btn-primary ms-2" 
-              :disabled="!canSaveMeal"
-            >
-              <i class="bi bi-check-circle me-1"></i>
-              Save to Plan
-            </button>
-          </div>
+          </button>       
         </div>
       </div>
 
-      <!-- Shopping List Generated Toast -->
-      <div v-if="showToast" class="toast-notification">
-        <i class="bi bi-check-circle-fill me-2"></i>
-        {{ toastMessage }}
-      </div>
+      <!-- Recipe Details Modal (NEW) -->
+      <RecipeModal 
+        :recipe="selectedRecipeForView" 
+        @close="closeRecipeModal" 
+      />         
     </div>
   </AppLayout>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout.vue'
 import AnimatedBackground from '@/components/AnimatedBackground.vue'
+import RecipeModal from '@/components/RecipeModal.vue'
+import MiniCalendar from '@/components/MiniCalendar.vue'
+import ShoppingGen from '@/components/ShoppingGen.vue'
 import axios from 'axios'
 
 const router = useRouter()
 const currentUser = ref(null)
+const showRecipeModal = ref(false)
+const selectedRecipeForView = ref(null)
 
-const SPOONACULAR_API_KEY = 'c96375c9282445708f1b26ce2d7e04a9'
+const SPOONACULAR_API_KEY = [
+  '0ca96dd220c842a6bfdcddfcbcf15b5d',
+  'c96375c9282445708f1b26ce2d7e04a9',
+  '19de6749a5064deea9ebf17f2455d6bb'
+].filter(Boolean) // Remove any undefined keys
+
+let currentKeyIndex = 0
+
+const makeApiRequest = async (params, retries = SPOONACULAR_API_KEY.length) => {
+  try {
+    const response = await axios.get(SPOONACULAR_URL, {
+      params: {
+        ...params,
+        apiKey: SPOONACULAR_API_KEY[currentKeyIndex]
+      }
+    })
+    return response
+  } catch (error) {
+    // If rate limited and we have more keys to try
+    if (error.response?.status === 402 && retries > 1) {
+      console.log('Rate limit hit, trying next API key...')
+      currentKeyIndex = (currentKeyIndex + 1) % SPOONACULAR_API_KEY.length
+      return makeApiRequest(params, retries - 1)
+    }
+    throw error
+  }
+}
+
+// Planning Mode Toggle
+const planningMode = ref('manual')
+
+// Auto Generate State
+const goalType = ref('lose')
+const weightChange = ref(3)
+const timeframe = ref(1)
+const autoGenDiet= ref('')
+const autoGenExclude = ref('')
+const loadingAutoGen = ref(false)
+const autoGenProgress = ref('')
+const autoGenPercent = ref(0)
+const hasGeneratedPlan = ref(false)
+const autoGenWeek = ref(new Date())
+const showAutoGenCalendar = ref(false)
+const autoGenCalendarRef = ref(null)
 
 // State
 const currentWeek = ref(new Date())
-const mealPlans = ref({}) // { 'YYYY-MM-DD': { breakfast: {...}, lunch: {...}, dinner: {...} } }
+const mealPlans = ref({})
 const savedRecipes = ref([])
 const showPlanMealModal = ref(false)
 const selectedDate = ref('')
@@ -362,7 +385,8 @@ const selectedMealType = ref('')
 const selectedRecipeId = ref('')
 
 // Search mode
-const searchMode = ref('saved') // 'saved' or 'search'
+const SPOONACULAR_URL = 'https://api.spoonacular.com/recipes/complexSearch'
+const searchMode = ref('saved')
 const onlineSearchQuery = ref('')
 const searchResults = ref([])
 const selectedOnlineRecipe = ref(null)
@@ -378,12 +402,9 @@ const historyResults = ref([])
 const highlightedSlot = ref({ date: '', meal: '' })
 
 // Calendar dropdown
+const calendarContainerRef = ref(null)
 const showCalendarDropdown = ref(false)
-const selectedMonth = ref('')
-const miniCalendarDate = ref(new Date())
 const highlightedTableDate = ref('')
-const isFirstCalendarOpen = ref(true)
-const miniCalendarWeekStart = ref(new Date())
 
 // Toast
 const showToast = ref(false)
@@ -410,10 +431,31 @@ const weekDays = computed(() => {
 })
 
 const currentWeekDisplay = computed(() => {
-  const start = weekDays.value[0].date
-  const end = weekDays.value[6].date
-  const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  return `${fmt(start)} - ${fmt(end)}`
+  const weekStart = new Date(currentWeek.value)
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay()) // Start from Sunday
+  
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekStart.getDate() + 6) // End on Saturday
+  
+  const options = { month: 'short', day: 'numeric' }
+  const startStr = weekStart.toLocaleDateString('en-US', options)
+  const endStr = weekEnd.toLocaleDateString('en-US', options)
+  
+  return `${startStr} - ${endStr}`
+})
+
+const autoGenWeekDisplay = computed(() => {
+  const weekStart = new Date(autoGenWeek.value)
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+  
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekStart.getDate() + 6)
+  
+  const options = { month: 'short', day: 'numeric', year: 'numeric' }
+  const startStr = weekStart.toLocaleDateString('en-US', options)
+  const endStr = weekEnd.toLocaleDateString('en-US', options)
+  
+  return `${startStr} - ${endStr}`
 })
 
 const availableMonths = computed(() => {
@@ -437,45 +479,6 @@ const canSaveMeal = computed(() => {
   } else {
     return !!selectedOnlineRecipe.value
   }
-})
-
-const miniCalendarMonthYear = computed(() => {
-  return miniCalendarDate.value.toLocaleString('default', { month: 'long', year: 'numeric' })
-})
-
-const miniCalendarDays = computed(() => {
-  const year = miniCalendarDate.value.getFullYear()
-  const month = miniCalendarDate.value.getMonth()
-
-  const firstDay = new Date(year, month, 1)
-  const lastDay = new Date(year, month + 1, 0)
-  const startDate = new Date(firstDay)
-  startDate.setDate(startDate.getDate() - firstDay.getDay())
-
-  const days = []
-  const today = new Date()
-  // Use miniCalendarWeekStart for consistent highlighting
-  const weekStart = new Date(miniCalendarWeekStart.value)
-
-  for (let i = 0; i < 42; i++) {
-    const date = new Date(startDate)
-    date.setDate(startDate.getDate() + i)
-
-    const isToday = date.toDateString() === today.toDateString()
-    const isSelected = date >= weekStart && date < new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000) && date.getMonth() === month && date.getFullYear() === year
-    const isCurrentMonth = date.getMonth() === month
-
-    days.push({
-      date: new Date(date),
-      dateStr: formatDateLocal(date),
-      day: date.getDate(),
-      isToday,
-      isSelected,
-      isCurrentMonth
-    })
-  }
-
-  return days
 })
 
 // Helper functions
@@ -513,45 +516,25 @@ function changeWeek(direction) {
 
 function toggleCalendarDropdown() {
   showCalendarDropdown.value = !showCalendarDropdown.value
-  if (showCalendarDropdown.value) {
-    // Sync mini calendar with current week
-    const currentWeekStart = new Date(currentWeek.value)
-    if (isFirstCalendarOpen.value) {
-      // First time opening: adjust to highlight the correct week (move back by one day)
-      currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() - 1)
-      miniCalendarWeekStart.value = new Date(currentWeekStart)
-      isFirstCalendarOpen.value = false
-    } else {
-      // Subsequent opens: start from Sunday
-      currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay())
-      miniCalendarWeekStart.value = new Date(currentWeekStart)
-    }
-    miniCalendarDate.value = new Date(miniCalendarWeekStart.value)
-    // Highlight the current week's start date
-    highlightedTableDate.value = formatDateLocal(miniCalendarWeekStart.value)
-    // Manually add the class
-    nextTick(() => {
-      const row = document.querySelector(`tr[data-date="${formatDateLocal(miniCalendarWeekStart.value)}"]`)
-      if (row) {
-        row.classList.add('highlighted-row')
-      }
-    })
-    setTimeout(() => {
-      highlightedTableDate.value = ''
-      // Also remove manually
-      const row = document.querySelector(`tr[data-date="${formatDateLocal(miniCalendarWeekStart.value)}"]`)
-      if (row) {
-        row.classList.remove('highlighted-row')
-      }
-    }, 1000)
+}
+
+function handleClickOutside(event) {
+  if (showCalendarDropdown.value && 
+      calendarContainerRef.value && 
+      !calendarContainerRef.value.contains(event.target)) {
+    showCalendarDropdown.value = false
   }
 }
 
-function changeMonth(direction) {
-  const newDate = new Date(miniCalendarDate.value)
-  newDate.setMonth(newDate.getMonth() + direction)
-  miniCalendarDate.value = newDate
-}
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+  document.addEventListener('click', handleAutoGenClickOutside)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('click', handleAutoGenClickOutside)
+})
 
 function selectDate(date) {
   // Highlight the entire row for the selected date
@@ -575,7 +558,7 @@ function selectDate(date) {
     if (row) {
       row.classList.remove('highlighted-row')
     }
-  }, 1000)
+  }, 3000)
 
   // Find the start of the week containing this date
   const weekStart = new Date(date)
@@ -584,42 +567,225 @@ function selectDate(date) {
   showCalendarDropdown.value = false
 }
 
-function planMeal(dateStr, mealType) {
-  selectedDate.value = dateStr
-  selectedMealType.value = mealType
-  
-  const existing = getMeal(dateStr, mealType)
-  selectedRecipeId.value = existing ? existing.id : ''
-  
-  // Reset search mode
-  searchMode.value = 'saved'
-  onlineSearchQuery.value = ''
-  searchResults.value = []
-  selectedOnlineRecipe.value = null
-  hasSearched.value = false
-  
-  showPlanMealModal.value = true
+// Computed for validation
+const isGoalValid = computed(() => {
+  return weightChange.value > 0 && timeframe.value > 0
+})
+
+function changeAutoGenWeek(direction) {
+  const newWeek = new Date(autoGenWeek.value)
+  newWeek.setDate(newWeek.getDate() + (direction * 7))
+  autoGenWeek.value = newWeek
 }
 
-async function searchOnlineRecipes() {
-  if (!onlineSearchQuery.value.trim()) return
+function toggleAutoGenCalendar() {
+  showAutoGenCalendar.value = !showAutoGenCalendar.value
+}
+
+function selectAutoGenDate(date) {
+  const weekStart = new Date(date)
+  weekStart.setDate(date.getDate() - date.getDay())
+  autoGenWeek.value = weekStart
+  showAutoGenCalendar.value = false
+}
+
+function handleAutoGenClickOutside(event) {
+  if (showAutoGenCalendar.value && 
+      autoGenCalendarRef.value && 
+      !autoGenCalendarRef.value.contains(event.target)) {
+    showAutoGenCalendar.value = false
+  }
+}
+
+// Computed for calculated calories
+const calculatedCalories = computed(() => {
+  if (!weightChange.value || !timeframe.value) return 0
+  
+  const baseCalories = 2000
+  const totalCalories = weightChange.value * 7700
+  const dailyChange = totalCalories / (timeframe.value * 30)
+  
+  if (goalType.value === 'lose') {
+    return Math.max(1200, Math.round(baseCalories - dailyChange))
+  } else if (goalType.value === 'gain') {
+    return Math.round(baseCalories + dailyChange)
+  }
+  
+  return baseCalories
+})
+
+// Auto Generate Meal Plan
+async function generateAutoMealPlan(targetCalories) {
+  if (!isGoalValid.value) {
+    displayToast('Please enter valid weight and timeframe')
+    return
+  }
+
+  loadingAutoGen.value = true
+  autoGenPercent.value = 0
+  hasGeneratedPlan.value = false // Reset before generation
+  const generatedPlan = {}
+  
+  try {
+    const dailyCalories = targetCalories
+    const breakfastCal = Math.round(dailyCalories * 0.25)
+    const lunchCal = Math.round(dailyCalories * 0.35)
+    const dinnerCal = Math.round(dailyCalories * 0.40)
+    
+    const mealTypes = [
+      { type: 'breakfast', calories: breakfastCal },
+      { type: 'lunch', calories: lunchCal },
+      { type: 'dinner', calories: dinnerCal }
+    ]
+    
+    const totalRequests = weekDays.value.length * 3
+    let completedRequests = 0
+
+    const autoWeekStart = new Date(autoGenWeek.value)
+    autoWeekStart.setDate(autoWeekStart.getDate() - autoWeekStart.getDay())    
+
+    const autoWeekDays = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(autoWeekStart)
+      date.setDate(date.getDate() + i)
+      return {
+        name: DAY_NAMES[i],
+        date: date,
+        dateStr: formatDateLocal(date),
+        dateDisplay: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      }
+    })    
+    
+    for (const day of autoWeekDays) {
+      generatedPlan[day.dateStr] = {}
+      
+      for (const meal of mealTypes) {
+        autoGenProgress.value = `Finding ${meal.type} for ${day.name}...`
+        autoGenPercent.value = Math.round((completedRequests / totalRequests) * 100)
+        
+        try {
+          const recipe = await autoSearchRecipeForMeal(meal.calories, meal.type)
+          
+          if (recipe) {
+            generatedPlan[day.dateStr][meal.type] = {
+              id: recipe.id,
+              title: recipe.title,
+              image: recipe.image || '',
+              readyInMinutes: recipe.readyInMinutes || 0,
+              servings: recipe.servings || 0,
+              aggregateLikes: recipe.aggregateLikes || 0,
+              summary: recipe.summary || '',
+              analyzedInstructions: recipe.analyzedInstructions 
+                ? JSON.stringify(recipe.analyzedInstructions)
+                : '',
+              extendedIngredients: recipe.extendedIngredients || [],
+              dishTypes: recipe.dishTypes || [],
+              vegetarian: recipe.vegetarian || false,
+              vegan: recipe.vegan || false,
+              glutenFree: recipe.glutenFree || false
+            }
+          }
+          
+          completedRequests++
+          await new Promise(resolve => setTimeout(resolve, 200))
+        } catch (error) {
+          console.error(`Error fetching ${meal.type} for ${day.name}:`, error)
+          completedRequests++
+        }
+      }
+    }
+    
+    autoGenPercent.value = 100
+    autoGenProgress.value = 'Meal plan generated successfully!'
+    
+    // Replace current meal plans
+    Object.assign(mealPlans.value, generatedPlan)
+    const success = await saveMealPlansToSupabase()
+    
+    if (success) {
+      hasGeneratedPlan.value = true // Set to true after successful generation
+      displayToast('Meal plan generated successfully!')
+    }
+    
+    setTimeout(() => {
+      loadingAutoGen.value = false
+      autoGenPercent.value = 0
+      autoGenProgress.value = ''
+    }, 1000)
+    
+  } catch (error) {
+    console.error('Error generating meal plan:', error)
+    displayToast('Failed to generate meal plan. Please try again.')
+    loadingAutoGen.value = false
+    autoGenPercent.value = 0
+  }
+}
+
+async function autoSearchRecipeForMeal(targetCalories, mealType) {
+  try {
+    const params = {
+      number: 5,
+      addRecipeInformation: true,
+      addRecipeInstructions: true,
+      fillIngredients: true,
+      minCalories: targetCalories - 100,
+      maxCalories: targetCalories + 100,
+      sort: 'random'
+    }
+    
+    if (mealType === 'breakfast') {
+      params.type = 'breakfast'
+    } else if (mealType === 'lunch') {
+      params.type = 'main course,salad,soup'
+    } else if (mealType === 'dinner') {
+      params.type = 'main course'
+    }
+    
+    if (autoGenDiet.value) {
+      params.diet = autoGenDiet.value
+    }
+    
+    if (autoGenExclude.value.trim()) {
+      params.intolerances = autoGenExclude.value.trim().replace(/,\s*/g, ',')
+    }
+
+    const response = await makeApiRequest(params)
+    
+    if (response.data.results && response.data.results.length > 0) {
+      return response.data.results[0]
+    }
+    
+    return null
+  } catch (error) {
+    console.error('Error searching recipe:', error)
+    return null
+  }
+}
+
+async function searchOnlineRecipes(){
+  if (!onlineSearchQuery.value.trim()) {
+    alert('Please enter a recipe name to search')
+    return
+  }
   
   loadingSearch.value = true
   hasSearched.value = true
   
   try {
-    const response = await axios.get('https://api.spoonacular.com/recipes/complexSearch', {
-      params: {
-        apiKey: SPOONACULAR_API_KEY,
+    const params = {
         query: onlineSearchQuery.value,
         number: 12,
         addRecipeInformation: true,
+        addRecipeInstructions: true,
         fillIngredients: true
       }
-    })
-    
+
+    const response = await makeApiRequest(params)
     searchResults.value = response.data.results || []
-    selectedOnlineRecipe.value = null
+
+    if (searchResults.value.length === 0) {
+      alert('No recipes found. Try a different search term!')
+    }    
+    
   } catch (error) {
     console.error('Error searching recipes:', error)
     displayToast('Failed to search recipes. Please try again.', 'error')
@@ -643,11 +809,13 @@ async function saveMealPlan() {
     if (!selectedOnlineRecipe.value) return
     recipeToSave = selectedOnlineRecipe.value
     
-    // Optionally save the online recipe to saved_recipes
-    await saveOnlineRecipeToDatabase(recipeToSave)
   }
   
   if (!recipeToSave) return
+
+  console.log('Recipe to save:', recipeToSave)
+  console.log('analyzedInstructions:', recipeToSave.analyzedInstructions)
+  console.log('Type:', typeof recipeToSave.analyzedInstructions)  
   
   if (!mealPlans.value[selectedDate.value]) {
     mealPlans.value[selectedDate.value] = {}
@@ -656,50 +824,25 @@ async function saveMealPlan() {
   mealPlans.value[selectedDate.value][selectedMealType.value] = {
     id: recipeToSave.id,
     title: recipeToSave.title,
-    image: recipeToSave.image || ''
+    image: recipeToSave.image || '',
+    readyInMinutes: recipeToSave.readyInMinutes || 0,
+    servings: recipeToSave.servings || 0,
+    aggregateLikes: recipeToSave.aggregateLikes || 0,
+    summary: recipeToSave.summary || '',
+    analyzedInstructions: recipeToSave.analyzedInstructions 
+        ? JSON.stringify(recipeToSave.analyzedInstructions)
+        : '',
+    extendedIngredients: recipeToSave.extendedIngredients || [],
+    dishTypes: recipeToSave.dishTypes || []    
   }
+
+  console.log(mealPlans.value[selectedDate.value][selectedMealType.value].extendedIngredients)
+
+  console.log(recipeToSave);
   
   await saveMealPlansToSupabase()
   closePlanMealModal()
-  displayToast(`${recipeToSave.title} added to ${selectedMealType.value}!`)
-}
-
-async function saveOnlineRecipeToDatabase(recipe) {
-  try {
-    // Check if recipe already exists
-    const { data: existing } = await supabase
-      .from('saved_recipes')
-      .select('id')
-      .eq('user_id', currentUser.value.id)
-      .eq('id', recipe.id)
-      .single()
-    
-    if (!existing) {
-      // Save new recipe
-      const { error } = await supabase
-        .from('saved_recipes')
-        .insert({
-          id: recipe.id,
-          user_id: currentUser.value.id,
-          title: recipe.title,
-          image: recipe.image || '',
-          readyInMinutes: recipe.readyInMinutes || 0,
-          servings: recipe.servings || 0,
-          aggregateLikes: recipe.aggregateLikes || 0,
-          summary: recipe.summary || '',
-          instructions: recipe.instructions || '',
-          extendedIngredients: recipe.extendedIngredients || [],
-          dishTypes: recipe.dishTypes || []
-        })
-      
-      if (error) throw error
-      
-      // Add to local savedRecipes array
-      savedRecipes.value.push(recipe)
-    }
-  } catch (error) {
-    console.error('Error saving recipe:', error)
-  }
+  displayToast('Meal added to plan')
 }
 
 async function removeMeal() {
@@ -711,9 +854,12 @@ async function removeMeal() {
     }
   }
   
-  await saveMealPlansToSupabase()
-  closePlanMealModal()
-  displayToast('Meal removed from plan')
+  const success = await saveMealPlansToSupabase()
+  
+  if (success) {
+    closePlanMealModal()
+    displayToast('Meal removed from plan')
+  }
 }
 
 function closePlanMealModal() {
@@ -726,51 +872,6 @@ function closePlanMealModal() {
   searchResults.value = []
   selectedOnlineRecipe.value = null
   hasSearched.value = false
-}
-
-function toggleHistorySearch() {
-  showHistorySearch.value = !showHistorySearch.value
-  if (showHistorySearch.value) {
-    filterHistory()
-  }
-}
-
-function filterHistory() {
-  const query = historySearch.value.toLowerCase()
-  const results = []
-  
-  Object.keys(mealPlans.value).forEach(dateStr => {
-    // Month filter
-    if (historyMonth.value) {
-      const [y, m] = historyMonth.value.split('-')
-      const d = new Date(dateStr)
-      if (d.getFullYear() !== Number(y) || (d.getMonth() + 1) !== Number(m)) return
-    }
-    
-    const meals = mealPlans.value[dateStr]
-    MEAL_TYPES.forEach(mealType => {
-      if (historyMealType.value && historyMealType.value !== mealType) return
-      
-      if (meals[mealType] && meals[mealType].title) {
-        if (!query || meals[mealType].title.toLowerCase().includes(query)) {
-          results.push({
-            date: dateStr,
-            meal: mealType,
-            title: meals[mealType].title
-          })
-        }
-      }
-    })
-  })
-  
-  // Sort by date desc
-  results.sort((a, b) => {
-    const dateA = new Date(a.date)
-    const dateB = new Date(b.date)
-    return dateB - dateA
-  })
-  
-  historyResults.value = results
 }
 
 function jumpToMeal(dateStr, mealType) {
@@ -789,10 +890,6 @@ function jumpToMeal(dateStr, mealType) {
       slot.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }, 100)
-}
-
-function generateShoppingList() {
-  displayToast('Shopping list generated! (Feature coming soon)')
 }
 
 function displayToast(message) {
@@ -840,9 +937,18 @@ async function fetchMealPlans() {
         plans[plan.date] = {}
       }
       plans[plan.date][plan.meal_type] = {
-        id: plan.recipe_id,
-        title: plan.recipe_title,
-        image: plan.recipe_image || ''
+        id: plan.id,
+        title: plan.title,
+        image: plan.image || '',
+        readyInMinutes: plan.readyInMinutes || 0,
+        servings: plan.servings || 0,
+        aggregateLikes: plan.aggregateLikes || 0,
+        summary: plan.summary || '',
+        analyzedInstructions: plan.analyzedInstructions 
+            ? JSON.stringify(plan.analyzedInstructions)
+            : '',
+        extendedIngredients: plan.extendedIngredients || [],
+        dishTypes: plan.dishTypes || []          
       }
     })
     
@@ -853,26 +959,28 @@ async function fetchMealPlans() {
 }
 
 async function saveMealPlansToSupabase() {
-  try {
-    // Delete all existing meal plans for user
-    await supabase
-      .from('meal_plans')
-      .delete()
-      .eq('user_id', currentUser.value.id)
-    
+  try {  
     // Insert all current meal plans
     const planRecords = []
+    
     Object.keys(mealPlans.value).forEach(dateStr => {
       const meals = mealPlans.value[dateStr]
       MEAL_TYPES.forEach(mealType => {
         if (meals[mealType]) {
-          planRecords.push({
+          planRecords.push({            
             user_id: currentUser.value.id,
             date: dateStr,
             meal_type: mealType,
-            recipe_id: meals[mealType].id,
-            recipe_title: meals[mealType].title,
-            recipe_image: meals[mealType].image
+            id: meals[mealType].id,
+            title: meals[mealType].title,
+            image: meals[mealType].image,
+            readyInMinutes: meals[mealType].readyInMinutes || 0,
+            servings: meals[mealType].servings || 0,
+            aggregateLikes: meals[mealType].aggregateLikes || 0,
+            summary: meals[mealType].summary || '',
+            analyzedInstructions: meals[mealType].analyzedInstructions || "",
+            extendedIngredients: meals[mealType].extendedIngredients || [],
+            dishTypes: meals[mealType].dishTypes || []        
           })
         }
       })
@@ -881,12 +989,18 @@ async function saveMealPlansToSupabase() {
     if (planRecords.length > 0) {
       const { error } = await supabase
         .from('meal_plans')
-        .insert(planRecords)
+        .upsert(planRecords, {                         
+          onConflict: 'user_id,date,meal_type'
+        })
       
       if (error) throw error
     }
+    return true
+
   } catch (error) {
     console.error('Error saving meal plans:', error)
+    alert('Failed to update meal planner. Please try again.')
+    return false
   }
 }
 
@@ -901,6 +1015,28 @@ onMounted(async () => {
     router.push('/login')
   }
 })
+
+function planMeal(dateStr, mealType) {
+  // Check if there's already a meal in this slot
+  const existingMeal = getMeal(dateStr, mealType)
+  
+  if (existingMeal) {
+    // If meal exists, show recipe details
+    selectedRecipeForView.value = existingMeal
+    showRecipeModal.value = true
+    console.log(existingMeal)
+  } else {
+    // If no meal, show the plan meal modal to add one
+    selectedDate.value = dateStr
+    selectedMealType.value = mealType
+    showPlanMealModal.value = true
+  }
+}
+
+function closeRecipeModal() {
+  showRecipeModal.value = false
+  selectedRecipeForView.value = null
+}
 </script>
 
 <style scoped>
@@ -910,20 +1046,15 @@ onMounted(async () => {
 }
 
 /* Header */
-.planning-header {
-  background: linear-gradient(135deg, rgba(255, 107, 26, 0.15) 0%, rgba(255, 152, 0, 0.15) 100%);
-  padding: 2rem 0;
-  margin-bottom: 2rem;
-}
-
 .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-top: 1rem;
 }
 
 .planning-text h1 {
-  color: #1a1a1a;
+  color: #6b46c1;
   font-size: 2rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
@@ -932,6 +1063,61 @@ onMounted(async () => {
 .planning-text p {
   color: #666;
   margin: 0;
+}
+
+/* Toggle Container (Pill Style) */
+.toggle-container {
+  position: relative;
+  display: flex;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 50px;
+  padding: 4px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 12px 24px;
+  border: none;
+  background: transparent;
+  color: #5f6368;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  position: relative;
+  z-index: 2;
+  border-radius: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-btn:hover {
+  color: #1a73e8;
+}
+
+.toggle-btn.active {
+  color: white;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  height: calc(100% - 8px);
+  width: calc(50% - 4px);
+  background: linear-gradient(135deg, #ff6b1a 0%, #ff9800 100%);
+  border-radius: 50px;
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.toggle-slider.right {
+  transform: translateX(100%);
 }
 
 /* Search History Card */
@@ -985,7 +1171,7 @@ onMounted(async () => {
 .header-title {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: #6b46c1;
 }
 
 .week-nav {
@@ -1000,6 +1186,7 @@ onMounted(async () => {
   align-items: center;
   min-width: 150px;
   justify-content: center;
+  z-index: 100;
 }
 
 .current-week {
@@ -1022,127 +1209,6 @@ onMounted(async () => {
 
 .calendar-icon:hover {
   color: #ff6b1a;
-}
-
-.calendar-dropdown {
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  width: 300px;
-}
-
-.dropdown-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-}
-
-.dropdown-content {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  overflow: hidden;
-  width: 280px;
-}
-
-.mini-calendar {
-  padding: 1rem;
-}
-
-.mini-calendar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.month-nav-btn {
-  background: none;
-  border: none;
-  color: #666;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.month-nav-btn:hover {
-  background: #f0f0f0;
-  color: #ff6b1a;
-}
-
-.current-month-year {
-  font-weight: 600;
-  color: #1a1a1a;
-  font-size: 1rem;
-}
-
-.mini-calendar-weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 0.25rem;
-  margin-bottom: 0.5rem;
-}
-
-.weekday-label {
-  text-align: center;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #666;
-  padding: 0.25rem;
-}
-
-.mini-calendar-days {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 0.25rem;
-}
-
-.mini-calendar-day {
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.mini-calendar-day:hover {
-  background: #f0f0f0;
-}
-
-.mini-calendar-day.today {
-  background: rgba(255, 107, 26, 0.1);
-  color: #ea580c !important;
-  font-weight: 700;
-}
-
-.mini-calendar-day.selected {
-  background: rgba(255, 107, 26, 0.2);
-  color: #ff6b1a;
-  font-weight: 700;
-}
-
-.mini-calendar-day.selected.today {
-  background: rgba(255, 107, 26, 0.15);
-  color: #ea580c !important;
-  font-weight: 700;
-}
-
-.mini-calendar-day.current-month {
-  color: #1a1a1a;
-}
-
-.mini-calendar-day.other-month {
-  color: #ccc;
 }
 
 .card-body {
@@ -1460,6 +1526,137 @@ onMounted(async () => {
   justify-content: center;
   color: white;
   font-size: 1.2rem;
+}
+
+.auto-generate-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.week-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  border: 2px solid #e0e0e0;
+}
+
+.selected-week-display {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  transition: all 0.2s;
+  min-width: 320px;
+  justify-content: center;
+  font-weight: 600;
+  color: #6b46c1;
+}
+
+.selected-week-display span {
+  cursor: pointer;
+}
+
+.selected-week-display:hover {
+  border-color: #6b46c1;
+  box-shadow: 0 2px 8px rgba(107, 70, 193, 0.15);
+}
+
+.selected-week-display i {
+  color: #6b46c1;
+}
+
+/* Goal Builder Styles */
+.goal-builder {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  border: 2px dashed #e0e0e0;
+}
+
+.goal-text {
+  font-size: 1.1rem;
+  color: #5f6368;
+  font-weight: 500;
+}
+
+.goal-toggle {
+  display: inline-flex;
+  background: #f0f0f0;
+  border-radius: 8px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.goal-toggle-btn {
+  padding: 8px 20px;
+  border: none;
+  background: transparent;
+  color: #5f6368;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.goal-toggle-btn:hover {
+  background: rgba(107, 70, 193, 0.1);
+  color: #6b46c1;
+}
+
+.goal-toggle-btn.active {
+  background: #6b46c1;
+  color: white;
+  box-shadow: 0 2px 4px rgba(107, 70, 193, 0.3);
+}
+
+.goal-input {
+  width: 80px;
+  padding: 8px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.goal-input:focus {
+  outline: none;
+  border-color: #6b46c1;
+  box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+}
+
+.goal-input::placeholder {
+  color: #ccc;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .goal-builder {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .goal-text {
+    width: 100%;
+  }
 }
 
 /* Toast */

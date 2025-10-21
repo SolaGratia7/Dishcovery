@@ -285,7 +285,8 @@ const searchRecipes = async () => {
       query: searchQuery.value,
       number: 12,
       addRecipeInformation: true,
-      addRecipeInstructions: true
+      addRecipeInstructions: true,
+      fillIngredients: true
     }
 
     if (filters.value.diet) params.diet = filters.value.diet
@@ -314,31 +315,31 @@ const loadSavedRecipes = async () => {
   try {
     const { data, error } = await supabase
       .from('saved_recipes')
-      .select('recipe_id')
+      .select('id')
       .eq('user_id', currentUser.value.id)
 
     if (error) throw error
 
-    savedRecipeIds.value = new Set(data.map(r => r.recipe_id))
+    savedRecipeIds.value = new Set(data.map(r => r.id))
   } catch (error) {
     console.error('Error loading saved recipes:', error)
   }
 }
 
-const isFavorited = (recipeId) => {
-  return savedRecipeIds.value.has(recipeId)
+const isFavorited = (id) => {
+  return savedRecipeIds.value.has(id)
 }
 
-const toggleFavorite = async (recipeId) => {
+const toggleFavorite = async (id) => {
   try {
-    const recipe = recipes.value.find(r => r.id === recipeId)
+    const recipe = recipes.value.find(r => r.id === id)
     if (!recipe) return
 
     const { data: existing, error: fetchError } = await supabase
       .from('saved_recipes')
       .select('id')
       .eq('user_id', currentUser.value.id)
-      .eq('recipe_id', recipeId)
+      .eq('id', id)
       .maybeSingle()
 
     if (fetchError) throw fetchError
@@ -349,11 +350,11 @@ const toggleFavorite = async (recipeId) => {
         .from('saved_recipes')
         .delete()
         .eq('user_id', currentUser.value.id)
-        .eq('recipe_id', recipeId)
+        .eq('id', id)
 
       if (error) throw error
       
-      savedRecipeIds.value.delete(recipeId) // Update UI
+      savedRecipeIds.value.delete(id) // Update UI
       
     } else {
       // Add to favorites
@@ -361,14 +362,17 @@ const toggleFavorite = async (recipeId) => {
         .from('saved_recipes')
         .insert({
           user_id: currentUser.value.id,
-          recipe_id: recipe.id,
+          id: recipe.id,
           title: recipe.title,
           image: recipe.image,
           readyInMinutes: recipe.readyInMinutes || 0,
           servings: recipe.servings || 0,
           aggregateLikes: recipe.aggregateLikes || 0,
           summary: recipe.summary || '',
-          analyzedInstructions: recipe.analyzedInstructions || '',
+          analyzedInstructions: recipe.analyzedInstructions 
+            ? JSON.stringify(recipe.analyzedInstructions)
+            : '',
+          extendedIngredients: recipe.extendedIngredients || [],
           dishTypes: recipe.dishTypes || [],
           vegetarian: recipe.vegetarian || false,
           vegan: recipe.vegan || false,
@@ -377,7 +381,7 @@ const toggleFavorite = async (recipeId) => {
 
       if (error) throw error
       
-      savedRecipeIds.value.add(recipeId) // Update UI
+      savedRecipeIds.value.add(id) // Update UI
     }
 
   } catch (error) {

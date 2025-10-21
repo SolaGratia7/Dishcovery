@@ -51,6 +51,12 @@
               </router-link>
             </li>
             <li class="nav-item">
+              <router-link to="/shopping" class="nav-link">
+                <i class="bi bi-cart3"></i>
+                Shopping cart
+              </router-link>
+            </li>            
+            <li class="nav-item">
               <button @click="handleLogout" class="btn btn-danger btn-sm ms-lg-3 mt-2 mt-lg-0">
                 <i class="bi bi-box-arrow-right me-1"></i>
                 Logout

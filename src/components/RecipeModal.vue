@@ -70,17 +70,28 @@ const emit = defineEmits(['close'])
 const instructions = computed(() => {
   if (!props.recipe) return []
   
+  let data = props.recipe.analyzedInstructions
+  
   // If it's already an array (from API - fresh search)
-  if (Array.isArray(props.recipe.analyzedInstructions)) {
-    return props.recipe.analyzedInstructions
+  if (Array.isArray(data)) {
+    return data
   }
   
-  // If it's a JSON string (from Supabase - cached recipes)
-  if (typeof props.recipe.analyzedInstructions === 'string' && props.recipe.analyzedInstructions) {
+  // If it's a string, we need to parse it (possibly multiple times)
+  if (typeof data === 'string' && data) {
     try {
-      return JSON.parse(props.recipe.analyzedInstructions)
+      // First parse
+      let parsed = JSON.parse(data)
+      
+      // Check if it's STILL a string (double-stringified)
+      if (typeof parsed === 'string') {
+        parsed = JSON.parse(parsed)
+      }
+      
+      return Array.isArray(parsed) ? parsed : []
     } catch (e) {
       console.error('Error parsing instructions:', e)
+      console.log('Raw data:', data)
       return []
     }
   }

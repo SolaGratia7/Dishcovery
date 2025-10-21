@@ -5,6 +5,7 @@ import HomeView from '@/views/HomeView.vue'
 import PantryView from '@/views/PantryView.vue'
 import RecipeView from '@/views/RecipeView.vue'
 import PlanningView from '@/views/PlanningView.vue'
+import ShoppingView from '@/views/ShoppingView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -42,7 +43,13 @@ const router = createRouter({
       name: 'planning',
       component: PlanningView,
       meta: { requiresAuth: true }
-    }    
+    },
+    {
+      path: '/shopping',
+      name: 'shopping',
+      component: ShoppingView,
+      meta: { requiresAuth: true }
+    }      
   ]
 })
 
