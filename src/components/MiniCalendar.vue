@@ -55,11 +55,13 @@
                 'range-start': day.isRangeStart,
                 'range-end': day.isRangeEnd,
                 'current-month': day.isCurrentMonth,
-                'other-month': !day.isCurrentMonth
+                'other-month': !day.isCurrentMonth,
+                'has-meals': day.hasMeals
               }]"
               @click="emit('select-date', day.date)"
             >
               {{ day.day }}
+              <span v-if="day.hasMeals" class="meal-indicator"></span>
             </div>
           </div>
         </div>
@@ -76,7 +78,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, unref } from 'vue'
 
 const props = defineProps({
   currentWeek: {
@@ -84,6 +86,10 @@ const props = defineProps({
     required: true
   },
   selectedDates: {
+    type: Array,
+    default: () => []
+  },
+  datesWithMeals: {
     type: Array,
     default: () => []
   },
@@ -117,17 +123,21 @@ const miniCalendarMonthYear = computed(() => {
 const miniCalendarDays = computed(() => {
   const year = miniCalendarDate.value.getFullYear()
   const month = miniCalendarDate.value.getMonth()
-  
+
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
   const prevLastDay = new Date(year, month, 0)
-  
+
   const firstDayOfWeek = firstDay.getDay()
   const lastDateOfMonth = lastDay.getDate()
   const prevLastDate = prevLastDay.getDate()
-  
+
   const days = []
-  
+
+  // Make sure Vue tracks this
+  const mealDates = unref(props.datesWithMeals) || []
+  console.log('mealDates for', miniCalendarMonthYear.value, mealDates)
+
   // Previous month days
   for (let i = firstDayOfWeek - 1; i >= 0; i--) {
     const day = prevLastDate - i
@@ -142,10 +152,11 @@ const miniCalendarDays = computed(() => {
       isSelected: isSelectedDate(dateStr),
       isInRange: isInRangeDate(dateStr),
       isRangeStart: isRangeStartDate(dateStr),
-      isRangeEnd: isRangeEndDate(dateStr)
+      isRangeEnd: isRangeEndDate(dateStr),
+      hasMeals: mealDates.includes(dateStr)
     })
   }
-  
+
   // Current month days
   for (let day = 1; day <= lastDateOfMonth; day++) {
     const date = new Date(year, month, day)
@@ -159,10 +170,11 @@ const miniCalendarDays = computed(() => {
       isSelected: isSelectedDate(dateStr),
       isInRange: isInRangeDate(dateStr),
       isRangeStart: isRangeStartDate(dateStr),
-      isRangeEnd: isRangeEndDate(dateStr)
+      isRangeEnd: isRangeEndDate(dateStr),
+      hasMeals: mealDates.includes(dateStr)
     })
   }
-  
+
   // Next month days
   const remainingDays = 42 - days.length
   for (let day = 1; day <= remainingDays; day++) {
@@ -177,12 +189,14 @@ const miniCalendarDays = computed(() => {
       isSelected: isSelectedDate(dateStr),
       isInRange: isInRangeDate(dateStr),
       isRangeStart: isRangeStartDate(dateStr),
-      isRangeEnd: isRangeEndDate(dateStr)
+      isRangeEnd: isRangeEndDate(dateStr),
+      hasMeals: mealDates.includes(dateStr)
     })
   }
-  
+
   return days
 })
+
 
 function toggleMonthSelector() {
   showMonthSelector.value = !showMonthSelector.value
@@ -255,6 +269,10 @@ function isRangeEndDate(dateStr) {
     return dateStr === sorted[1]
   }
   return false
+}
+
+function hasMealsOnDate(dateStr) {
+  return props.datesWithMeals.includes(dateStr)
 }
 
 function goToToday() {
@@ -416,6 +434,22 @@ function goToToday() {
 .mini-calendar-day.other-month {
   color: #ccc;
 }
+/* Meal background for days with meals */
+.mini-calendar-day.has-meals {
+  background: rgba(255, 107, 26, 0.15);
+  color: #1a1a1a;
+}
+
+.mini-calendar-day.today.has-meals {
+  background: rgba(234, 88, 12, 0.1);
+  color: #ea580c;
+}
+
+.mini-calendar-day.selected.has-meals {
+  background: #ff6b1a; 
+  color: white;
+}
+
 
 .card-bottom {
   margin-top: 0.75rem;

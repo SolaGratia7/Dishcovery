@@ -16,8 +16,9 @@
               <MiniCalendar
                 :currentWeek="selectedDate"
                 :selectedDates="[selectedDateStr]"
+                :datesWithMeals="datesWithMeals"
                 mode="single"
-                highlight-selected="true"
+                :highlight-selected="true"
                 @select-date="onDateSelect"
               />
             </div>
@@ -101,11 +102,11 @@
         <div class="nutrition-card">
           <h5 class="mb-3">Log Meal</h5>
           <div class="alert-custom alert-warning">
-            <small><i class="fas fa-info-circle"></i> Only meals/foods recognized by Spoonacular can be logged. Start typing to see suggestions.</small>
+            <small>⚠️ Only meals/foods recognized by Spoonacular can be logged. Start typing to see suggestions.</small>
           </div>
           <form @submit.prevent="logMeal">
-            <div class="row g-2">
-              <div class="col-md-4 autocomplete-container">
+            <div class="row g-3">
+              <div class="col-12 col-md-5 autocomplete-container">
                 <input
                   type="text"
                   v-model="mealName"
@@ -126,7 +127,7 @@
                   </div>
                 </div>
               </div>
-              <div class="col-md-2">
+              <div class="col-6 col-md-3">
                 <input
                   type="number"
                   v-model.number="mealServings"
@@ -137,10 +138,13 @@
                   required
                 >
               </div>
-              <div class="col-md-2">
-                <button type="submit" class="btn btn-primary w-100" :disabled="isLogging">
+              <div class="col-6 col-md-4">
+                <button type="submit" class="btn btn-primary w-100 log-meal-btn" :disabled="isLogging">
                   <span v-if="!isLogging">Log Meal</span>
-                  <span v-else class="loading-spinner"></span>
+                  <span v-else>
+                    <span class="loading-spinner"></span>   
+                    Logging...
+                  </span>
                 </button>
               </div>
             </div>
@@ -151,7 +155,7 @@
         <div class="nutrition-card">
           <h5 class="mb-3">{{ selectedDateStr === todayStr ? "Today's" : selectedDateStr + "'s" }} Meals</h5>
           <div v-if="currentMeals.length === 0" class="empty-state">
-            <i class="fas fa-utensils"></i>
+            <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">🍽️</div>
             <p>No meals logged yet. Log a meal above!</p>
           </div>
           <div v-else>
@@ -161,15 +165,24 @@
               class="meal-item"
             >
               <div class="d-flex justify-content-between align-items-center">
-                <div>
+                <div class="meal-details">
                   <strong>{{ meal.name }}</strong>
                   <div class="small text-muted">
                     {{ Math.round(meal.calories) }} cal | {{ meal.protein.toFixed(1) }}g protein | {{ meal.carbs.toFixed(1) }}g carbs | {{ meal.fat.toFixed(1) }}g fat
                   </div>
                   <div class="small text-muted">Servings: {{ meal.servings }}</div>
                 </div>
-                <button class="btn btn-sm btn-outline-danger" @click="removeMeal(meal.id)">
-                  <i class="fas fa-trash"></i>
+                <button
+                  class="btn btn-outline-danger btn-sm delete-btn"
+                  @click="removeMeal(meal.id)"
+                  title="Delete meal"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                  </svg>
                 </button>
               </div>
             </div>
@@ -184,6 +197,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import Chart from 'chart.js/auto'
 import MiniCalendar from './MiniCalendar.vue'
+
 
 // Constants
 const USE_LOCAL_DATABASE = true
@@ -249,6 +263,14 @@ let progressChart = null
 // Computed properties
 const currentMeals = computed(() => {
   return loggedMeals.value.filter(meal => meal.date === selectedDateStr.value)
+})
+
+const datesWithMeals = computed(() => {
+  const dates = new Set()
+  loggedMeals.value.forEach(meal => {
+    dates.add(meal.date)
+  })
+  return Array.from(dates)
 })
 
 const totals = computed(() => {
@@ -601,22 +623,29 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-  border: none;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
+  border: none !important;
   font-weight: 500;
   transition: all 0.2s ease;
+  color: white !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: inline-block !important;
 }
 
-.btn-primary:hover {
-  background: linear-gradient(135deg, #5568d3 0%, #653a91 100%);
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5568d3 0%, #653a91 100%) !important;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  color: white !important;
 }
 
 .btn-primary:disabled {
-  background: #ccc;
+  background: #ccc !important;
   transform: none;
   box-shadow: none;
+  opacity: 0.7 !important;
+  color: white !important;
 }
 
 .empty-state {
@@ -645,6 +674,40 @@ onMounted(() => {
   transform: translateX(4px);
   box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
+
+.meal-details {
+  flex: 1;
+}
+
+.delete-btn {
+  min-width: 40px;
+  height: 40px;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-color: #dc3545;
+  color: #dc3545;
+  background: white;
+}
+
+.delete-btn:hover {
+  background: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}
+
+.delete-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.log-meal-btn {
+  min-height: 38px;
+  padding: 0.5rem 1rem;
+}
+
 
 .autocomplete-container {
   position: relative;
@@ -682,12 +745,13 @@ onMounted(() => {
 
 .loading-spinner {
   display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(102, 126, 234, 0.3);
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
-  border-top-color: var(--primary-color);
+  border-top-color: white;
   animation: spin 0.8s linear infinite;
+  margin-right: 0.5rem;
 }
 
 @keyframes spin {
@@ -800,8 +864,19 @@ onMounted(() => {
     flex-direction: column;
   }
 
+  .calendar-sidebar {
+    width: 100%;
+  }
+
   .calendar-dropdown {
     margin-top: 0.5rem;
   }
 }
+
+.hasMeal {
+  border: 2px solid #48bb78; /* green highlight for logged meals */
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(72, 187, 120, 0.5);
+}
+
 </style>
