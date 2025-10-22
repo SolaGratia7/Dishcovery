@@ -99,7 +99,7 @@
         </div>
 
         <!-- Log Meal Form -->
-        <div class="nutrition-card fade-in">
+        <div class="nutrition-card">
           <h5 class="mb-3">Log Meal</h5>
           <div class="alert-custom alert-warning">
             <small>⚠️ Only meals/foods recognized by Spoonacular can be logged. Start typing to see suggestions.</small>
@@ -152,7 +152,7 @@
         </div>
 
         <!-- Today's Meals -->
-        <div class="nutrition-card fade-in">
+        <div class="nutrition-card">
           <h5 class="mb-3">{{ selectedDateStr === todayStr ? "Today's" : selectedDateStr + "'s" }} Meals</h5>
           <div v-if="currentMeals.length === 0" class="empty-state">
             <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">🍽️</div>
