@@ -33,7 +33,7 @@
         <!-- Nutrition Progress Circles -->
         <div class="row mb-4">
           <div class="col-md-3">
-            <div class="nutrition-card">
+            <div class="nutrition-card fade-in">
               <div class="progress-circle pc-calories">
                 <span id="cal-display">{{ calPct }}%</span>
               </div>
@@ -44,7 +44,7 @@
             </div>
           </div>
           <div class="col-md-3">
-            <div class="nutrition-card">
+            <div class="nutrition-card fade-in">
               <div class="progress-circle pc-protein">
                 <span>{{ protPct }}%</span>
               </div>
@@ -55,7 +55,7 @@
             </div>
           </div>
           <div class="col-md-3">
-            <div class="nutrition-card">
+            <div class="nutrition-card fade-in">
               <div class="progress-circle pc-carbs">
                 <span>{{ carbPct }}%</span>
               </div>
@@ -66,7 +66,7 @@
             </div>
           </div>
           <div class="col-md-3">
-            <div class="nutrition-card">
+            <div class="nutrition-card fade-in">
               <div class="progress-circle pc-fat">
                 <span>{{ fatPct }}%</span>
               </div>
@@ -81,7 +81,7 @@
         <!-- Charts -->
         <div class="row mb-4">
           <div class="col-lg-6">
-            <div class="nutrition-card">
+            <div class="nutrition-card fade-in">
               <h5 class="mb-3">Macro Breakdown</h5>
               <div class="chart-container">
                 <canvas ref="macroChartCanvas"></canvas>
@@ -89,7 +89,7 @@
             </div>
           </div>
           <div class="col-lg-6">
-            <div class="nutrition-card">
+            <div class="nutrition-card fade-in">
               <h5 class="mb-3">Daily Progress</h5>
               <div class="chart-container">
                 <canvas ref="progressChartCanvas"></canvas>
@@ -99,7 +99,7 @@
         </div>
 
         <!-- Log Meal Form -->
-        <div class="nutrition-card">
+        <div class="nutrition-card fade-in">
           <h5 class="mb-3">Log Meal</h5>
           <div class="alert-custom alert-warning">
             <small>⚠️ Only meals/foods recognized by Spoonacular can be logged. Start typing to see suggestions.</small>
@@ -152,7 +152,7 @@
         </div>
 
         <!-- Today's Meals -->
-        <div class="nutrition-card">
+        <div class="nutrition-card fade-in">
           <h5 class="mb-3">{{ selectedDateStr === todayStr ? "Today's" : selectedDateStr + "'s" }} Meals</h5>
           <div v-if="currentMeals.length === 0" class="empty-state">
             <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">🍽️</div>
@@ -520,6 +520,25 @@ function updateCharts() {
   }
 }
 
+function setupScrollAnimations() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible')
+        observer.unobserve(entry.target)
+      }
+    })
+  }, { threshold: 0.1 })
+
+  nextTick(() => {
+    document.querySelectorAll('.fade-in').forEach((el, i) => {
+      el.style.setProperty('--delay', `${i * 0.105}s`) 
+      observer.observe(el)
+    })
+  })
+}
+
+
 // Watchers
 watch(selectedDate, updateCharts)
 
@@ -527,6 +546,7 @@ watch(selectedDate, updateCharts)
 onMounted(() => {
   loadMeals()
   initCharts()
+  setupScrollAnimations()
 })
 </script>
 
@@ -877,6 +897,18 @@ onMounted(() => {
   border: 2px solid #48bb78; /* green highlight for logged meals */
   border-radius: 50%;
   box-shadow: 0 0 8px rgba(72, 187, 120, 0.5);
+}
+.fade-in {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  transition-delay: var(--delay, 0s);
+}
+
+
+.fade-in.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 </style>
