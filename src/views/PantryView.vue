@@ -35,7 +35,7 @@
 
             <select v-model="filters.category" class="category-filter">
               <option value="">All Categories</option>
-              <option v-for="cat in categories" :key="cat" :value="cat">
+              <option v-for="cat in allCategories" :key="cat" :value="cat">
                 {{ cat }}
               </option>
             </select>
@@ -50,8 +50,7 @@
           </div>
         </div>
 
-
-                <!-- Stats Cards -->
+        <!-- Stats Cards -->
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-header">
@@ -86,8 +85,6 @@
           </div>
         </div>
 
-
-
         <!-- Table or Empty -->
         <div v-if="filteredItems.length === 0" class="empty-state">
           <i class="bi bi-basket"></i>
@@ -121,15 +118,25 @@
                 <td>{{ formatDate(item.expiration) }}</td>
                 <td>{{ getDaysUntil(item.expiration) }}</td>
                 <td>
-                  <span :class="['freshness-badge', getFreshnessClass(item.expiration)]">
+                  <span
+                    :class="['freshness-badge', getFreshnessClass(item.expiration)]"
+                  >
                     {{ getFreshnessLabel(item.expiration) }}
                   </span>
                 </td>
                 <td class="actions-col">
-                  <button @click="startEdit(item)" class="btn-edit-table" title="Edit">
+                  <button
+                    @click="startEdit(item)"
+                    class="btn-edit-table"
+                    title="Edit"
+                  >
                     <i class="bi bi-pencil"></i>
                   </button>
-                  <button @click="deleteItem(item.id)" class="btn-delete-table" title="Delete">
+                  <button
+                    @click="deleteItem(item.id)"
+                    class="btn-delete-table"
+                    title="Delete"
+                  >
                     <i class="bi bi-trash"></i>
                   </button>
                 </td>
@@ -145,7 +152,13 @@
           <div class="modal-header">
             <div>
               <h3>{{ editingItem ? 'Edit Item' : 'Add New Item' }}</h3>
-              <p>{{ editingItem ? 'Update item in your pantry inventory' : 'Add a new item to your pantry inventory' }}</p>
+              <p>
+                {{
+                  editingItem
+                    ? 'Update item in your pantry inventory'
+                    : 'Add a new item to your pantry inventory'
+                }}
+              </p>
             </div>
             <button @click="closeModal" class="btn-close-modal">
               <i class="bi bi-x-lg"></i>
@@ -158,7 +171,8 @@
               <input
                 type="text"
                 v-model="form.name"
-                placeholder="e.g., Whole Wheat Flour"
+                @blur="standardizeName"
+                placeholder="e.g., Wheat, Flour"
                 required
                 class="form-input"
               />
@@ -167,14 +181,26 @@
             <div class="form-row">
               <div class="form-group">
                 <label>Category</label>
-                <select v-model="form.category" required class="form-input">
-                  <option value="">Select category</option>
-                  <option v-for="cat in categories" :key="cat" :value="cat">
-                    {{ cat }}
-                  </option>
-                </select>
+                <div class="category-autocomplete">
+                  <input
+                    type="text"
+                    v-model="form.category"
+                    @input="onCategoryInput"
+                    @keydown.tab.prevent="applyCategorySuggestion"
+                    list="category-suggestions"
+                    placeholder="e.g., Dairy, Produce"
+                    class="form-input"
+                    required
+                  />
+                  <datalist id="category-suggestions">
+                    <option
+                      v-for="cat in filteredCategories"
+                      :key="cat"
+                      :value="cat"
+                    />
+                  </datalist>
+                </div>
               </div>
-
               <div class="form-group">
                 <label>Quantity</label>
                 <div class="quantity-row">
@@ -200,11 +226,19 @@
 
             <div class="form-group">
               <label>Expiration Date</label>
-              <input type="date" v-model="form.expiration" required class="form-input" />
+              <input
+                type="date"
+                v-model="form.expiration"
+                required
+                class="form-input"
+              />
             </div>
 
             <button type="submit" :disabled="loading" class="btn-submit">
-              <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
+              <span
+                v-if="loading"
+                class="spinner-border spinner-border-sm me-2"
+              ></span>
               {{ editingItem ? 'Update Item' : 'Add to Pantry' }}
             </button>
           </form>
@@ -215,11 +249,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
+import { watch, ref, onMounted, computed, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout.vue'
 import AnimatedBackground from '@/components/AnimatedBackground.vue'
+import { normalizeIngredientName } from '@/utils/IngredientsNormalisation.js'
+import { IngredientCategorizer } from '@/utils/IngredientsCategorizer.js'
 
 const router = useRouter()
 const loading = ref(false)
@@ -229,24 +265,9 @@ const editingItem = ref(null)
 const showAddModal = ref(false)
 const searchQuery = ref('')
 const sortByExpiration = ref(false)
+const filters = ref({ category: '' })
 
-// Category list
-const categories = [
-  'Vegetables',
-  'Dairy',
-  'Carbohydrates',
-  'Protein',
-  'Fruits',
-  'Snacks',
-  'Condiments',
-  'Beverages',
-  'Frozen Foods',
-  'Canned Goods',
-  'Grains',
-  'Oils'
-]
-
-// Form fields
+// ✅ Category auto-complete logic (fixed)
 const form = ref({
   name: '',
   category: '',
@@ -255,10 +276,72 @@ const form = ref({
   expiration: ''
 })
 
-// Filter state
-const filters = ref({
-  category: ''
+// Get all available categories from categorizer
+const allCategories = ref(
+  IngredientCategorizer.getCategories
+    ? IngredientCategorizer.getCategories()
+    : [
+        'Dairy', 'Produce', 'Pantry Staples', 'Grains & Bread',
+        'Protein', 'Condiments', 'Spices & Herbs', 'Other'
+      ]
+)
+
+// Dynamic filtered categories for datalist
+const filteredCategories = computed(() => {
+  const input = form.value.category?.toLowerCase() || ''
+  if (!input) return allCategories.value
+  return allCategories.value.filter(c => c.toLowerCase().includes(input))
 })
+
+// Watch for name changes → auto-fill category once
+let userChangedCategory = false
+
+watch(() => form.value.category, () => {
+  userChangedCategory = true
+})
+
+// --- Auto categorize with normalization ---
+watch(() => form.value.name, (newName) => {
+  // 🧹 Normalize input
+  const normalizedName = normalizeIngredientName(newName)
+
+  // Reset auto-categorization if user cleared or changed significantly
+  if (!newName?.trim()) {
+    form.value.category = ''
+    userChangedCategory = false
+    return
+  }
+
+  const detected = IngredientCategorizer.categorizeIngredient(normalizedName)
+  if (detected && detected !== 'Other') {
+    form.value.category = detected
+  }  
+})
+
+// When user edits the category manually
+function onCategoryInput() {
+  // Once the user edits the category, stop auto-overwriting
+  userChangedCategory = true
+}
+
+// If user clears the category box manually, re-enable auto mode
+watch(() => form.value.category, (newCat) => {
+  if (!newCat?.trim()) userChangedCategory = false
+})
+
+function standardizeName() {
+  const raw = form.value.name
+  if (!raw?.trim()) return
+  const trimmed = raw.trim()
+  form.value.name = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase()
+}
+
+function applyCategorySuggestion() {
+  const match = allCategories.value.find(c =>
+    c.toLowerCase().startsWith(form.value.category.toLowerCase())
+  )
+  if (match) form.value.category = match
+}
 
 // --------------------
 // Helper Functions

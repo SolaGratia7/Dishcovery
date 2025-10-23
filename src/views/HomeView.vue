@@ -2,13 +2,13 @@
   <AppLayout>
     <AnimatedBackground />
     
-    <div class="home-view">
+    <div class="home-view" :class="{ 'content-visible': showContent }">
       <!-- Hero Section -->
       <section class="hero-section">
         <div class="hero-content">
           <div class="animate-fade-in">
             <div class="mx-auto mb-3">
-              <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#ff6b1a" stroke-width="2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#6b46c1" stroke-width="2">
                 <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
                 <line x1="6" y1="17" x2="18" y2="17"/>
               </svg>
@@ -25,9 +25,9 @@
 
       <!-- Main Content Grid -->
       <div class="container">
-        <div class="content-grid" :class="{ 'content-visible': showContent }">
+        <div class="content-grid stagger-item" style="--stagger: 0">
           <!-- Left Column: Pantry Carousel -->
-          <div class="pantry-carousel-wrapper stagger-item" style="--stagger: 0">
+          <div class="pantry-carousel-wrapper stagger-item">
             <!-- Loading State -->
             <div v-if="loadingPopularRecipes" 
                 id="pantryCarousel" 
@@ -153,7 +153,7 @@
         </div>
 
         <!-- Saved Recipes Section -->
-        <section class="saved-recipes-section stagger-item" style="--stagger: 3">
+        <section class="saved-recipes-section stagger-item" style="--stagger: 1">
           <div class="section-header sticky-header">
             <div>
               <h2><i class="bi bi-bookmark-heart me-2"></i>Your Saved Recipes</h2>
@@ -250,6 +250,7 @@
                   :time="recipe.readyInMinutes"
                   :servings="recipe.servings"
                   @click="openModal"
+                  @removed="handleRecipeRemoved"
                 />                
               </div>
               <RecipeModal 
@@ -346,6 +347,9 @@ const openModal = (recipe) => {
   selectedRecipe.value = recipe
 }
 
+function handleRecipeRemoved(id) {
+  savedRecipes.value = savedRecipes.value.filter(r => r.id !== id)
+}
 
 // Mouse handler functions for horizontal scrolling
 const handleMouseDown = (e) => {
@@ -622,11 +626,11 @@ onMounted(async () => {
 
     // Fetch popular recipes for carousel FIRST
     await fetchPopularRecipes()
+    await fetchSavedRecipes()
     
     // Fetch all other data in parallel
     await Promise.all([
       fetchPantryItems(),
-      fetchSavedRecipes(),
       fetchExpiringItems()
     ])
     
@@ -645,6 +649,7 @@ onMounted(async () => {
 .home-view {
   min-height: 100vh;
   padding-bottom: 4rem;
+  transition: opacity 0.6s ease, transform 0.6s ease;
 }
 
 /* Hero Section */
@@ -714,11 +719,9 @@ onMounted(async () => {
 .hero-title {
   font-size: clamp(2rem, 5vw, 3.5rem);
   font-weight: bold;
-  color: #ff6b1a;
+  color: #6b46c1;
   margin-bottom: 1rem;
-  -webkit-text-stroke: 1px rgba(255, 107, 26, 0.3);
   letter-spacing: 0.5px;
-  animation: titleGlow 3s ease-in-out infinite;
 }
 
 @keyframes titleGlow {
@@ -770,14 +773,18 @@ onMounted(async () => {
 .stagger-item {
   opacity: 0;
   transform: translateY(30px);
-  animation: slideUp 0.8s ease forwards;
 }
 
 .content-visible .stagger-item {
-  animation-delay: calc(var(--stagger) * 0.15s);
+  animation: slideUp 0.9s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+  animation-delay: calc(var(--stagger) * 0.2s);
 }
 
 @keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
   to {
     opacity: 1;
     transform: translateY(0);
@@ -991,6 +998,14 @@ onMounted(async () => {
   max-width: 1400px;
   margin: 0 auto;
   padding: 0 1rem 2rem;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;  
+}
+
+.saved-recipes-section.content-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .section-header {
@@ -1001,9 +1016,9 @@ onMounted(async () => {
 }
 
 .section-header h2 {
-  font-size: 2rem;
+  font-size: 1.9rem;
   margin: 0;
-  color: #1a1a1a;
+  color: #6b46c1;
   font-weight: 700;
 }
 

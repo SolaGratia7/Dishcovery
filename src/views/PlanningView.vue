@@ -36,7 +36,7 @@
               </button>
            </div>     
           </div>     
-      </div>
+      
 
         <!-- AUTO GENERATE MODE -->
         <div v-if="planningMode === 'auto'" class="auto-generate-card mb-4">          
@@ -288,12 +288,11 @@
                 </tbody>
               </table>
             </div>
-            
-            <div class="mt-4">
-              <ShoppingGen :current-week="currentWeek" />
-            </div>
           </div>
         </div>
+        <div class="mt-4">
+          <ShoppingGen :current-week="currentWeek" />
+        </div>        
       </div>
 
       <!-- Plan Meal Modal -->
@@ -310,6 +309,7 @@
         :recipe="selectedRecipeForView" 
         @close="closeRecipeModal" 
       />         
+      </div>
     </div>
   </AppLayout>
 </template>
@@ -703,6 +703,11 @@ async function generateAutoMealPlan(targetCalories) {
     
     if (success) {
       hasGeneratedPlan.value = true // Set to true after successful generation
+      // Automatically switch to manual mode
+      planningMode.value = 'manual'
+
+      // Move the currentWeek to the same week that was auto generated
+      currentWeek.value = new Date(autoGenWeek.value)      
       displayToast('Meal plan generated successfully!')
     }
     
@@ -1151,7 +1156,7 @@ function closeRecipeModal() {
 
 /* Planner Card */
 .planner-card {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(10px);
   border-radius: 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -1454,8 +1459,6 @@ function closeRecipeModal() {
 
 .result-card {
   display: flex;
-  gap: 1rem;
-  padding: 1rem;
   border: 2px solid #f0f0f0;
   border-radius: 12px;
   cursor: pointer;

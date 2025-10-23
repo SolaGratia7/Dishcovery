@@ -2,44 +2,34 @@
   <AppLayout>
     <AnimatedBackground />
     
-    <div class="shopping-page">
-      <!-- Header -->
-      <div class="shopping-header">
-        <div class="container">
-          <div class="header-content">
-            <div class="shopping-text">
-              <h1>
-                <i class="bi bi-cart3"></i>
-                Shopping List
-              </h1>
-              <p>{{ toBuyCount }} to buy • {{ purchasedCount }} purchased • {{ totalCount }} total</p>
+    <div class="shopping-page container py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <!-- Header -->
+            <div class="shopping-header">
+                <div class="container">
+                <div class="header-content">
+                    <div class="shopping-text">
+                    <h1>
+                        Shopping List
+                    </h1>
+                    </div>
+                </div>
+                </div>
             </div>
-          </div>
-        </div>
-      </div>
+
+            <!-- Sorting Dropdown -->
+            <div class="sort-dropdown d-flex align-items-center gap-2">
+            <label class="fw-semibold me-1 sort-label">Sort by:</label>
+            <div class="custom-select-wrapper">
+                <select v-model="sortMode" class="form-select custom-select">
+                <option value="category">Category</option>
+                <option value="alphabet">A–Z</option>
+                </select>
+            </div>
+            </div>  
+        </div>   
 
       <div class="container my-4">
-        <!-- Filter Tabs -->
-        <div class="filter-tabs mb-4">
-          <button 
-            :class="['filter-btn', { 'active': filterView === 'all' }]"
-            @click="filterView = 'all'"
-          >
-            All
-          </button>
-          <button 
-            :class="['filter-btn', { 'active': filterView === 'toBuy' }]"
-            @click="filterView = 'toBuy'"
-          >
-            To Buy
-          </button>
-          <button 
-            :class="['filter-btn', { 'active': filterView === 'purchased' }]"
-            @click="filterView = 'purchased'"
-          >
-            Purchased
-          </button>
-        </div>
 
         <!-- Add Item Card -->
         <div class="add-item-card mb-4">
@@ -169,93 +159,111 @@ import AnimatedBackground from '@/components/AnimatedBackground.vue'
 const router = useRouter()
 const currentUser = ref(null)
 
-// State
+// ---------- STATE ----------
 const loading = ref(true)
-const filterView = ref('all') // 'all', 'toBuy', 'purchased'
 const newItemName = ref('')
 const newItemQuantity = ref('')
 const newItemUnit = ref('piece')
 const newItemCategory = ref('Others')
-const expandedCategories = ref(['Dairy', 'Meat', 'Vegetable', 'Fruits', 'Produce', 'Others'])
 const shoppingItems = ref([])
+const expandedCategories = ref({})
+const sortMode = ref('category') // add sorting mode
 
-// Toast
+// ---------- TOAST ----------
 const showToast = ref(false)
 const toastMessage = ref('')
 
-// Computed
-const toBuyCount = computed(() => {
-  return shoppingItems.value.filter(item => !item.purchased).length
-})
-
-const purchasedCount = computed(() => {
-  return shoppingItems.value.filter(item => item.purchased).length
-})
-
-const totalCount = computed(() => {
-  return shoppingItems.value.length
-})
-
-const filteredItems = computed(() => {
-  if (filterView.value === 'toBuy') {
-    return shoppingItems.value.filter(item => !item.purchased)
-  } else if (filterView.value === 'purchased') {
-    return shoppingItems.value.filter(item => item.purchased)
-  }
-  return shoppingItems.value
-})
-
-const filteredCategories = computed(() => {
-  const categories = {}
-  
-  filteredItems.value.forEach(item => {
-    if (!categories[item.category]) {
-      categories[item.category] = {
-        name: item.category,
-        items: []
-      }
-    }
-    categories[item.category].items.push(item)
-  })
-  
-  return Object.values(categories).sort((a, b) => a.name.localeCompare(b.name))
-})
-
-// Methods
 function displayToast(message) {
   toastMessage.value = message
   showToast.value = true
-  setTimeout(() => {
-    showToast.value = false
-  }, 3000)
+  setTimeout(() => (showToast.value = false), 3000)
 }
 
+// ---------- FETCH SHOPPING ITEMS ----------
 async function fetchShoppingItems() {
   try {
-    loading.value = true
+    if (!currentUser.value) return router.push('/login')
+
     const { data, error } = await supabase
       .from('shopping_items')
       .select('*')
       .eq('user_id', currentUser.value.id)
-      .order('created_at', { ascending: false })
 
     if (error) throw error
 
     shoppingItems.value = data || []
+
+    // Initialize all categories collapsed
+    const uniqueCategories = [...new Set(shoppingItems.value.map(i => i.category || 'Other'))]
+    expandedCategories.value = Object.fromEntries(uniqueCategories.map(c => [c, false]))
   } catch (error) {
     console.error('Error fetching shopping items:', error)
-    displayToast('Failed to load shopping list')
   } finally {
     loading.value = false
   }
 }
 
+// ---------- GROUPED + SORTED DATA ----------
+const groupedByCategory = computed(() => {
+  const grouped = {}
+  shoppingItems.value.forEach(i => {
+    const cat = i.category || 'Other'
+    if (!grouped[cat]) grouped[cat] = []
+    grouped[cat].push(i)
+  })
+  return grouped
+})
+
+// Sort categories alphabetically, “Other” last
+const sortedCategories = computed(() => {
+  const entries = Object.entries(groupedByCategory.value)
+  entries.sort((a, b) => {
+    if (a[0] === 'Other') return 1
+    if (b[0] === 'Other') return -1
+    return a[0].localeCompare(b[0])
+  })
+  return Object.fromEntries(entries)
+})
+
+// Sort items alphabetically *within each category*
+const sortedItemsByCategory = computed(() => {
+  const sorted = {}
+  Object.entries(sortedCategories.value).forEach(([cat, items]) => {
+    sorted[cat] = [...items].sort((a, b) => a.name.localeCompare(b.name))
+  })
+  return sorted
+})
+
+// Final computed array used in template
+const filteredCategories = computed(() => {
+  if (sortMode.value === 'alphabet') {
+    // Flatten and sort all items alphabetically
+    const allItems = shoppingItems.value.slice().sort((a, b) => a.name.localeCompare(b.name))
+    return [{ name: 'All Items (A–Z)', items: allItems }]
+  }
+
+  // Default: grouped by category
+  return Object.entries(sortedItemsByCategory.value).map(([name, items]) => ({
+    name,
+    items,
+  }))
+})
+
+// ---------- CATEGORY TOGGLE ----------
+function toggleCategory(category) {
+  expandedCategories.value[category] = !expandedCategories.value[category]
+}
+function isCategoryExpanded(category) {
+  return !!expandedCategories.value[category]
+}
+
+// ---------- ITEM ACTIONS ----------
 async function addItem() {
   if (!newItemName.value.trim()) {
     displayToast('Please enter an item name')
     return
   }
-  
+
   try {
     const newItem = {
       user_id: currentUser.value.id,
@@ -265,7 +273,7 @@ async function addItem() {
       category: newItemCategory.value,
       purchased: false
     }
-    
+
     const { data, error } = await supabase
       .from('shopping_items')
       .insert([newItem])
@@ -273,15 +281,18 @@ async function addItem() {
 
     if (error) throw error
 
-    // Add to local state
-    shoppingItems.value.unshift(data[0])
-    
-    // Reset form
+    const added = data[0]
+    shoppingItems.value.unshift(added)
+
+    // ensure category state exists
+    if (!(added.category in expandedCategories.value)) {
+      expandedCategories.value[added.category] = true
+    }
+
     newItemName.value = ''
     newItemQuantity.value = ''
     newItemUnit.value = 'piece'
     newItemCategory.value = 'Others'
-    
     displayToast('Item added successfully')
   } catch (error) {
     console.error('Error adding item:', error)
@@ -295,7 +306,6 @@ async function togglePurchased(itemId) {
     if (!item) return
 
     const newPurchasedState = !item.purchased
-
     const { error } = await supabase
       .from('shopping_items')
       .update({ purchased: newPurchasedState })
@@ -303,7 +313,6 @@ async function togglePurchased(itemId) {
 
     if (error) throw error
 
-    // Update local state
     item.purchased = newPurchasedState
   } catch (error) {
     console.error('Error toggling purchased:', error)
@@ -313,18 +322,13 @@ async function togglePurchased(itemId) {
 
 async function deleteItem(itemId) {
   if (!confirm('Are you sure you want to delete this item?')) return
-
   try {
     const { error } = await supabase
       .from('shopping_items')
       .delete()
       .eq('id', itemId)
-
     if (error) throw error
-
-    // Remove from local state
     shoppingItems.value = shoppingItems.value.filter(i => i.id !== itemId)
-    
     displayToast('Item deleted successfully')
   } catch (error) {
     console.error('Error deleting item:', error)
@@ -332,30 +336,19 @@ async function deleteItem(itemId) {
   }
 }
 
-function toggleCategory(categoryName) {
-  const index = expandedCategories.value.indexOf(categoryName)
-  if (index > -1) {
-    expandedCategories.value.splice(index, 1)
-  } else {
-    expandedCategories.value.push(categoryName)
-  }
-}
-
-function isCategoryExpanded(categoryName) {
-  return expandedCategories.value.includes(categoryName)
-}
-
-// Initialize
+// ---------- INIT ----------
 onMounted(async () => {
   try {
     currentUser.value = await getCurrentUser()
+    if (!currentUser.value) return router.push('/login')
     await fetchShoppingItems()
-  } catch (error) {
-    console.error('Error initializing:', error)
+  } catch (err) {
+    console.error('Error initializing:', err)
     router.push('/login')
   }
 })
 </script>
+
 
 <style scoped>
 .shopping-page {
@@ -375,19 +368,40 @@ onMounted(async () => {
 }
 
 .shopping-text h1 {
-  color: #d97706;
+  color: #6b46c1;
   font-size: 2rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
 }
 
 .shopping-text p {
   color: #d97706;
   margin: 0;
   font-size: 0.95rem;
+}
+
+/* Sort Dropdown Styling */
+.sort-dropdown {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(8px);
+  width: fit-content;
+}
+
+.sort-label {
+  color: #1a1a1a;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.custom-select-wrapper {
+  position: relative;
+}
+
+.custom-select {
+    width: 140px;
 }
 
 /* Filter Tabs */

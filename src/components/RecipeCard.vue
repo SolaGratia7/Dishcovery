@@ -6,6 +6,11 @@
         :alt="title"
         class="recipe-image"
       />
+      <!-- Remove favourite button -->
+      <button class="favorite-btn" @click.stop="removeFavourite(recipe.id)">
+        <i class="bi bi-x-circle-fill"></i> <!-- ❌ Cross sign icon -->
+      </button>
+
       <div class="image-overlay" />
     </div>
     
@@ -28,34 +33,70 @@
 </template>
 
 <script setup>
+import { supabase, getCurrentUser } from '@/lib/supabase'
+import { ref, onMounted } from 'vue'
+
 const props = defineProps({
-  image: {
-    type: String,
-    required: true
-  },
-  title: {
-    type: String,
-    required: true
-  },
-  time: {
-    type: Number,
-    required: true
-  },
-  servings: {
-    type: Number,
-    required: true
-  },
-  recipe: {
-    type: Object,
-    required: true
-  }
+  image: String,
+  title: String,
+  time: Number,
+  servings: Number,
+  recipe: Object
 })
 
-const emit = defineEmits(['click'])
+const emit = defineEmits(['click', 'removed'])
+
+const currentUser = ref(null)
+const savedRecipeIds = ref(new Set())
+
+onMounted(async () => {
+  currentUser.value = await getCurrentUser()
+})
 
 const handleClick = () => {
-  // Emit the full recipe object so parent can use it for the modal
+  // Emit the full recipe object so parent can open RecipeModal
   emit('click', props.recipe)
+}
+
+const removeFavourite = async (id) => {
+  try {
+    // Ensure user is logged in
+    if (!currentUser.value) {
+      alert('Please log in first.')
+      return
+    }
+
+    // Check if recipe exists in Supabase favourites
+    const { data: existing, error: fetchError } = await supabase
+      .from('saved_recipes')
+      .select('id')
+      .eq('user_id', currentUser.value.id)
+      .eq('id', id)
+      .maybeSingle()
+
+    if (fetchError) throw fetchError
+
+    // If exists, delete it
+    if (existing) {
+      const { error: deleteError } = await supabase
+        .from('saved_recipes')
+        .delete()
+        .eq('user_id', currentUser.value.id)
+        .eq('id', id)
+
+      if (deleteError) throw deleteError
+
+      // Update UI (remove from local favourite set)
+      savedRecipeIds.value.delete(id)
+      emit('removed', id) // Inform parent to refresh list if needed
+      console.log(`Recipe ${id} removed from favourites.`)
+    } else {
+      console.warn(`Recipe ${id} not found in favourites.`)
+    }
+  } catch (error) {
+    console.error('Error removing favourite:', error)
+    alert('Failed to remove from favourites. Please try again.')
+  }
 }
 </script>
 
@@ -103,6 +144,24 @@ const handleClick = () => {
   position: absolute;
   inset: 0;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, transparent 50%, transparent 100%);
+}
+
+.favorite-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;        /* remove background */
+  border: none;            /* no border */
+  color: white;            /* white cross for visibility on dark overlay */
+  font-size: 1.5rem;       /* slightly larger cross */
+  cursor: pointer;
+  z-index: 10;
+  transition: transform 0.2s ease;
+}
+
+.favorite-btn:hover {
+  color: #ff4d4d;          /* soft red when hovered */
+  transform: scale(1.1);   /* subtle enlarge on hover */
 }
 
 .recipe-content {
