@@ -13,16 +13,16 @@
 
       <div class="image-overlay" />
     </div>
-    
+
     <div class="recipe-content">
       <h3 class="recipe-title">{{ title }}</h3>
-      
+
       <div class="recipe-meta">
         <div class="meta-item">
           <i class="bi bi-clock"></i>
           <span>{{ time }} min</span>
         </div>
-        
+
         <div class="meta-item">
           <i class="bi bi-people"></i>
           <span>{{ servings }} servings</span>
@@ -32,7 +32,7 @@
   </div>
 </template>
 
-<script setup>
+<!-- <script setup>
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import { ref, onMounted } from 'vue'
 
@@ -98,7 +98,85 @@ const removeFavourite = async (id) => {
     alert('Failed to remove from favourites. Please try again.')
   }
 }
+</script> -->
+<script setup>
+import { supabase, getCurrentUser } from '@/lib/supabase'
+import { ref, onMounted } from 'vue'
+import Swal from 'sweetalert2'
+
+const props = defineProps({
+  image: String,
+  title: String,
+  time: Number,
+  servings: Number,
+  recipe: Object
+})
+
+
+const emit = defineEmits(['click', 'removed'])
+
+const currentUser = ref(null)
+
+onMounted(async () => {
+  currentUser.value = await getCurrentUser()
+})
+
+const handleClick = () => {
+  emit('click', props.recipe)
+}
+
+const removeFavourite = async (id) => {
+  if (!currentUser.value) {
+    alert('Please log in first.')
+    return
+  }
+
+  // Show SweetAlert2 confirmation
+  const result = await Swal.fire({
+    title: 'Are you sure?',
+    text: 'This recipe will be removed from your favorites.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, remove it!',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#ff6b1a',
+    cancelButtonColor: '#6b46c1'
+  })
+
+  if (!result.isConfirmed) return
+
+  try {
+    // Delete from Supabase
+    const { error } = await supabase
+      .from('saved_recipes')
+      .delete()
+      .eq('user_id', currentUser.value.id)
+      .eq('id', id)
+
+    if (error) throw error
+
+    // Emit event to parent to remove from savedRecipes list
+    emit('removed', id)
+
+    Swal.fire({
+      title: 'Removed!',
+      text: 'Recipe removed from your favorites.',
+      icon: 'success',
+      confirmButtonColor: '#6b46c1'
+    })
+
+  } catch (error) {
+    console.error('Error removing favourite:', error)
+    Swal.fire({
+      title: 'Error!',
+      text: 'Failed to remove recipe. Please try again.',
+      icon: 'error',
+      confirmButtonColor: '#6b46c1'
+    })
+  }
+}
 </script>
+
 
 <style scoped>
 .recipe-card {

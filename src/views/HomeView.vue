@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <AnimatedBackground />
-    
+
     <div class="home-view" :class="{ 'content-visible': showContent }">
       <!-- Hero Section -->
       <section class="hero-section">
@@ -12,7 +12,7 @@
                 <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
                 <line x1="6" y1="17" x2="18" y2="17"/>
               </svg>
-            </div>  
+            </div>
             <h1 class="hero-title">
               Welcome to Your Kitchen
             </h1>
@@ -29,9 +29,9 @@
           <!-- Left Column: Pantry Carousel -->
           <div class="pantry-carousel-wrapper stagger-item">
             <!-- Loading State -->
-            <div v-if="loadingPopularRecipes" 
-                id="pantryCarousel" 
-                class="carousel slide carousel-loading" 
+            <div v-if="loadingPopularRecipes"
+                id="pantryCarousel"
+                class="carousel slide carousel-loading"
                 data-bs-ride="carousel"
                 data-bs-interval="3000">
               <div class="spinner-border text-primary"></div>
@@ -39,33 +39,33 @@
             </div>
 
             <!-- Bootstrap Carousel -->
-            <div v-else 
-                id="pantryCarousel" 
-                class="carousel slide" 
+            <div v-else
+                id="pantryCarousel"
+                class="carousel slide"
                 data-bs-ride="carousel"
                 data-bs-interval="3000">
               <div class="carousel-indicators">
-                <button 
-                  v-for="(img, index) in pantryImages" 
+                <button
+                  v-for="(img, index) in pantryImages"
                   :key="index"
-                  type="button" 
-                  data-bs-target="#pantryCarousel" 
-                  :data-bs-slide-to="index" 
+                  type="button"
+                  data-bs-target="#pantryCarousel"
+                  :data-bs-slide-to="index"
                   :class="{ active: index === 0 }"
                   :aria-label="`Slide ${index + 1}`"
                 ></button>
               </div>
-              
+
               <div class="carousel-inner">
-                <div 
-                  v-for="(img, index) in pantryImages" 
+                <div
+                  v-for="(img, index) in pantryImages"
                   :key="index"
                   :class="['carousel-item', { active: index === 0 }]"
                 >
                   <div class="carousel-item-wrapper" @click="showRecipeDetails(img)">
-                    <img 
-                      :src="img.image" 
-                      :alt="img.title" 
+                    <img
+                      :src="img.image"
+                      :alt="img.title"
                       class="carousel-image"
                     />
                     <div class="carousel-caption-custom">
@@ -77,24 +77,24 @@
                   </div>
                 </div>
               </div>
-              <RecipeModal 
-                :recipe="selectedCarouselRecipe" 
-                @close="selectedCarouselRecipe = null" 
+              <RecipeModal
+                :recipe="selectedCarouselRecipe"
+                @close="selectedCarouselRecipe = null"
               />
-              
-              <button 
-                class="carousel-control-prev" 
-                type="button" 
-                data-bs-target="#pantryCarousel" 
+
+              <button
+                class="carousel-control-prev"
+                type="button"
+                data-bs-target="#pantryCarousel"
                 data-bs-slide="prev"
                 aria-label="Previous slide"
               >
                 <span class="carousel-control-prev-icon" aria-hidden="true"></span>
               </button>
-              <button 
-                class="carousel-control-next" 
-                type="button" 
-                data-bs-target="#pantryCarousel" 
+              <button
+                class="carousel-control-next"
+                type="button"
+                data-bs-target="#pantryCarousel"
                 data-bs-slide="next"
                 aria-label="Next slide"
               >
@@ -119,10 +119,10 @@
                   <i class="bi bi-check-circle-fill"></i>
                   <p>All items are fresh!</p>
                 </div>
-                
+
                 <div v-else class="expiring-list">
-                  <div 
-                    v-for="item in expiringItems" 
+                  <div
+                    v-for="item in expiringItems"
                     :key="item.id"
                     class="expiring-item"
                   >
@@ -139,7 +139,7 @@
                   </div>
                 </div>
 
-                <button 
+                <button
                   @click="findRecipesWithExpiringItems"
                   class="btn btn-danger w-100 mt-3"
                   :disabled="expiringItems.length === 0"
@@ -161,13 +161,13 @@
                 {{ isSwipeMode ? "Swipe through your delicious collection" : "Scroll through your recipe grid" }}
               </p>
             </div>
-            
+
             <!-- View Mode Toggle -->
             <div class="view-mode-toggle">
               <label class="toggle-label">
                 {{ isSwipeMode ? "Swipe Mode" : "Grid Mode" }}
               </label>
-              <button 
+              <button
                 @click="toggleViewMode"
                 class="toggle-switch"
                 :class="{ 'active': isSwipeMode }"
@@ -223,21 +223,23 @@
                   :title="recipe.title"
                   :time="recipe.readyInMinutes"
                   :servings="recipe.servings"
+                  :current-user="currentUser"
                   @click="openModal"
-                />                
-              </div> 
-              <RecipeModal 
-                  :recipe="selectedRecipe" 
-                  @close="selectedRecipe = null" 
-              /> 
+                  @removed="handleSwipeRecipeRemoved"
+                />
+              </div>
+              <RecipeModal
+                  :recipe="selectedRecipe"
+                  @close="selectedRecipe = null"
+              />
               <!-- Scroll Indicator -->
               <div class="text-center mt-4">
                 <p class="text-sm text-muted-foreground">
                   ← Swipe or scroll horizontally to view more recipes →
                 </p>
-              </div>                                                     
+              </div>
             </template>
-            
+
             <template v-else>
               <!-- Scroll Mode - Vertical Grid -->
               <div class="recipes-grid">
@@ -251,15 +253,15 @@
                   :servings="recipe.servings"
                   @click="openModal"
                   @removed="handleRecipeRemoved"
-                />                
+                />
               </div>
-              <RecipeModal 
-                :recipe="selectedRecipe" 
-                @close="selectedRecipe = null" 
-              />              
+              <RecipeModal
+                :recipe="selectedRecipe"
+                @close="selectedRecipe = null"
+              />
             </template>
 
-          </div>  
+          </div>
         </section>
       </div>
     </div>
@@ -395,6 +397,10 @@ const fetchSavedRecipes = async () => {
   }
 }
 
+const handleSwipeRecipeRemoved = (id) => {
+  savedRecipes.value = savedRecipes.value.filter(r => r.id !== id)
+}
+
 // Default carousel images fallback
 const getDefaultCarouselImages = () => [
   {
@@ -432,7 +438,7 @@ const getDefaultCarouselImages = () => [
 // Fetch top 5 popular recipes from Spoonacular
 const fetchPopularRecipes = async () => {
   loadingPopularRecipes.value = true
-  
+
   try {
     // First, try to get from Supabase
     const { data: cachedRecipes, error: fetchError } = await supabase
@@ -444,7 +450,7 @@ const fetchPopularRecipes = async () => {
     if (fetchError) throw fetchError
 
     // Check if cache is fresh (less than 24 hours old)
-    const isCacheFresh = cachedRecipes && cachedRecipes.length > 0 && 
+    const isCacheFresh = cachedRecipes && cachedRecipes.length > 0 &&
       cachedRecipes.some(recipe => {
         const updatedAt = new Date(recipe.updated_at)
         const hoursSinceUpdate = (Date.now() - updatedAt.getTime()) / (1000 * 60 * 60)
@@ -453,17 +459,17 @@ const fetchPopularRecipes = async () => {
 
     if (isCacheFresh && cachedRecipes.length >= 5) {
       console.log('Using cached popular recipes')
-      
+
       pantryImages.value = cachedRecipes.map(recipe => ({
         id: recipe.id,
         image: recipe.image,
         title: recipe.title,
-        description: recipe.summary 
+        description: recipe.summary
           ? recipe.summary.replace(/<[^>]*>/g, '').substring(0, 120) + '...'
           : `Ready in ${recipe.readyInMinutes} min • ${recipe.servings} servings`,
         recipe: recipe
       }))
-      
+
       loadingPopularRecipes.value = false
       return
     }
@@ -482,7 +488,7 @@ const fetchPopularRecipes = async () => {
         minLikes: 100
       }
     )
-    
+
     if (!response.data.results || response.data.results.length === 0) {
       console.warn('No popular recipes found, using defaults')
       pantryImages.value = getDefaultCarouselImages()
@@ -498,7 +504,7 @@ const fetchPopularRecipes = async () => {
       readyInMinutes: recipe.readyInMinutes || 0,
       servings: recipe.servings || 0,
       aggregateLikes: recipe.aggregateLikes || 0,
-      analyzedInstructions: recipe.analyzedInstructions 
+      analyzedInstructions: recipe.analyzedInstructions
         ? JSON.stringify(recipe.analyzedInstructions)
         : '',
       dishTypes: recipe.dishTypes || [],
@@ -535,17 +541,17 @@ const fetchPopularRecipes = async () => {
         recipe: recipe
       }
     })
-    
+
     console.log('Popular recipes loaded for carousel:', pantryImages.value.length)
   } catch (error) {
     console.error('Error fetching popular recipes:', error)
-    
+
     if (error.response?.status === 402) {
       console.warn('All API keys exceeded quota')
     } else if (error.response?.status === 401) {
       console.error('All API keys invalid')
     }
-    
+
     pantryImages.value = getDefaultCarouselImages()
   } finally {
     loadingPopularRecipes.value = false
@@ -584,7 +590,7 @@ const fetchExpiringItems = async () => {
       .order('expiration', { ascending: true })
 
     if (error) throw error
-    
+
     // Calculate days left for each item
     expiringItems.value = (data || []).map(item => {
       const expiryDate = new Date(item.expiration)
@@ -608,9 +614,9 @@ const getExpirySeverityClass = (daysLeft) => {
 }
 
 const findRecipesWithExpiringItems = () => {
-  router.push({ 
-    path: '/recipes', 
-    query: { useExpiringItems: true } 
+  router.push({
+    path: '/recipes',
+    query: { useExpiringItems: true }
   })
 }
 
@@ -618,7 +624,7 @@ const findRecipesWithExpiringItems = () => {
 onMounted(async () => {
   try {
     currentUser.value = await getCurrentUser()
-    
+
     if (!currentUser.value) {
       router.push('/login')
       return
@@ -627,13 +633,13 @@ onMounted(async () => {
     // Fetch popular recipes for carousel FIRST
     await fetchPopularRecipes()
     await fetchSavedRecipes()
-    
+
     // Fetch all other data in parallel
     await Promise.all([
       fetchPantryItems(),
       fetchExpiringItems()
     ])
-    
+
     // Show content after hero animation
     setTimeout(() => {
       showContent.value = true
@@ -663,8 +669,8 @@ onMounted(async () => {
   position: relative;
   overflow: hidden;
   margin-bottom: 3rem;
-  
-  background: 
+
+  background:
     linear-gradient(135deg, rgba(255, 107, 26, 0.15) 0%, rgba(255, 152, 0, 0.15) 100%),
     url('https://images.unsplash.com/photo-1556911220-bff31c812dba?w=1200') center/cover;
   background-attachment: fixed;
@@ -738,7 +744,7 @@ onMounted(async () => {
   color: #ffffff;
   max-width: 600px;
   margin: 0 auto;
-  text-shadow: 
+  text-shadow:
     0 2px 8px rgba(0, 0, 0, 0.4),
     0 4px 16px rgba(0, 0, 0, 0.2);
   background: rgba(0, 0, 0, 0.1);
@@ -1000,7 +1006,7 @@ onMounted(async () => {
   padding: 0 1rem 2rem;
   opacity: 0;
   transform: translateY(20px);
-  transition: opacity 0.6s ease, transform 0.6s ease;  
+  transition: opacity 0.6s ease, transform 0.6s ease;
 }
 
 .saved-recipes-section.content-visible {
@@ -1322,24 +1328,24 @@ onMounted(async () => {
   .hero-section {
     height: 40vh;
   }
-  
+
   .recipe-info-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .carousel-image,
   .carousel-loading {
     height: 300px;
   }
-  
+
   .carousel-caption-custom {
     padding: 2rem 1rem 1rem;
   }
-  
+
   .carousel-caption-custom h4 {
     font-size: 1.25rem;
   }
-  
+
   .carousel-caption-custom p {
     font-size: 0.85rem;
   }
@@ -1351,7 +1357,7 @@ onMounted(async () => {
     align-items: flex-start;
     gap: 1rem;
   }
-  
+
   .recipes-grid {
     grid-template-columns: 1fr;
   }
