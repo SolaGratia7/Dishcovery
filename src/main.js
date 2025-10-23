@@ -9,6 +9,11 @@ import 'bootstrap-icons/font/bootstrap-icons.css'
 // Bootstrap JS (for modals, dropdowns, etc.)
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 
+// Sweetalert popup
+import 'sweetalert2/dist/sweetalert2.min.css'
+import './assets/popup.css'
+
+
 const app = createApp(App)
 
 app.use(router)

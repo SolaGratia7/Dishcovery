@@ -1,7 +1,7 @@
   <template>
   <AppLayout>
     <AnimatedBackground />
-    
+
     <div class="planning-page">
       <!-- Header -->
       <div class="planning-header">
@@ -20,26 +20,26 @@
         <div class="mode-toggle-card mb-4">
           <div class="toggle-container">
             <div :class="['toggle-slider', { 'right': planningMode === 'auto' }]"></div>
-              <button 
+              <button
                 :class="['toggle-btn', { 'active': planningMode === 'manual' }]"
                 @click="planningMode = 'manual'"
               >
                 <i class="bi bi-hand-index me-2"></i>
-                Manual Planning   
+                Manual Planning
               </button>
-              <button 
+              <button
                 :class="['toggle-btn', { 'active': planningMode === 'auto' }]"
                 @click="planningMode = 'auto'"
               >
                 <i class="bi bi-magic me-2"></i>
                 Auto Generate
               </button>
-           </div>     
-          </div>     
-      
+           </div>
+          </div>
+
 
         <!-- AUTO GENERATE MODE -->
-        <div v-if="planningMode === 'auto'" class="auto-generate-card mb-4">          
+        <div v-if="planningMode === 'auto'" class="auto-generate-card mb-4">
           <div class="card-body">
             <div class="row g-3">
               <!-- Week Selection -->
@@ -52,7 +52,7 @@
                   <div class="selected-week-display" ref="autoGenCalendarRef">
                     <i class="bi bi-calendar-week me-2"></i>
                     <span @click="toggleAutoGenCalendar">{{ autoGenWeekDisplay }}</span>
-                    <MiniCalendar 
+                    <MiniCalendar
                       v-if="showAutoGenCalendar"
                       :current-week="autoGenWeek"
                       :mode="'single'"
@@ -63,33 +63,33 @@
                     <i class="bi bi-chevron-right"></i>
                   </button>
                 </div>
-              </div>              
+              </div>
               <!-- Goal Input -->
               <div class="col-12">
                 <label class="form-label fw-semibold">What's your goal?</label>
                   <div class="goal-builder">
                     <span class="goal-text">I want to</span>
-                    
+
                     <!-- Lose/Gain Toggle -->
                     <div class="goal-toggle">
-                      <button 
+                      <button
                         :class="['goal-toggle-btn', { 'active': goalType === 'lose' }]"
                         @click="goalType = 'lose'"
                       >
                         lose
                       </button>
-                      <button 
+                      <button
                         :class="['goal-toggle-btn', { 'active': goalType === 'gain' }]"
                         @click="goalType = 'gain'"
                       >
                         gain
                       </button>
                     </div>
-                    
+
                     <!-- Weight Input -->
-                    <input 
+                    <input
                       v-model.number="weightChange"
-                      type="number" 
+                      type="number"
                       class="goal-input"
                       placeholder="3"
                       min="0.5"
@@ -97,11 +97,11 @@
                       step="0.5"
                     >
                     <span class="goal-text">kg in</span>
-                    
+
                     <!-- Timeframe Input -->
-                    <input 
+                    <input
                       v-model.number="timeframe"
-                      type="number" 
+                      type="number"
                       class="goal-input"
                       placeholder="1"
                       min="1"
@@ -127,10 +127,10 @@
               <!-- Excluded Ingredients -->
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Exclude Ingredients (optional)</label>
-                <input 
-                  v-model="autoGenExclude" 
-                  type="text" 
-                  class="form-control" 
+                <input
+                  v-model="autoGenExclude"
+                  type="text"
+                  class="form-control"
                   placeholder="e.g., nuts, shellfish"
                 >
               </div>
@@ -138,8 +138,8 @@
 
             <!-- Generate Button -->
             <div class="mt-4">
-              <button 
-                @click="generateAutoMealPlan(calculatedCalories)" 
+              <button
+                @click="generateAutoMealPlan(calculatedCalories)"
                 class="btn btn-primary btn-lg w-100"
                 :disabled="loadingAutoGen"
               >
@@ -155,14 +155,14 @@
                 <small class="text-muted">{{ autoGenProgress }}</small>
               </div>
               <div class="progress">
-                <div 
-                  class="progress-bar progress-bar-striped progress-bar-animated" 
+                <div
+                  class="progress-bar progress-bar-striped progress-bar-animated"
                   :style="{ width: autoGenPercent + '%' }"
                 ></div>
               </div>
             </div>
           </div>
-        </div>      
+        </div>
 
       <!--Manual Mode-->
       <div v-if="planningMode === 'manual' || (planningMode === 'auto' && hasGeneratedPlan)">
@@ -171,10 +171,10 @@
           <div class="card-body">
             <div class="row g-2 align-items-center">
               <div class="col-md-6">
-                <input 
+                <input
                   v-model="historySearch"
-                  type="text" 
-                  class="form-control" 
+                  type="text"
+                  class="form-control"
                   placeholder="Search meal history by recipe name..."
                   @keyup.enter="filterHistory"
                 >
@@ -202,11 +202,11 @@
                 </button>
               </div>
             </div>
-            
+
             <!-- History Results -->
             <div v-if="historyResults.length > 0" class="history-results mt-3">
-              <div 
-                v-for="result in historyResults" 
+              <div
+                v-for="result in historyResults"
                 :key="`${result.date}-${result.meal}`"
                 class="history-item"
                 @click="jumpToMeal(result.date, result.meal)"
@@ -245,7 +245,7 @@
               </button>
             </div>
           </div>
-          
+
           <div class="card-body">
             <div class="table-responsive">
               <table class="meal-planner-table">
@@ -274,6 +274,14 @@
                         @click="planMeal(day.dateStr, mealType)"
                       >
                         <div v-if="getMeal(day.dateStr, mealType)" class="meal-content">
+                          <button
+                            class="delete-meal-btn"
+                            @click.stop="deleteMeal(day.dateStr, mealType)"
+                            title="Remove this meal"
+                          >
+                            <i class="bi bi-trash"></i>
+                          </button>
+
                           <img
                             :src="getMeal(day.dateStr, mealType).image"
                             :alt="getMeal(day.dateStr, mealType).title"
@@ -293,7 +301,7 @@
         </div>
         <div class="mt-4">
           <ShoppingGen :current-week="currentWeek" />
-        </div>        
+        </div>
       </div>
 
       <!-- Plan Meal Modal -->
@@ -301,15 +309,15 @@
         <div class="modal-content-custom modal-large" @click.stop>
           <button @click="closePlanMealModal" class="btn-close-modal">
             <i class="bi bi-x-lg"></i>
-          </button>       
+          </button>
         </div>
       </div>
 
       <!-- Recipe Details Modal (NEW) -->
-      <RecipeModal 
-        :recipe="selectedRecipeForView" 
-        @close="closeRecipeModal" 
-      />         
+      <RecipeModal
+        :recipe="selectedRecipeForView"
+        @close="closeRecipeModal"
+      />
       </div>
     </div>
   </AppLayout>
@@ -325,6 +333,9 @@ import RecipeModal from '@/components/RecipeModal.vue'
 import MiniCalendar from '@/components/MiniCalendar.vue'
 import ShoppingGen from '@/components/ShoppingGen.vue'
 import axios from 'axios'
+import Swal from "sweetalert2"
+
+
 
 const router = useRouter()
 const currentUser = ref(null)
@@ -434,28 +445,28 @@ const weekDays = computed(() => {
 const currentWeekDisplay = computed(() => {
   const weekStart = new Date(currentWeek.value)
   weekStart.setDate(weekStart.getDate() - weekStart.getDay()) // Start from Sunday
-  
+
   const weekEnd = new Date(weekStart)
   weekEnd.setDate(weekStart.getDate() + 6) // End on Saturday
-  
+
   const options = { month: 'short', day: 'numeric' }
   const startStr = weekStart.toLocaleDateString('en-US', options)
   const endStr = weekEnd.toLocaleDateString('en-US', options)
-  
+
   return `${startStr} - ${endStr}`
 })
 
 const autoGenWeekDisplay = computed(() => {
   const weekStart = new Date(autoGenWeek.value)
   weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-  
+
   const weekEnd = new Date(weekStart)
   weekEnd.setDate(weekStart.getDate() + 6)
-  
+
   const options = { month: 'short', day: 'numeric', year: 'numeric' }
   const startStr = weekStart.toLocaleDateString('en-US', options)
   const endStr = weekEnd.toLocaleDateString('en-US', options)
-  
+
   return `${startStr} - ${endStr}`
 })
 
@@ -466,7 +477,7 @@ const availableMonths = computed(() => {
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     months.add(key)
   })
-  
+
   return Array.from(months).sort((a, b) => b.localeCompare(a)).map(m => {
     const [y, mm] = m.split('-')
     const label = new Date(y, Number(mm) - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
@@ -520,8 +531,8 @@ function toggleCalendarDropdown() {
 }
 
 function handleClickOutside(event) {
-  if (showCalendarDropdown.value && 
-      calendarContainerRef.value && 
+  if (showCalendarDropdown.value &&
+      calendarContainerRef.value &&
       !calendarContainerRef.value.contains(event.target)) {
     showCalendarDropdown.value = false
   }
@@ -591,8 +602,8 @@ function selectAutoGenDate(date) {
 }
 
 function handleAutoGenClickOutside(event) {
-  if (showAutoGenCalendar.value && 
-      autoGenCalendarRef.value && 
+  if (showAutoGenCalendar.value &&
+      autoGenCalendarRef.value &&
       !autoGenCalendarRef.value.contains(event.target)) {
     showAutoGenCalendar.value = false
   }
@@ -601,17 +612,17 @@ function handleAutoGenClickOutside(event) {
 // Computed for calculated calories
 const calculatedCalories = computed(() => {
   if (!weightChange.value || !timeframe.value) return 0
-  
+
   const baseCalories = 2000
   const totalCalories = weightChange.value * 7700
   const dailyChange = totalCalories / (timeframe.value * 30)
-  
+
   if (goalType.value === 'lose') {
     return Math.max(1200, Math.round(baseCalories - dailyChange))
   } else if (goalType.value === 'gain') {
     return Math.round(baseCalories + dailyChange)
   }
-  
+
   return baseCalories
 })
 
@@ -626,24 +637,24 @@ async function generateAutoMealPlan(targetCalories) {
   autoGenPercent.value = 0
   hasGeneratedPlan.value = false // Reset before generation
   const generatedPlan = {}
-  
+
   try {
     const dailyCalories = targetCalories
     const breakfastCal = Math.round(dailyCalories * 0.25)
     const lunchCal = Math.round(dailyCalories * 0.35)
     const dinnerCal = Math.round(dailyCalories * 0.40)
-    
+
     const mealTypes = [
       { type: 'breakfast', calories: breakfastCal },
       { type: 'lunch', calories: lunchCal },
       { type: 'dinner', calories: dinnerCal }
     ]
-    
+
     const totalRequests = weekDays.value.length * 3
     let completedRequests = 0
 
     const autoWeekStart = new Date(autoGenWeek.value)
-    autoWeekStart.setDate(autoWeekStart.getDate() - autoWeekStart.getDay())    
+    autoWeekStart.setDate(autoWeekStart.getDate() - autoWeekStart.getDay())
 
     const autoWeekDays = Array.from({ length: 7 }, (_, i) => {
       const date = new Date(autoWeekStart)
@@ -654,18 +665,18 @@ async function generateAutoMealPlan(targetCalories) {
         dateStr: formatDateLocal(date),
         dateDisplay: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       }
-    })    
-    
+    })
+
     for (const day of autoWeekDays) {
       generatedPlan[day.dateStr] = {}
-      
+
       for (const meal of mealTypes) {
         autoGenProgress.value = `Finding ${meal.type} for ${day.name}...`
         autoGenPercent.value = Math.round((completedRequests / totalRequests) * 100)
-        
+
         try {
           const recipe = await autoSearchRecipeForMeal(meal.calories, meal.type)
-          
+
           if (recipe) {
             generatedPlan[day.dateStr][meal.type] = {
               id: recipe.id,
@@ -675,7 +686,7 @@ async function generateAutoMealPlan(targetCalories) {
               servings: recipe.servings || 0,
               aggregateLikes: recipe.aggregateLikes || 0,
               summary: recipe.summary || '',
-              analyzedInstructions: recipe.analyzedInstructions 
+              analyzedInstructions: recipe.analyzedInstructions
                 ? JSON.stringify(recipe.analyzedInstructions)
                 : '',
               extendedIngredients: recipe.extendedIngredients || [],
@@ -685,7 +696,7 @@ async function generateAutoMealPlan(targetCalories) {
               glutenFree: recipe.glutenFree || false
             }
           }
-          
+
           completedRequests++
           await new Promise(resolve => setTimeout(resolve, 200))
         } catch (error) {
@@ -694,30 +705,30 @@ async function generateAutoMealPlan(targetCalories) {
         }
       }
     }
-    
+
     autoGenPercent.value = 100
     autoGenProgress.value = 'Meal plan generated successfully!'
-    
+
     // Replace current meal plans
     Object.assign(mealPlans.value, generatedPlan)
     const success = await saveMealPlansToSupabase()
-    
+
     if (success) {
       hasGeneratedPlan.value = true // Set to true after successful generation
       // Automatically switch to manual mode
       planningMode.value = 'manual'
 
       // Move the currentWeek to the same week that was auto generated
-      currentWeek.value = new Date(autoGenWeek.value)      
+      currentWeek.value = new Date(autoGenWeek.value)
       displayToast('Meal plan generated successfully!')
     }
-    
+
     setTimeout(() => {
       loadingAutoGen.value = false
       autoGenPercent.value = 0
       autoGenProgress.value = ''
     }, 1000)
-    
+
   } catch (error) {
     console.error('Error generating meal plan:', error)
     displayToast('Failed to generate meal plan. Please try again.')
@@ -725,6 +736,82 @@ async function generateAutoMealPlan(targetCalories) {
     autoGenPercent.value = 0
   }
 }
+
+// async function deleteMeal(dateStr, mealType) {
+//   try {
+//     // Optimistically remove from local state
+//     if (mealPlans.value[dateStr]) {
+//       delete mealPlans.value[dateStr][mealType]
+
+//       // If no more meals for that date, remove the key entirely
+//       if (Object.keys(mealPlans.value[dateStr]).length === 0) {
+//         delete mealPlans.value[dateStr]
+//       }
+//     }
+
+//     // Delete from Supabase
+//     const { error } = await supabase
+//       .from('meal_plans')
+//       .delete()
+//       .eq('user_id', currentUser.value.id)
+//       .eq('date', dateStr)
+//       .eq('meal_type', mealType)
+
+//     if (error) throw error
+
+//     displayToast('Meal removed successfully!')
+//   } catch (error) {
+//     console.error('Error deleting meal:', error)
+//     displayToast('Failed to delete meal. Please try again.')
+//   }
+// }
+async function deleteMeal(dateStr, mealType) {
+  try {
+    // 🧩 First confirmation
+    const firstConfirm = await Swal.fire({
+      title: `Delete ${mealType} for ${dateStr}?`,
+      text: "Are you sure you want to remove this meal from your plan?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, delete it",
+    });
+
+    if (!firstConfirm.isConfirmed) return;
+
+    // 🧹 Remove locally
+    if (mealPlans.value[dateStr]) {
+      delete mealPlans.value[dateStr][mealType];
+      if (Object.keys(mealPlans.value[dateStr]).length === 0) {
+        delete mealPlans.value[dateStr];
+      }
+    }
+
+    // 🧾 Delete from Supabase
+    const { error } = await supabase
+      .from("meal_plans")
+      .delete()
+      .eq("user_id", currentUser.value.id)
+      .eq("date", dateStr)
+      .eq("meal_type", mealType);
+
+    if (error) throw error;
+
+    // ✅ Success message
+    await Swal.fire({
+      title: "Deleted!",
+      text: "Your meal has been removed.",
+      icon: "success",
+      timer: 1500,
+      showConfirmButton: false,
+    });
+  } catch (error) {
+    console.error("Error deleting meal:", error);
+    Swal.fire("Error", "Something went wrong while deleting the meal.", "error");
+  }
+}
+
 
 async function autoSearchRecipeForMeal(targetCalories, mealType) {
   try {
@@ -737,7 +824,7 @@ async function autoSearchRecipeForMeal(targetCalories, mealType) {
       maxCalories: targetCalories + 100,
       sort: 'random'
     }
-    
+
     if (mealType === 'breakfast') {
       params.type = 'breakfast'
     } else if (mealType === 'lunch') {
@@ -745,21 +832,21 @@ async function autoSearchRecipeForMeal(targetCalories, mealType) {
     } else if (mealType === 'dinner') {
       params.type = 'main course'
     }
-    
+
     if (autoGenDiet.value) {
       params.diet = autoGenDiet.value
     }
-    
+
     if (autoGenExclude.value.trim()) {
       params.intolerances = autoGenExclude.value.trim().replace(/,\s*/g, ',')
     }
 
     const response = await makeApiRequest(params)
-    
+
     if (response.data.results && response.data.results.length > 0) {
       return response.data.results[0]
     }
-    
+
     return null
   } catch (error) {
     console.error('Error searching recipe:', error)
@@ -772,10 +859,10 @@ async function searchOnlineRecipes(){
     alert('Please enter a recipe name to search')
     return
   }
-  
+
   loadingSearch.value = true
   hasSearched.value = true
-  
+
   try {
     const params = {
         query: onlineSearchQuery.value,
@@ -790,8 +877,8 @@ async function searchOnlineRecipes(){
 
     if (searchResults.value.length === 0) {
       alert('No recipes found. Try a different search term!')
-    }    
-    
+    }
+
   } catch (error) {
     console.error('Error searching recipes:', error)
     displayToast('Failed to search recipes. Please try again.', 'error')
@@ -807,26 +894,26 @@ function selectOnlineRecipe(recipe) {
 
 async function saveMealPlan() {
   let recipeToSave = null
-  
+
   if (searchMode.value === 'saved') {
     if (!selectedRecipeId.value) return
     recipeToSave = savedRecipes.value.find(r => r.id === selectedRecipeId.value)
   } else {
     if (!selectedOnlineRecipe.value) return
     recipeToSave = selectedOnlineRecipe.value
-    
+
   }
-  
+
   if (!recipeToSave) return
 
   console.log('Recipe to save:', recipeToSave)
   console.log('analyzedInstructions:', recipeToSave.analyzedInstructions)
-  console.log('Type:', typeof recipeToSave.analyzedInstructions)  
-  
+  console.log('Type:', typeof recipeToSave.analyzedInstructions)
+
   if (!mealPlans.value[selectedDate.value]) {
     mealPlans.value[selectedDate.value] = {}
   }
-  
+
   mealPlans.value[selectedDate.value][selectedMealType.value] = {
     id: recipeToSave.id,
     title: recipeToSave.title,
@@ -835,17 +922,17 @@ async function saveMealPlan() {
     servings: recipeToSave.servings || 0,
     aggregateLikes: recipeToSave.aggregateLikes || 0,
     summary: recipeToSave.summary || '',
-    analyzedInstructions: recipeToSave.analyzedInstructions 
+    analyzedInstructions: recipeToSave.analyzedInstructions
         ? JSON.stringify(recipeToSave.analyzedInstructions)
         : '',
     extendedIngredients: recipeToSave.extendedIngredients || [],
-    dishTypes: recipeToSave.dishTypes || []    
+    dishTypes: recipeToSave.dishTypes || []
   }
 
   console.log(mealPlans.value[selectedDate.value][selectedMealType.value].extendedIngredients)
 
   console.log(recipeToSave);
-  
+
   await saveMealPlansToSupabase()
   closePlanMealModal()
   displayToast('Meal added to plan')
@@ -854,14 +941,14 @@ async function saveMealPlan() {
 async function removeMeal() {
   if (mealPlans.value[selectedDate.value]) {
     delete mealPlans.value[selectedDate.value][selectedMealType.value]
-    
+
     if (Object.keys(mealPlans.value[selectedDate.value]).length === 0) {
       delete mealPlans.value[selectedDate.value]
     }
   }
-  
+
   const success = await saveMealPlansToSupabase()
-  
+
   if (success) {
     closePlanMealModal()
     displayToast('Meal removed from plan')
@@ -883,11 +970,11 @@ function closePlanMealModal() {
 function jumpToMeal(dateStr, mealType) {
   // Clear previous highlight
   highlightedSlot.value = { date: '', meal: '' }
-  
+
   // Set current week to include this date
   const targetDate = new Date(dateStr)
   currentWeek.value = targetDate
-  
+
   // Highlight after render
   setTimeout(() => {
     highlightedSlot.value = { date: dateStr, meal: mealType }
@@ -919,7 +1006,7 @@ async function fetchSavedRecipes() {
       .select('*')
       .eq('user_id', currentUser.value.id)
       .order('created_at', { ascending: false })
-    
+
     if (error) throw error
     savedRecipes.value = data || []
   } catch (error) {
@@ -933,9 +1020,9 @@ async function fetchMealPlans() {
       .from('meal_plans')
       .select('*')
       .eq('user_id', currentUser.value.id)
-    
+
     if (error) throw error
-    
+
     // Transform to mealPlans object
     const plans = {}
     data?.forEach(plan => {
@@ -950,14 +1037,14 @@ async function fetchMealPlans() {
         servings: plan.servings || 0,
         aggregateLikes: plan.aggregateLikes || 0,
         summary: plan.summary || '',
-        analyzedInstructions: plan.analyzedInstructions 
+        analyzedInstructions: plan.analyzedInstructions
             ? JSON.stringify(plan.analyzedInstructions)
             : '',
         extendedIngredients: plan.extendedIngredients || [],
-        dishTypes: plan.dishTypes || []          
+        dishTypes: plan.dishTypes || []
       }
     })
-    
+
     mealPlans.value = plans
   } catch (error) {
     console.error('Error fetching meal plans:', error)
@@ -965,15 +1052,15 @@ async function fetchMealPlans() {
 }
 
 async function saveMealPlansToSupabase() {
-  try {  
+  try {
     // Insert all current meal plans
     const planRecords = []
-    
+
     Object.keys(mealPlans.value).forEach(dateStr => {
       const meals = mealPlans.value[dateStr]
       MEAL_TYPES.forEach(mealType => {
         if (meals[mealType]) {
-          planRecords.push({            
+          planRecords.push({
             user_id: currentUser.value.id,
             date: dateStr,
             meal_type: mealType,
@@ -986,19 +1073,19 @@ async function saveMealPlansToSupabase() {
             summary: meals[mealType].summary || '',
             analyzedInstructions: meals[mealType].analyzedInstructions || "",
             extendedIngredients: meals[mealType].extendedIngredients || [],
-            dishTypes: meals[mealType].dishTypes || []        
+            dishTypes: meals[mealType].dishTypes || []
           })
         }
       })
     })
-    
+
     if (planRecords.length > 0) {
       const { error } = await supabase
         .from('meal_plans')
-        .upsert(planRecords, {                         
+        .upsert(planRecords, {
           onConflict: 'user_id,date,meal_type'
         })
-      
+
       if (error) throw error
     }
     return true
@@ -1025,7 +1112,7 @@ onMounted(async () => {
 function planMeal(dateStr, mealType) {
   // Check if there's already a meal in this slot
   const existingMeal = getMeal(dateStr, mealType)
-  
+
   if (existingMeal) {
     // If meal exists, show recipe details
     selectedRecipeForView.value = existingMeal
@@ -1652,6 +1739,29 @@ function closeRecipeModal() {
   color: #ccc;
 }
 
+.meal-content {
+  position: relative;   /* So .delete-meal-btn positions correctly */
+}
+
+.delete-meal-btn {
+  position: absolute;     /* Position relative to meal card */
+  top: 6px;               /* Distance from the top */
+  right: 6px;             /* Distance from the right */
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.25rem;
+  color: #dc2626;         /* Red (Tailwind’s red-600) */
+  opacity: 0.8;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.delete-meal-btn:hover {
+  opacity: 1;
+  transform: scale(1.2);  /* Slight grow on hover */
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .goal-builder {
@@ -1659,7 +1769,7 @@ function closeRecipeModal() {
     align-items: flex-start;
     gap: 1rem;
   }
-  
+
   .goal-text {
     width: 100%;
   }
@@ -1731,4 +1841,5 @@ function closeRecipeModal() {
     font-size: 0.875rem;
   }
 }
+
 </style>

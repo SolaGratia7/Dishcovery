@@ -1,0 +1,26 @@
+.swal2-confirm {
+  background-color: #6b46c1 !important; /* purple */
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  padding: 0.6rem 1.25rem !important;
+  transition: background-color 0.2s ease;
+}
+
+.swal2-confirm:hover {
+  background-color: #553c9a !important; /* darker purple */
+}
+
+.swal2-cancel {
+  background-color: #ff6b1a !important; /* orange */
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  padding: 0.6rem 1.25rem !important;
+  color: white !important;
+  transition: background-color 0.2s ease;
+}
+
+.swal2-cancel:hover {
+  background-color: #e65a00 !important; /* darker orange */
+}
