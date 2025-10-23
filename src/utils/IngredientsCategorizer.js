@@ -15,7 +15,7 @@ export const IngredientCategorizer = {
       'bell pepper', 'pepper', 'broccoli', 'spinach', 'kale', 'celery',
       'mushroom', 'zucchini', 'eggplant', 'cabbage', 'cauliflower',
       'apple', 'banana', 'orange', 'lemon', 'lime', 'berry', 'berries',
-      'grape', 'melon', 'mango', 'pineapple', 'avocado', 'peach', 'pear'
+      'grape', 'melon', 'mango', 'pineapple', 'avocado', 'peach', 'pear', 'watermelon',
     ])) return 'Produce';
 
     // Proteins
@@ -28,7 +28,7 @@ export const IngredientCategorizer = {
     // Dairy
     if (IngredientCategorizer.isInCategory(name, [
       'milk', 'cheese', 'butter', 'cream', 'yogurt', 'sour cream',
-      'mozzarella', 'cheddar', 'parmesan', 'feta', 'ricotta'
+      'mozzarella', 'cheddar', 'parmesan', 'feta', 'ricotta', 'yoghurt',
     ])) return 'Dairy';
 
     // Grains & Bread

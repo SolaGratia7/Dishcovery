@@ -35,9 +35,7 @@
 
             <select v-model="filters.category" class="category-filter">
               <option value="">All Categories</option>
-              <option v-for="cat in allCategories" :key="cat" :value="cat">
-                {{ cat }}
-              </option>
+              <option v-for="cat in dbCategories" :key="cat" :value="cat">{{ cat }}</option>
             </select>
           </div>
 
@@ -179,13 +177,7 @@
           <div class="modal-header">
             <div>
               <h3>{{ editingItem ? 'Edit Item' : 'Add New Item' }}</h3>
-              <p>
-                {{
-                  editingItem
-                    ? 'Update item in your pantry inventory'
-                    : 'Add a new item to your pantry inventory'
-                }}
-              </p>
+              <p>{{ editingItem ? 'Update item in your pantry inventory' : 'Add a new item to your pantry inventory' }}</p>
             </div>
             <button @click="closeModal" class="btn-close-modal">
               <i class="bi bi-x-lg"></i>
@@ -193,42 +185,26 @@
           </div>
 
           <form @submit.prevent="editingItem ? updateItem() : addItem()">
-            <!-- Item Name + Get Category Button -->
+            <!-- Item Name  -->
             <div class="form-group">
               <label>Item Name</label>
-              <input
-                type="text"
-                v-model="form.name"
-                @blur="standardizeName"
-                placeholder="e.g., Wheat, Flour"
-                required
-                class="form-input"
-              />
+              <div class="item-name-row" style="display:flex; gap:0.5rem;">
+                <input
+                  type="text"
+                  v-model="form.name"
+                  placeholder="e.g., Whole Wheat Flour"
+                  required
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Category</label>
+              <input type="text" v-model="form.category" class="form-input" />
             </div>
 
             <div class="form-row">
-              <div class="form-group">
-                <label>Category</label>
-                <div class="category-autocomplete">
-                  <input
-                    type="text"
-                    v-model="form.category"
-                    @input="onCategoryInput"
-                    @keydown.tab.prevent="applyCategorySuggestion"
-                    list="category-suggestions"
-                    placeholder="e.g., Dairy, Produce"
-                    class="form-input"
-                    required
-                  />
-                  <datalist id="category-suggestions">
-                    <option
-                      v-for="cat in filteredCategories"
-                      :key="cat"
-                      :value="cat"
-                    />
-                  </datalist>
-                </div>
-              </div>
               <div class="form-group">
                 <label>Quantity</label>
                 <div class="quantity-row">
@@ -253,20 +229,13 @@
             </div>
 
             <div class="form-group">
-              <label>Expiration Date</label>
-              <input
-                type="date"
-                v-model="form.expiration"
-                required
-                class="form-input"
-              />
+              <label>Expiration Date
+              <input type="date" v-model="form.expiration" required class="form-input" />
+              </label>
             </div>
 
             <button type="submit" :disabled="loading" class="btn-submit">
-              <span
-                v-if="loading"
-                class="spinner-border spinner-border-sm me-2"
-              ></span>
+              <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
               {{ editingItem ? 'Update Item' : 'Add to Pantry' }}
             </button>
           </form>
@@ -277,13 +246,13 @@
 </template>
 
 <script setup>
-import { watch, ref, onMounted, computed, onBeforeUnmount } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout.vue'
 import AnimatedBackground from '@/components/AnimatedBackground.vue'
-import { normalizeIngredientName } from '@/utils/IngredientsNormalisation.js'
 import { IngredientCategorizer } from '@/utils/IngredientsCategorizer.js'
+import Swal from "sweetalert2"
 
 const router = useRouter()
 const loading = ref(false)
@@ -309,72 +278,20 @@ const form = ref({
   expiration: ''
 })
 
-// Get all available categories from categorizer
-const allCategories = ref(
-  IngredientCategorizer.getCategories
-    ? IngredientCategorizer.getCategories()
-    : [
-        'Dairy', 'Produce', 'Pantry Staples', 'Grains & Bread',
-        'Protein', 'Condiments', 'Spices & Herbs', 'Other'
-      ]
+// Filter state
+const filters = ref({ category: '' })
+
+watch(
+  () => form.value.name,
+  (newName) => {
+    if (!newName || newName.trim() === '') {
+      form.value.category = ''
+    } else {
+      form.value.category = IngredientCategorizer.categorizeIngredient(newName)
+    }
+  }
 )
 
-// Dynamic filtered categories for datalist
-const filteredCategories = computed(() => {
-  const input = form.value.category?.toLowerCase() || ''
-  if (!input) return allCategories.value
-  return allCategories.value.filter(c => c.toLowerCase().includes(input))
-})
-
-// Watch for name changes → auto-fill category once
-let userChangedCategory = false
-
-watch(() => form.value.category, () => {
-  userChangedCategory = true
-})
-
-// --- Auto categorize with normalization ---
-watch(() => form.value.name, (newName) => {
-  // 🧹 Normalize input
-  const normalizedName = normalizeIngredientName(newName)
-
-  // Reset auto-categorization if user cleared or changed significantly
-  if (!newName?.trim()) {
-    form.value.category = ''
-    userChangedCategory = false
-    return
-  }
-
-  const detected = IngredientCategorizer.categorizeIngredient(normalizedName)
-  if (detected && detected !== 'Other') {
-    form.value.category = detected
-  }  
-})
-
-// When user edits the category manually
-function onCategoryInput() {
-  // Once the user edits the category, stop auto-overwriting
-  userChangedCategory = true
-}
-
-// If user clears the category box manually, re-enable auto mode
-watch(() => form.value.category, (newCat) => {
-  if (!newCat?.trim()) userChangedCategory = false
-})
-
-function standardizeName() {
-  const raw = form.value.name
-  if (!raw?.trim()) return
-  const trimmed = raw.trim()
-  form.value.name = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase()
-}
-
-function applyCategorySuggestion() {
-  const match = allCategories.value.find(c =>
-    c.toLowerCase().startsWith(form.value.category.toLowerCase())
-  )
-  if (match) form.value.category = match
-}
 
 // --------------------
 // Helper Functions
@@ -417,7 +334,8 @@ const filteredItems = computed(() => {
 
   if (searchQuery.value) {
     items = items.filter((item) =>
-      item.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+      item.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchQuery.value.toLowerCase())
     )
   }
 
@@ -568,18 +486,20 @@ const addItem = async () => {
     const payload = {
       user_id: currentUser.value.id,
       name: form.value.name,
-      category: form.value.category,
+      category: form.value.category, // use autofilled category
       quantity: parseFloat(form.value.quantity),
       unit: form.value.unit,
-      expiration: form.value.expiration
+      expiration: form.value.expiration,
     }
-    const { error } = await supabase.from('pantry_items').insert([payload])
+
+    const { error } = await supabase.from("pantry_items").insert([payload])
     if (error) throw error
+
     closeModal()
     await fetchPantry()
   } catch (error) {
-    console.error('Error adding item:', error)
-    alert('Failed to add item: ' + (error.message || error))
+    console.error("Error adding item:", error)
+    alert("Failed to add item: " + (error.message || error))
   } finally {
     loading.value = false
   }
@@ -602,13 +522,11 @@ const updateItem = async () => {
   if (!editingItem.value) return
   loading.value = true
   try {
-    const category = await getFoodCategory(form.value.name)
-
     const { error } = await supabase
       .from("pantry_items")
       .update({
         name: form.value.name,
-        category,
+        category: form.value.category, // use autofilled category
         quantity: parseFloat(form.value.quantity),
         unit: form.value.unit,
         expiration: form.value.expiration,
@@ -617,18 +535,32 @@ const updateItem = async () => {
       .eq("user_id", currentUser.value.id)
 
     if (error) throw error
+
     closeModal()
     await fetchPantry()
   } catch (error) {
-    console.error('Error updating item:', error)
-    alert('Failed to update item: ' + (error.message || error))
+    console.error("Error updating item:", error)
+    alert("Failed to update item: " + (error.message || error))
   } finally {
     loading.value = false
   }
 }
 
+
 const deleteItem = async (id) => {
-  if (!confirm('Delete this item?')) return
+  const result = await Swal.fire({
+    title: 'Are you sure?',
+    text: 'Do you want to delete this item from your pantry?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, delete it!',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#ff6b1a',
+    cancelButtonColor: '#6b46c1'
+  })
+
+  if (!result.isConfirmed) return
+
   try {
     const { error } = await supabase
       .from('pantry_items')
@@ -636,10 +568,23 @@ const deleteItem = async (id) => {
       .eq('id', id)
       .eq('user_id', currentUser.value.id)
     if (error) throw error
+
     await fetchPantry()
+
+    Swal.fire({
+      title: 'Deleted!',
+      text: 'The item has been removed from your pantry.',
+      icon: 'success',
+      confirmButtonColor: '#6b46c1'
+    })
   } catch (error) {
     console.error('Error deleting item:', error)
-    alert('Delete failed: ' + (error.message || error))
+    Swal.fire({
+      title: 'Error!',
+      text: 'Failed to delete item: ' + (error.message || error),
+      icon: 'error',
+      confirmButtonColor: '#6b46c1'
+    })
   }
 }
 
@@ -1414,4 +1359,27 @@ onBeforeUnmount(() => {
     justify-content: flex-start;
   }
 }
+
+/* Modal Close Button */
+.btn-close-modal {
+  background: linear-gradient(135deg, #ff6b1a 0%, #ff9800 100%);
+  color: white;
+  border: none;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.btn-close-modal:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(255, 107, 26, 0.3);
+}
+
 </style>
