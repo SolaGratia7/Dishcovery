@@ -232,10 +232,11 @@
                 <i class="bi bi-calendar-week calendar-icon" @click="toggleCalendarDropdown"></i>
                 <span class="current-week" @click="toggleCalendarDropdown">{{ currentWeekDisplay }}</span>
                 <!-- Use the new component -->
-                <MiniCalendar 
+                <MiniCalendar
                   v-if="showCalendarDropdown"
                   :current-week="currentWeek"
                   :mode="'range'"
+                  dropdown-position="below"
                   @select-date="selectDate"
                 />
               </div>
@@ -1189,9 +1190,10 @@ function closeRecipeModal() {
   position: relative;
   display: flex;
   align-items: center;
-  min-width: 150px;
+  min-width: 180px;
   justify-content: center;
   z-index: 100;
+  flex: 1;
 }
 
 .current-week {
@@ -1199,6 +1201,7 @@ function closeRecipeModal() {
   color: #666;
   cursor: pointer;
   transition: color 0.2s;
+  white-space: nowrap;
 }
 
 .current-week:hover {
