@@ -250,7 +250,7 @@
                     :currentWeek="new Date()"
                     :showTodayButton="false"
                     :openAbove="true"
-                    :highlightToday="false"
+                    :highlightToday="true"
                     @select-date="handleDateSelect"
                   />
                 </div>
@@ -428,9 +428,13 @@ const calendarVisible = ref(false)
 
 
 function handleDateSelect(date) {
-  form.value.expiration = date.toISOString().split('T')[0]
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  form.value.expiration = `${year}-${month}-${day}` // YYYY-MM-DD in LOCAL time
   calendarVisible.value = false
 }
+
 
 
 // Master list for the table
@@ -453,37 +457,63 @@ const displayedItems = computed(() => {
  * Only deletes when corresponding stat view is active.
  * Deletes the currently visible items (displayedItems).
  */
+
 const confirmClear = async (type) => {
   // Ensure correct active state
   if (type === 'total' && (showExpiredOnly.value || showExpiringOnly.value)) {
-    alert('Select the Total card first to clear Total items.')
+    await Swal.fire({
+      icon: 'info',
+      title: 'Select the Total card',
+      text: 'Please select the Total card first to clear Total items.',
+      confirmButtonColor: '#6b46c1'
+    })
     return
   }
   if (type === 'expired' && !showExpiredOnly.value) {
-    alert('Select the Expired card first to clear Expired items.')
+    await Swal.fire({
+      icon: 'info',
+      title: 'Select the Expired card',
+      text: 'Please select the Expired card first to clear Expired items.',
+      confirmButtonColor: '#6b46c1'
+    })
     return
   }
   if (type === 'expiring' && !showExpiringOnly.value) {
-    alert('Select the Expiring card first to clear Expiring items.')
+    await Swal.fire({
+      icon: 'info',
+      title: 'Select the Expiring card',
+      text: 'Please select the Expiring card first to clear Expiring items.',
+      confirmButtonColor: '#6b46c1'
+    })
     return
   }
 
-  // Items to delete = currently visible (respects category/search)
   const itemsToDelete = displayedItems.value || []
   if (!itemsToDelete.length) {
-    alert('No items to clear in this view.')
+    await Swal.fire({
+      icon: 'info',
+      title: 'Nothing to clear',
+      text: 'No items to clear in this view.',
+      confirmButtonColor: '#6b46c1'
+    })
     return
   }
 
-  // double confirm
-  const first = confirm(
-    `Are you sure you want to delete all ${itemsToDelete.length} items currently shown?`
-  )
-  if (!first) return
-  const second = confirm('This action cannot be undone. Confirm again to proceed.')
-  if (!second) return
+  // SweetAlert2 double confirmation
+  const first = await Swal.fire({
+    title: `Are you sure?`,
+    text: `You are about to delete ${itemsToDelete.length} item(s).`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, delete!',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#ff6b1a',
+    cancelButtonColor: '#6b46c1'
+  })
 
-  // Delete by IDs
+  if (!first.isConfirmed) return
+
+  // Delete items by ID
   try {
     const idsToDelete = itemsToDelete.map((i) => i.id)
     const { error } = await supabase
@@ -494,13 +524,24 @@ const confirmClear = async (type) => {
 
     if (error) throw error
 
-    alert(`Successfully cleared ${itemsToDelete.length} items.`)
     await fetchPantry()
+    await Swal.fire({
+      icon: 'success',
+      title: 'Deleted!',
+      text: `${itemsToDelete.length} item(s) have been removed.`,
+      confirmButtonColor: '#6b46c1'
+    })
   } catch (err) {
     console.error('Error clearing items:', err)
-    alert('Failed to clear items: ' + (err.message || err))
+    await Swal.fire({
+      icon: 'error',
+      title: 'Error!',
+      text: 'Failed to clear items: ' + (err.message || err),
+      confirmButtonColor: '#6b46c1'
+    })
   }
 }
+
 
 // --------------------
 // Supabase Operations
