@@ -1,6 +1,10 @@
 <template>
-  <div :class="['calendar-dropdown', { 'below': dropdownPosition === 'below' }]" @click.stop>
-    <div :class="['dropdown-content', { 'below': dropdownPosition === 'below' }]">
+  <div
+    v-if="calendarVisible"
+    :class="['calendar-dropdown', { 'below': dropdownPosition === 'below', 'above': openAbove }]"
+    @click.stop
+  >
+    <div :class="['dropdown-content', { 'below': dropdownPosition === 'below', 'above': openAbove }]">
       <div class="mini-calendar">
         <div class="mini-calendar-header">
           <button @click="changeMonth(-1)" class="month-nav-btn">
@@ -27,7 +31,7 @@
             <div
               v-for="(month, index) in months"
               :key="index"
-              :class="['month-item', { 
+              :class="['month-item', {
                 'active': index === miniCalendarDate.getMonth() && selectedYear === miniCalendarDate.getFullYear()
               }]"
               @click="selectMonth(index)"
@@ -58,20 +62,20 @@
                 'other-month': !day.isCurrentMonth,
                 'has-meals': day.hasMeals
               }]"
-              @click="emit('select-date', day.date)"
+              @click="handleDateClick(day)"
             >
               {{ day.day }}
               <span v-if="day.hasMeals" class="meal-indicator"></span>
             </div>
           </div>
         </div>
-        
+
         <!-- Today Button -->
-        <div class="card-bottom">
+        <div v-if="showTodayButton" class="card-bottom">
           <button @click="goToToday" class="today-btn">
             Today
           </button>
-        </div>        
+        </div>
       </div>
     </div>
   </div>
@@ -95,7 +99,7 @@ const props = defineProps({
   },
   mode: {
     type: String,
-    default: 'single' // 'single' or 'range'
+    default: 'single'
   },
   highlightSelected: {
     type: Boolean,
@@ -104,8 +108,25 @@ const props = defineProps({
   dropdownPosition: {
     type: String,
     default: 'inline' // 'inline' or 'below'
-  }
+  },
+  // 🆕 Added props
+  showTodayButton: {
+    type: Boolean,
+    default: true // PantryView can set this to false
+  },
+  openAbove: {
+    type: Boolean,
+    default: false // PantryView can set this to true
+  },
+  // highlight today's date
+  highlightToday: {
+  type: Boolean,
+  default: true // PantryView can set this to false
+}
+
 })
+
+
 
 const emit = defineEmits(['select-date'])
 
@@ -197,6 +218,9 @@ const miniCalendarDays = computed(() => {
   return days
 })
 
+const selectedDateStr = ref(null)
+const calendarVisible = ref(true)
+
 
 function toggleMonthSelector() {
   showMonthSelector.value = !showMonthSelector.value
@@ -229,23 +253,29 @@ function formatDateLocal(date) {
 }
 
 function isToday(date) {
+  if (!props.highlightToday) return false
   const today = new Date()
   return date.toDateString() === today.toDateString()
 }
 
+
+// function isSelectedDate(dateStr) {
+//   if (props.mode === 'single') {
+//     if (props.highlightSelected) {
+//       return props.selectedDates.includes(dateStr)
+//     } else {
+//       const weekStart = new Date(props.currentWeek)
+//       weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+//       return dateStr === formatDateLocal(weekStart)
+//     }
+//   } else {
+//     return props.selectedDates.includes(dateStr)
+//   }
+// }
 function isSelectedDate(dateStr) {
-  if (props.mode === 'single') {
-    if (props.highlightSelected) {
-      return props.selectedDates.includes(dateStr)
-    } else {
-      const weekStart = new Date(props.currentWeek)
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-      return dateStr === formatDateLocal(weekStart)
-    }
-  } else {
-    return props.selectedDates.includes(dateStr)
-  }
+  return selectedDateStr.value === dateStr
 }
+
 
 function isInRangeDate(dateStr) {
   if (props.mode === 'range' && props.selectedDates.length === 2) {
@@ -271,15 +301,28 @@ function isRangeEndDate(dateStr) {
   return false
 }
 
-function hasMealsOnDate(dateStr) {
-  return props.datesWithMeals.includes(dateStr)
-}
 
 function goToToday() {
   const today = new Date()
   miniCalendarDate.value = new Date(today)
   emit('select-date', today)
 }
+
+function handleDateClick(day) {
+  selectedDateStr.value = formatDateLocal(day.date)
+  emit('select-date', day.date)
+
+  // Delay closing slightly so highlight renders first
+  setTimeout(() => {
+    closeCalendar()
+  }, 150)
+}
+
+
+function closeCalendar() {
+  calendarVisible.value = false
+}
+
 </script>
 
 <style scoped>
@@ -301,6 +344,18 @@ function goToToday() {
   overflow: hidden;
   width: 100%;
 }
+
+.dropdown-content.above {
+  position: absolute;
+  bottom: 100%; /* place above input */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  margin-bottom: 0.5rem;
+  width: 280px;
+}
+
+
 
 .dropdown-content.below {
   position: absolute;
@@ -403,17 +458,18 @@ function goToToday() {
   font-weight: 700;
 }
 
-.mini-calendar-day.in-range {
+ .mini-calendar-day.in-range {
   background: rgba(255, 107, 26, 0.15);
   color: #1a1a1a;
 }
 
-.mini-calendar-day.range-start,
+ .mini-calendar-day.range-start,
 .mini-calendar-day.range-end {
   background: #ff6b1a;
   color: white !important;
   font-weight: 700;
 }
+
 
 .mini-calendar-day.range-start {
   border-radius: 6px 0 0 6px;
@@ -446,7 +502,7 @@ function goToToday() {
 }
 
 .mini-calendar-day.selected.has-meals {
-  background: #ff6b1a; 
+  background: #ff6b1a;
   color: white;
 }
 

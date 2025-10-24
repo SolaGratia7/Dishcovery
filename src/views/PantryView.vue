@@ -229,9 +229,32 @@
             </div>
 
             <div class="form-group">
-              <label>Expiration Date
-              <input type="date" v-model="form.expiration" required class="form-input" />
-              </label>
+              <label for="expiration" class="form-label">Expiration Date</label>
+              <div class="custom-date-wrapper">
+                <input
+                  id="expiration"
+                  type="date"
+                  v-model="form.expiration"
+                  @focus="calendarVisible = true"
+                  readonly
+                  placeholder="Select a date"
+                  class="custom-date-input"
+                  @click="toggleCalendar"
+                />
+                <i class="bi bi-calendar3 calendar-icon"></i>
+
+
+                <!-- Mini Calendar Dropdown -->
+                <div v-if="showCalendar" class="calendar-dropdown-wrapper">
+                  <MiniCalendar
+                    :currentWeek="new Date()"
+                    :showTodayButton="false"
+                    :openAbove="true"
+                    :highlightToday="false"
+                    @select-date="handleDateSelect"
+                  />
+                </div>
+              </div>
             </div>
 
             <button type="submit" :disabled="loading" class="btn-submit">
@@ -251,6 +274,7 @@ import { useRouter } from 'vue-router'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout.vue'
 import AnimatedBackground from '@/components/AnimatedBackground.vue'
+import MiniCalendar from '@/components/MiniCalendar.vue'
 import { IngredientCategorizer } from '@/utils/IngredientsCategorizer.js'
 import Swal from "sweetalert2"
 
@@ -391,6 +415,23 @@ const toggleExpiredOnly = () => {
     showExpiringOnly.value = false
   }
 }
+
+// Expiration date calendar when adding new item
+const showCalendar = ref(false)
+
+function toggleCalendar() {
+  showCalendar.value = !showCalendar.value
+}
+
+// calendar for expiration date
+const calendarVisible = ref(false)
+
+
+function handleDateSelect(date) {
+  form.value.expiration = date.toISOString().split('T')[0]
+  calendarVisible.value = false
+}
+
 
 // Master list for the table
 const displayedItems = computed(() => {
@@ -1360,9 +1401,61 @@ onBeforeUnmount(() => {
   }
 }
 
+.custom-date-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.custom-date-input {
+  width: 100%;
+  padding: 0.6rem 2.5rem 0.6rem 0.75rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background-color: #fff;
+  color: #1a1a1a;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.custom-date-input:hover,
+.custom-date-input:focus {
+  border-color: #ff6b1a;
+  box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.15);
+}
+
+.calendar-icon {
+  position: absolute;
+  right: 0.75rem;
+  color: #ff6b1a;
+  pointer-events: none;
+  font-size: 1.1rem;
+}
+
+.calendar-dropdown-wrapper {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  width: 100%;
+  z-index: 200;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  transform-origin: bottom;
+}
+
+.calendar-dropdown-wrapper[style*="display: none"],
+.calendar-dropdown-wrapper.hidden {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+
+
+
 /* Modal Close Button */
 .btn-close-modal {
-  background: linear-gradient(135deg, #ff6b1a 0%, #ff9800 100%);
   color: white;
   border: none;
   width: 35px;
