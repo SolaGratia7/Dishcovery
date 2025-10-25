@@ -230,16 +230,18 @@
 
             <div class="form-group">
               <label for="expiration" class="form-label">Expiration Date</label>
-              <div class="custom-date-wrapper">
+              <div class="custom-date-wrapper" ref="calendarRef">
+                <p v-if="validationErrors.expiration" class="error-text">
+                  {{ validationErrors.expiration }}
+                </p>
                 <input
                   id="expiration"
                   type="date"
                   v-model="form.expiration"
-                  @focus="calendarVisible = true"
                   readonly
                   placeholder="Select a date"
                   class="custom-date-input"
-                  @click="toggleCalendar"
+                  @click="showCalendar = !showCalendar"
                 />
                 <i class="bi bi-calendar3 calendar-icon"></i>
 
@@ -286,6 +288,9 @@ const editingItem = ref(null)
 const showAddModal = ref(false)
 const searchQuery = ref('')
 const sortByExpiration = ref(false)
+const showCalendar = ref(false)
+const calendarRef = ref(null)
+const formSubmitted = ref(false)
 
 // add categories into filter
 const dbCategories = computed(() => {
@@ -300,6 +305,42 @@ const form = ref({
   quantity: '',
   unit: 'pcs',
   expiration: ''
+})
+
+const validationErrors = ref({
+  expiration: ''
+})
+
+// Expiration date calendar when adding new item
+
+
+// calendar for expiration date
+
+
+function handleDateSelect(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  form.value.expiration = `${year}-${month}-${day}` // YYYY-MM-DD in LOCAL time
+  showCalendar.value = false
+}
+
+// let ignoreNextClick = false
+
+const handleClickOutside = (e) => {
+  // if calendar is open and click is NOT inside calendarRef
+  if (showCalendar.value && calendarRef.value && !calendarRef.value.contains(e.target)) {
+    showCalendar.value = false
+  }
+}
+
+// When clicking the calendar input, mark to ignore next document click
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 
 // Filter state
@@ -415,26 +456,6 @@ const toggleExpiredOnly = () => {
     showExpiringOnly.value = false
   }
 }
-
-// Expiration date calendar when adding new item
-const showCalendar = ref(false)
-
-function toggleCalendar() {
-  showCalendar.value = !showCalendar.value
-}
-
-// calendar for expiration date
-const calendarVisible = ref(false)
-
-
-function handleDateSelect(date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  form.value.expiration = `${year}-${month}-${day}` // YYYY-MM-DD in LOCAL time
-  calendarVisible.value = false
-}
-
 
 
 // Master list for the table
@@ -563,6 +584,15 @@ const fetchPantry = async () => {
 }
 
 const addItem = async () => {
+  formSubmitted.value = true
+  validationErrors.value.expiration = ''
+
+  // Validate only after submit attempt
+  if (!form.value.expiration) {
+    validationErrors.value.expiration = 'Please select an expiration date.'
+    return
+  }
+
   loading.value = true
   try {
     const payload = {
@@ -598,10 +628,20 @@ const startEdit = (item) => {
     expiration: item.expiration
   }
   showAddModal.value = true
+  formSubmitted.value = false
+  validationErrors.value.expiration = ''
 }
 
 const updateItem = async () => {
   if (!editingItem.value) return
+
+  formSubmitted.value = true
+  validationErrors.value.expiration = ''
+
+  if (!form.value.expiration) {
+    validationErrors.value.expiration = 'Please select an expiration date.'
+    return
+  }
   loading.value = true
   try {
     const { error } = await supabase
@@ -680,6 +720,8 @@ const closeModal = () => {
     unit: 'pcs',
     expiration: ''
   }
+  formSubmitted.value = false
+  validationErrors.value.expiration = ''
 }
 
 const scrollBody = ref(null)
@@ -787,6 +829,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
 }
+
+
 
 /* Search/filter card */
 .search-filter-card {
@@ -1492,8 +1536,16 @@ onBeforeUnmount(() => {
   transform: translateY(10px);
 }
 
-
-
+.error-text {
+  position: absolute;
+  left: 0;
+  bottom: -2rem; /* adjust as needed to sit above the input */
+  font-size: 0.8rem;
+  color: #e63946;
+  margin: 0;
+  line-height: 1;
+  padding: 10px;
+}
 
 /* Modal Close Button */
 .btn-close-modal {
