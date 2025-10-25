@@ -113,7 +113,7 @@
 
         <!-- Table or Empty -->
         <div v-if="filteredItems.length === 0" class="empty-state">
-          <i class="bi bi-basket"></i>
+          <!-- <i class="bi bi-basket"></i> -->
           <h3>Your pantry is empty</h3>
           <p>Start adding ingredients to track your inventory</p>
         </div>
@@ -121,55 +121,49 @@
         <!-- Table Container -->
         <div class="pantry-table-container">
           <div class="pantry-table-scroll-area">
-            <div class="pantry-table-header">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Item Name</th>
-                    <th>Category</th>
-                    <th>Quantity</th>
-                    <th>Expiration Date</th>
-                    <th>Days to Expiration</th>
-                    <th>Status</th>
-                    <th class="actions-col">Actions</th>
-                  </tr>
-                </thead>
-              </table>
-            </div>
-
-            <div class="pantry-table-body" ref="scrollBody">
-              <table>
-                <tbody>
-                  <tr
-                    v-for="item in displayedItems"
-                    :key="item.id"
-                    :class="['table-row', getFreshnessClass(item.expiration)]"
-                  >
-                    <td class="name-col">{{ item.name }}</td>
-                    <td>{{ item.category }}</td>
-                    <td>{{ item.quantity }} {{ item.unit }}</td>
-                    <td>{{ formatDate(item.expiration) }}</td>
-                    <td>{{ getDaysUntil(item.expiration) }}</td>
-                    <td>
-                      <span :class="['freshness-badge', getFreshnessClass(item.expiration)]">
-                        {{ getFreshnessLabel(item.expiration) }}
-                      </span>
-                    </td>
-                    <td class="actions-col">
-                      <button @click="startEdit(item)" class="btn-edit-table" title="Edit">
-                        <i class="bi bi-pencil"></i>
-                      </button>
-                      <button @click="deleteItem(item.id)" class="btn-delete-table" title="Delete">
-                        <i class="bi bi-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <table class="pantry-table">
+              <thead>
+                <tr>
+                  <th>Item Name</th>
+                  <th>Category</th>
+                  <th>Quantity</th>
+                  <th>Expiration Date</th>
+                  <th>Days to Expiration</th>
+                  <th>Status</th>
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="item in displayedItems"
+                  :key="item.id"
+                  :class="['table-row', getFreshnessClass(item.expiration)]"
+                >
+                  <td class="name-col">{{ item.name }}</td>
+                  <td>{{ item.category }}</td>
+                  <td>{{ item.quantity }} {{ item.unit }}</td>
+                  <td>{{ formatDate(item.expiration) }}</td>
+                  <td>{{ getDaysUntil(item.expiration) }}</td>
+                  <td>
+                    <span :class="['freshness-badge', getFreshnessClass(item.expiration)]">
+                      {{ getFreshnessLabel(item.expiration) }}
+                    </span>
+                  </td>
+                  <td class="actions-col">
+                    <button @click="startEdit(item)" class="btn-edit-table" title="Edit">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button @click="deleteItem(item.id)" class="btn-delete-table" title="Delete">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
+
 
       <!-- Add/Edit Modal -->
       <div v-if="showAddModal || editingItem" class="modal-overlay" @click="closeModal">
@@ -724,20 +718,6 @@ const closeModal = () => {
   validationErrors.value.expiration = ''
 }
 
-const scrollBody = ref(null)
-
-onMounted(() => {
-  const header = document.querySelector(".pantry-table-header")
-  const body = scrollBody.value
-
-  if (header && body) {
-    body.addEventListener("scroll", () => {
-      header.scrollLeft = body.scrollLeft
-    })
-  }
-})
-
-
 // --------------------
 // Lifecycle
 // --------------------
@@ -1109,197 +1089,116 @@ onBeforeUnmount(() => {
 }
 
 /* Table styling */
-
+/* === Scrollable Table Container === */
 .pantry-table-container {
   position: relative;
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-  height: 70vh; /* Fixed window height for table area */
-  display: flex;
-  flex-direction: column;
+  overflow: auto;
+  max-height: 500px;
+  background: #ffffff;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 16px rgba(107, 70, 193, 0.08);
+  border: 1px solid rgba(107, 70, 193, 0.1);
 }
 
-/* Header stays fixed inside this window */
-.pantry-table-header {
-  flex-shrink: 0;
-  background: white;
+/* === Table Core === */
+.pantry-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #ffffff;
+  table-layout: auto;
+}
+
+/* === Sticky Header === */
+.pantry-table thead th {
   position: sticky;
   top: 0;
   z-index: 10;
-  border-bottom: 1px solid #eee;
-}
-
-.pantry-table-header table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.pantry-table-header th {
+  background: #faf5ff;
   color: #6b46c1;
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 0.85rem;
-  padding: 1rem 1.25rem;
-  text-align: left;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+  padding: 20px 24px;
+  border-bottom: 2px solid rgba(107, 70, 193, 0.15);
+  white-space: nowrap;
 }
 
-/* Scrollable table body below */
-.pantry-table-body {
-  overflow-y: auto;
-  flex-grow: 1;
-  background: rgba(255, 255, 255, 0.95);
+/* Rounded corners on first/last header cells */
+.pantry-table thead th:first-child {
+  border-top-left-radius: 1.5rem;
+}
+.pantry-table thead th:last-child {
+  border-top-right-radius: 1.5rem;
 }
 
-.pantry-table-body table {
-  width: 100%;
-  border-collapse: collapse;
+/* === Body Rows === */
+.pantry-table tbody tr {
+  transition: background-color 0.2s ease;
 }
 
-.pantry-table-body td {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #f7f7f7;
-  font-size: 0.95rem;
-  color: #1a1a1a;
+.pantry-table tbody tr:hover {
+  background-color: rgba(107, 70, 193, 0.03);
 }
 
-/* Make sure header never shows rows behind it */
-.pantry-table-header,
-.pantry-table-header th {
-  background: white !important;
-}
-
-/* Responsive fix — add horizontal scroll & spacing for narrow widths */
-@media (max-width: 900px) {
-  .pantry-table-body {
-    overflow-x: auto;
-  }
-
-  .pantry-table-body table {
-    min-width: 800px;
-  }
-
-  .pantry-table-body td,
-  .pantry-table-header th {
-    padding: 1rem 1.5rem; /* add extra breathing space */
-  }
-}
-
-.pantry-table-container {
-  position: relative;
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  height: 70vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* Scroll area allows horizontal scroll for both header + body */
-.pantry-table-scroll-area {
-  position: relative;
-  overflow-x: auto;
-}
-
-/* Sticky header inside scroll area */
-.pantry-table-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: white;
-  border-bottom: 1px solid #eee;
-}
-
-/* .pantry-table-header table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-} */
-
-.pantry-table-header th {
-  color: #6b46c1;
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 0.85rem;
-  padding: 1rem 1.25rem;
-  text-align: left;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-/* Scrollable body */
-.pantry-table-body {
-  max-height: 60vh;
-  overflow-y: auto;
-  overflow-x: auto;
-}
-
-.pantry-table-header table,
-.pantry-table-body table {
-  min-width: 900px; /* ✅ force table wider on narrow viewports */
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.pantry-table-body td {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #f7f7f7;
-  font-size: 0.95rem;
-  color: #1a1a1a;
-}
-
-/* Responsive horizontal scroll */
-@media (max-width: 900px) {
-  .pantry-table-scroll-area {
-    overflow-x: auto;
-  }
-
-  .pantry-table-body table,
-  .pantry-table-header table {
-    min-width: 900px;
-  }
-}
-
-/* Match columns of header & body */
-.pantry-table-header th,
+/* === Body Cells === */
 .pantry-table td {
-  width: calc(100% / 7);
+  padding: 16px 24px;
+  color: #111827;
+  border-bottom: 1px solid #f1f0f8;
+  background-clip: padding-box;
+  white-space: nowrap;
 }
 
+/* Remove border from last row */
+.pantry-table tbody tr:last-child td {
+  border-bottom: none;
+}
 
-/* bold + bigger item name */
+/* === Entire Row Highlight for Freshness === */
+.table-row.fresh {
+  background: linear-gradient(90deg, rgba(209, 250, 229, 0.3), #ffffff);
+}
+.table-row.warning {
+  background: linear-gradient(90deg, rgba(254, 243, 199, 0.35), #ffffff);
+}
+.table-row.critical {
+  background: linear-gradient(90deg, rgba(254, 226, 226, 0.4), #ffffff);
+}
+.table-row.expired {
+  background: linear-gradient(90deg, #ede9fe, #ffffff);
+}
+
+/* Apply row hover */
+.table-row:hover {
+  background-color: #f9f8ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(107, 70, 193, 0.06);
+}
+
+/* === Item Name Column === */
 .name-col {
   font-weight: 700;
   font-size: 1.05rem;
   color: #4a2ea5;
 }
 
-/* hover */
-.pantry-table-body tr.table-row:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.04);
-}
-
 /* Freshness backgrounds */
-.pantry-table-body tr.table-row.fresh {
+.table-row.fresh {
   background: linear-gradient(90deg, rgba(209,250,229,0.3), transparent);
 }
 
-.pantry-table-body tr.table-row.warning {
+.table-row.warning {
   background: linear-gradient(90deg, rgba(254,243,199,0.35), transparent);
 }
 
-.pantry-table-body tr.table-row.critical {
+.table-row.critical {
   background: linear-gradient(90deg, rgba(254,226,226,0.4), transparent);
 }
 
 /* expired = solid light red row */
-.pantry-table-body tr.table-row.expired {
+.table-row.expired {
   background: linear-gradient(90deg, #ede9fe, transparent);
 }
 
@@ -1319,7 +1218,6 @@ onBeforeUnmount(() => {
   white-space: normal;
   word-break: break-word;
 }
-
 
 .freshness-badge.fresh {
   background: #d1fae5;
