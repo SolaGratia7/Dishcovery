@@ -42,26 +42,95 @@
         <div v-if="planningMode === 'auto'" class="auto-generate-card mb-4">
           <div class="card-body">
             <div class="row g-3">
-              <!-- Week Selection -->
+              <!-- Date Range Selection -->
               <div class="col-12">
-                <label class="form-label fw-semibold">Select Week to Generate</label>
-                <div class="week-selector">
-                  <button @click="changeAutoGenWeek(-1)" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-chevron-left"></i>
-                  </button>
-                  <div class="selected-week-display" ref="autoGenCalendarRef">
-                    <i class="bi bi-calendar-week me-2"></i>
-                    <span @click="toggleAutoGenCalendar">{{ autoGenWeekDisplay }}</span>
+                <label class="form-label fw-semibold">Generate for date(s)</label>
+                <div class="date-range-selector">
+                  <div class="date-selection-left">
+                    <div class="date-input-group">
+                      <label class="date-label">Start Date</label>
+                      <div class="date-input-wrapper" ref="startDateRef">
+                        <input
+                          v-model="startDateDisplay"
+                          type="text"
+                          class="form-control date-input"
+                          readonly
+                          @click="toggleStartDatePicker"
+                          placeholder="Select start date"
+                        >
+                        <i class="bi bi-calendar date-icon" :class="{ 'd-none': showStartDatePicker }" @click="toggleStartDatePicker"></i>
+                      </div>
+                    </div>
+
+                    <div class="selection-mode">
+                      <div class="mode-toggle">
+                        <label class="radio-label">
+                          <input
+                            type="radio"
+                            v-model="selectionMode"
+                            value="endDate"
+                          >
+                          Select End Date
+                        </label>
+                        <label class="radio-label">
+                          <input
+                            type="radio"
+                            v-model="selectionMode"
+                            value="duration"
+                          >
+                          Select Duration
+                        </label>
+                      </div>
+
+                      <div v-if="selectionMode === 'endDate'" class="date-input-group">
+                        <label class="date-label">End Date</label>
+                        <div class="date-input-wrapper" ref="endDateRef">
+                          <input
+                            v-model="endDateDisplay"
+                            type="text"
+                            class="form-control date-input"
+                            readonly
+                            @click="toggleEndDatePicker"
+                            placeholder="Select end date"
+                          >
+                          <i class="bi bi-calendar date-icon" :class="{ 'd-none': showEndDatePicker }" @click="toggleEndDatePicker"></i>
+                        </div>
+                      </div>
+
+                      <div v-if="selectionMode === 'duration'" class="duration-input-group">
+                        <label class="date-label">Duration</label>
+                        <div class="duration-inputs">
+                          <input
+                            v-model.number="durationValue"
+                            type="number"
+                            class="duration-number"
+                            min="1"
+                            max="365"
+                            placeholder="1"
+                          >
+                          <select v-model="durationUnit" class="duration-unit">
+                            <option value="days">day(s)</option>
+                            <option value="weeks">week(s)</option>
+                            <option value="months">month(s)</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                <div class="calendar-right">
+                  <div class="calendar-container">
                     <MiniCalendar
-                      v-if="showAutoGenCalendar"
-                      :current-week="autoGenWeek"
-                      :mode="'single'"
-                      @select-date="selectAutoGenDate"
+                      :key="selectionMode + (startDate ? startDate.toISOString() : '') + (endDate ? endDate.toISOString() : '')"
+                      :current-week="startDate || new Date()"
+                      :selected-dates="selectedDateRange"
+                      :mode="'range'"
+                      class="large-calendar"
+                      :auto-close="false"
+                      @select-date="handleCalendarDateSelect"
                     />
                   </div>
-                  <button @click="changeAutoGenWeek(1)" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-chevron-right"></i>
-                  </button>
+                </div>
                 </div>
               </div>
               <!-- Goal Input -->
@@ -99,15 +168,7 @@
                     <span class="goal-text">kg in</span>
 
                     <!-- Timeframe Input -->
-                    <input
-                      v-model.number="timeframe"
-                      type="number"
-                      class="goal-input"
-                      placeholder="1"
-                      min="1"
-                      max="12"
-                    >
-                    <span class="goal-text">month(s)</span>
+                    <span class="goal-text">{{ goalTimeframeDisplay }}</span>
                   </div>
                 </div>
 
@@ -141,12 +202,15 @@
               <button
                 @click="generateAutoMealPlan(calculatedCalories)"
                 class="btn btn-primary btn-lg w-100"
-                :disabled="loadingAutoGen"
+                :disabled="loadingAutoGen || !isDateRangeValid"
               >
                 <span v-if="loadingAutoGen" class="spinner-border spinner-border-sm me-2"></span>
                 <i v-else class="bi bi-magic me-2"></i>
                 {{ loadingAutoGen ? 'Generating Your Meal Plan...' : 'Generate Meal Plan' }}
               </button>
+              <div v-if="!isDateRangeValid" class="text-danger mt-2 small">
+                Please select a valid date range (start date must be before or equal to end date)
+              </div>
             </div>
 
             <!-- Progress Indicator -->
@@ -310,6 +374,140 @@
           <button @click="closePlanMealModal" class="btn-close-modal">
             <i class="bi bi-x-lg"></i>
           </button>
+
+          <div class="modal-header-custom">
+            <h3>Add Meal for {{ formatDate(selectedDate) }}</h3>
+            <p class="text-muted mb-0">{{ selectedMealType.charAt(0).toUpperCase() + selectedMealType.slice(1) }}</p>
+          </div>
+
+          <div class="modal-body-custom">
+            <!-- Search Mode Toggle -->
+            <div class="search-mode-toggle mb-4">
+              <button
+                :class="['search-mode-btn', { 'active': searchMode === 'saved' }]"
+                @click="searchMode = 'saved'"
+              >
+                <i class="bi bi-bookmark me-2"></i>
+                Saved Recipes
+              </button>
+              <button
+                :class="['search-mode-btn', { 'active': searchMode === 'online' }]"
+                @click="searchMode = 'online'"
+              >
+                <i class="bi bi-search me-2"></i>
+                Search Online
+              </button>
+            </div>
+
+            <!-- Saved Recipes Mode -->
+            <div v-if="searchMode === 'saved'">
+              <div class="saved-recipes-section">
+                <h5 class="mb-3">Your Saved Recipes</h5>
+                <div v-if="savedRecipes.length === 0" class="empty-state">
+                  <i class="bi bi-bookmark-x display-4 text-muted"></i>
+                  <p class="text-muted mt-2">No saved recipes yet. Search online to find and save recipes!</p>
+                </div>
+                <div v-else class="saved-recipes-grid">
+                  <div
+                    v-for="recipe in savedRecipes"
+                    :key="recipe.id"
+                    :class="['saved-recipe-card', { 'selected': selectedRecipeId === recipe.id }]"
+                    @click="selectedRecipeId = recipe.id; selectedOnlineRecipe = null"
+                  >
+                    <img
+                      :src="recipe.image || '/placeholder-recipe.jpg'"
+                      :alt="recipe.title"
+                      class="recipe-image"
+                      @error="handleImageError"
+                    >
+                    <div class="recipe-info">
+                      <h6 class="recipe-title">{{ recipe.title }}</h6>
+                      <div class="recipe-meta">
+                        <span><i class="bi bi-clock"></i> {{ recipe.readyInMinutes }}min</span>
+                        <span><i class="bi bi-people"></i> {{ recipe.servings }}</span>
+                      </div>
+                    </div>
+                    <div v-if="selectedRecipeId === recipe.id" class="selected-indicator">
+                      <i class="bi bi-check-lg"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Online Search Mode -->
+            <div v-if="searchMode === 'online'">
+              <div class="online-search-section">
+                <div class="search-input-group mb-3">
+                  <input
+                    v-model="onlineSearchQuery"
+                    type="text"
+                    class="form-control search-input"
+                    placeholder="Search for recipes..."
+                    @keyup.enter="searchOnlineRecipes"
+                  >
+                  <button
+                    @click="searchOnlineRecipes"
+                    class="btn btn-primary search-btn"
+                    :disabled="loadingSearch"
+                  >
+                    <span v-if="loadingSearch" class="spinner-border spinner-border-sm me-2"></span>
+                    <i v-else class="bi bi-search me-2"></i>
+                    Search
+                  </button>
+                </div>
+
+                <!-- Search Results -->
+                <div v-if="hasSearched" class="search-results">
+                  <div v-if="searchResults.length === 0 && !loadingSearch" class="empty-state">
+                    <i class="bi bi-search display-4 text-muted"></i>
+                    <p class="text-muted mt-2">No recipes found. Try a different search term!</p>
+                  </div>
+                  <div v-else-if="searchResults.length > 0" class="results-grid">
+                    <div
+                      v-for="recipe in searchResults"
+                      :key="recipe.id"
+                      :class="['result-card', { 'selected': selectedOnlineRecipe && selectedOnlineRecipe.id === recipe.id }]"
+                      @click="selectOnlineRecipe(recipe)"
+                    >
+                      <img
+                        :src="recipe.image || '/placeholder-recipe.jpg'"
+                        :alt="recipe.title"
+                        class="result-image"
+                        @error="handleImageError"
+                      >
+                      <div class="result-info">
+                        <h6 class="result-title">{{ recipe.title }}</h6>
+                        <div class="result-meta">
+                          <span><i class="bi bi-clock"></i> {{ recipe.readyInMinutes }}min</span>
+                          <span><i class="bi bi-people"></i> {{ recipe.servings }}</span>
+                          <span><i class="bi bi-heart"></i> {{ recipe.aggregateLikes }}</span>
+                        </div>
+                      </div>
+                      <div v-if="selectedOnlineRecipe && selectedOnlineRecipe.id === recipe.id" class="selected-indicator">
+                        <i class="bi bi-check-lg"></i>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer-custom">
+            <button @click="closePlanMealModal" class="btn btn-secondary">
+              Cancel
+            </button>
+            <button
+              @click="saveMealPlan"
+              class="btn btn-primary"
+              :disabled="!canSaveMeal || savingMeal"
+            >
+              <span v-if="savingMeal" class="spinner-border spinner-border-sm me-2"></span>
+              <i v-else class="bi bi-plus-circle me-2"></i>
+              {{ savingMeal ? 'Adding...' : 'Add Meal' }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -318,13 +516,18 @@
         :recipe="selectedRecipeForView"
         @close="closeRecipeModal"
       />
+
+      <!-- Toast Notification -->
+      <div v-if="showToast" class="toast-notification">
+        {{ toastMessage }}
+      </div>
       </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout.vue'
@@ -383,9 +586,28 @@ const loadingAutoGen = ref(false)
 const autoGenProgress = ref('')
 const autoGenPercent = ref(0)
 const hasGeneratedPlan = ref(false)
-const autoGenWeek = ref(new Date())
-const showAutoGenCalendar = ref(false)
-const autoGenCalendarRef = ref(null)
+
+// Date range selection
+const startDate = ref(null)
+const endDate = ref(null)
+const showStartDatePicker = ref(false)
+const showEndDatePicker = ref(false)
+const startDateRef = ref(null)
+const endDateRef = ref(null)
+const selectedDateRange = computed(() => {
+  const dates = []
+  if (startDate.value) dates.push(formatDateLocal(startDate.value))
+
+  const effectiveEndDate = selectionMode.value === 'duration' ? endDateFromDuration.value : endDate.value
+  if (effectiveEndDate) dates.push(formatDateLocal(effectiveEndDate))
+
+  return dates
+})
+
+// Selection mode and duration
+const selectionMode = ref('endDate') // 'endDate' or 'duration'
+const durationValue = ref(1)
+const durationUnit = ref('weeks') // 'days', 'weeks', 'months'
 
 // State
 const currentWeek = ref(new Date())
@@ -395,6 +617,7 @@ const showPlanMealModal = ref(false)
 const selectedDate = ref('')
 const selectedMealType = ref('')
 const selectedRecipeId = ref('')
+const savingMeal = ref(false)
 
 // Search mode
 const SPOONACULAR_URL = 'https://api.spoonacular.com/recipes/complexSearch'
@@ -412,6 +635,9 @@ const historyMonth = ref('')
 const historyMealType = ref('')
 const historyResults = ref([])
 const highlightedSlot = ref({ date: '', meal: '' })
+
+// Expanded meal slot
+const expandedMeal = ref('')
 
 // Calendar dropdown
 const calendarContainerRef = ref(null)
@@ -456,18 +682,33 @@ const currentWeekDisplay = computed(() => {
   return `${startStr} - ${endStr}`
 })
 
-const autoGenWeekDisplay = computed(() => {
-  const weekStart = new Date(autoGenWeek.value)
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+const startDateDisplay = computed(() => {
+  if (!startDate.value) return ''
+  return startDate.value.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+})
 
-  const weekEnd = new Date(weekStart)
-  weekEnd.setDate(weekStart.getDate() + 6)
+const endDateDisplay = computed(() => {
+  if (!endDate.value) return ''
+  return endDate.value.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+})
 
-  const options = { month: 'short', day: 'numeric', year: 'numeric' }
-  const startStr = weekStart.toLocaleDateString('en-US', options)
-  const endStr = weekEnd.toLocaleDateString('en-US', options)
+// Computed for end date from duration
+const endDateFromDuration = computed(() => {
+  if (!startDate.value || !durationValue.value) return null
 
-  return `${startStr} - ${endStr}`
+  const endDate = new Date(startDate.value)
+  const value = durationValue.value
+
+  if (durationUnit.value === 'days') {
+    endDate.setDate(endDate.getDate() + value - 1) // Subtract 1 to include start date
+  } else if (durationUnit.value === 'weeks') {
+    endDate.setDate(endDate.getDate() + (value * 7) - 1) // Subtract 1 to include start date
+  } else if (durationUnit.value === 'months') {
+    endDate.setMonth(endDate.getMonth() + value)
+    endDate.setDate(endDate.getDate() - 1) // Subtract 1 to include start date
+  }
+
+  return endDate
 })
 
 const availableMonths = computed(() => {
@@ -540,12 +781,12 @@ function handleClickOutside(event) {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
-  document.addEventListener('click', handleAutoGenClickOutside)
+  document.addEventListener('click', handleDatePickerClickOutside)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
-  document.removeEventListener('click', handleAutoGenClickOutside)
+  document.removeEventListener('click', handleDatePickerClickOutside)
 })
 
 function selectDate(date) {
@@ -576,46 +817,159 @@ function selectDate(date) {
   const weekStart = new Date(date)
   weekStart.setDate(date.getDate() - date.getDay())
   currentWeek.value = weekStart
-  showCalendarDropdown.value = false
+  // Keep dropdown open for multiple selections if needed
 }
 
 // Computed for validation
 const isGoalValid = computed(() => {
-  return weightChange.value > 0 && timeframe.value > 0
+  return weightChange.value > 0 && (timeframeDisplay.value || timeframe.value > 0)
 })
 
-function changeAutoGenWeek(direction) {
-  const newWeek = new Date(autoGenWeek.value)
-  newWeek.setDate(newWeek.getDate() + (direction * 7))
-  autoGenWeek.value = newWeek
+const isDateRangeValid = computed(() => {
+  if (selectionMode.value === 'duration') {
+    return startDate.value && durationValue.value > 0
+  } else {
+    return startDate.value && endDate.value && startDate.value <= endDate.value
+  }
+})
+
+const calculatedTimeframe = computed(() => {
+  const effectiveEndDate = selectionMode.value === 'duration' ? endDateFromDuration.value : endDate.value
+  if (!startDate.value || !effectiveEndDate) return 0
+  const diffTime = effectiveEndDate.getTime() - startDate.value.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1 // +1 to include both start and end dates
+  return diffDays
+})
+
+const timeframeDisplay = computed(() => {
+  const days = calculatedTimeframe.value
+  if (days === 0) return ''
+
+  // Check for months (within ±2 days of multiples of 30) - only for 30+ days
+  if (days >= 28) {
+    const months = Math.round(days / 30)
+    const expectedDays = months * 30
+    if (Math.abs(days - expectedDays) <= 2) {
+      return `${months} month${months !== 1 ? 's' : ''}`
+    }
+  }
+
+  // Show weeks if exactly divisible by 7 and >= 7 days
+  if (days >= 7 && days % 7 === 0) {
+    const weeks = days / 7
+    return `${weeks} week${weeks !== 1 ? 's' : ''}`
+  }
+
+  // Otherwise show days
+  return `${days} day${days > 1 ? 's' : ''}`
+})
+
+const goalTimeframeDisplay = computed(() => {
+  // Always show the calculated timeframe in smart units (months/weeks/days)
+  return timeframeDisplay.value
+})
+
+function toggleStartDatePicker() {
+  showStartDatePicker.value = !showStartDatePicker.value
+  showEndDatePicker.value = false // Close other picker
 }
 
-function toggleAutoGenCalendar() {
-  showAutoGenCalendar.value = !showAutoGenCalendar.value
+function toggleEndDatePicker() {
+  showEndDatePicker.value = !showEndDatePicker.value
+  showStartDatePicker.value = false // Close other picker
 }
 
-function selectAutoGenDate(date) {
-  const weekStart = new Date(date)
-  weekStart.setDate(date.getDate() - date.getDay())
-  autoGenWeek.value = weekStart
-  showAutoGenCalendar.value = false
+function selectStartDate(date) {
+  startDate.value = new Date(date)
+  showStartDatePicker.value = false
+
+  // If end date is before start date, clear it
+  if (endDate.value && endDate.value < startDate.value) {
+    endDate.value = null
+  }
+
+  // If using duration mode, end date will be computed automatically via endDateFromDuration
 }
 
-function handleAutoGenClickOutside(event) {
-  if (showAutoGenCalendar.value &&
-      autoGenCalendarRef.value &&
-      !autoGenCalendarRef.value.contains(event.target)) {
-    showAutoGenCalendar.value = false
+function selectEndDate(date) {
+  endDate.value = new Date(date)
+  showEndDatePicker.value = false
+
+  // If start date is after end date, clear it
+  if (startDate.value && startDate.value > endDate.value) {
+    startDate.value = null
+  }
+}
+
+function handleCalendarDateSelect(dates) {
+  if (Array.isArray(dates)) {
+    if (dates.length >= 1) {
+      startDate.value = new Date(dates[0])
+    }
+    if (dates.length >= 2) {
+      endDate.value = new Date(dates[1])
+    }
+  } else {
+    // Single date selection - update the appropriate date based on which picker is open
+    const selectedDate = new Date(dates)
+    if (showStartDatePicker.value) {
+      startDate.value = selectedDate
+      showStartDatePicker.value = false
+      // If end date is before start date, clear it
+      if (endDate.value && endDate.value < startDate.value) {
+        endDate.value = null
+      }
+    } else if (showEndDatePicker.value) {
+      endDate.value = selectedDate
+      showEndDatePicker.value = false
+      // If start date is after end date, clear it
+      if (startDate.value && startDate.value > endDate.value) {
+        startDate.value = null
+      }
+    } else {
+      // Fallback: allow range selection
+      if (!startDate.value) {
+        startDate.value = selectedDate
+      } else if (!endDate.value) {
+        endDate.value = selectedDate
+      } else {
+        // Reset and start new selection
+        startDate.value = selectedDate
+        endDate.value = null
+      }
+    }
+  }
+
+  // If duration mode is selected, update the end date based on duration
+  if (selectionMode.value === 'duration' && startDate.value) {
+    // endDate will be computed automatically via endDateFromDuration
+  }
+}
+
+function handleDatePickerClickOutside(event) {
+  if (showStartDatePicker.value &&
+      startDateRef.value &&
+      !startDateRef.value.contains(event.target)) {
+    showStartDatePicker.value = false
+  }
+  if (showEndDatePicker.value &&
+      endDateRef.value &&
+      !endDateRef.value.contains(event.target)) {
+    showEndDatePicker.value = false
   }
 }
 
 // Computed for calculated calories
 const calculatedCalories = computed(() => {
-  if (!weightChange.value || !timeframe.value) return 0
+  if (!weightChange.value) return 0
+
+  // Use calculated timeframe from date range if available, otherwise use manual input
+  const effectiveTimeframe = timeframeDisplay.value ? calculatedTimeframe.value / 30 : timeframe.value
+  if (!effectiveTimeframe) return 0
 
   const baseCalories = 2000
   const totalCalories = weightChange.value * 7700
-  const dailyChange = totalCalories / (timeframe.value * 30)
+  const dailyChange = totalCalories / (effectiveTimeframe * 30)
 
   if (goalType.value === 'lose') {
     return Math.max(1200, Math.round(baseCalories - dailyChange))
@@ -630,6 +984,11 @@ const calculatedCalories = computed(() => {
 async function generateAutoMealPlan(targetCalories) {
   if (!isGoalValid.value) {
     displayToast('Please enter valid weight and timeframe')
+    return
+  }
+
+  if (!isDateRangeValid.value) {
+    displayToast('Please select a valid date range')
     return
   }
 
@@ -650,24 +1009,23 @@ async function generateAutoMealPlan(targetCalories) {
       { type: 'dinner', calories: dinnerCal }
     ]
 
-    const totalRequests = weekDays.value.length * 3
+    // Generate dates between start and end date
+    const selectedDates = []
+    const effectiveEndDate = selectionMode.value === 'duration' ? endDateFromDuration.value : endDate.value
+    const currentDate = new Date(startDate.value)
+    while (currentDate <= effectiveEndDate) {
+      selectedDates.push({
+        date: new Date(currentDate),
+        dateStr: formatDateLocal(currentDate),
+        name: DAY_NAMES[currentDate.getDay()]
+      })
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+
+    const totalRequests = selectedDates.length * 3
     let completedRequests = 0
 
-    const autoWeekStart = new Date(autoGenWeek.value)
-    autoWeekStart.setDate(autoWeekStart.getDate() - autoWeekStart.getDay())
-
-    const autoWeekDays = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(autoWeekStart)
-      date.setDate(date.getDate() + i)
-      return {
-        name: DAY_NAMES[i],
-        date: date,
-        dateStr: formatDateLocal(date),
-        dateDisplay: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      }
-    })
-
-    for (const day of autoWeekDays) {
+    for (const day of selectedDates) {
       generatedPlan[day.dateStr] = {}
 
       for (const meal of mealTypes) {
@@ -685,11 +1043,9 @@ async function generateAutoMealPlan(targetCalories) {
               readyInMinutes: recipe.readyInMinutes || 0,
               servings: recipe.servings || 0,
               aggregateLikes: recipe.aggregateLikes || 0,
-              summary: recipe.summary || '',
-              analyzedInstructions: recipe.analyzedInstructions
-                ? JSON.stringify(recipe.analyzedInstructions)
-                : '',
-              extendedIngredients: recipe.extendedIngredients || [],
+          summary: recipe.summary || '',
+          analyzedInstructions: recipe.analyzedInstructions || '',
+          extendedIngredients: recipe.extendedIngredients || [],
               dishTypes: recipe.dishTypes || [],
               vegetarian: recipe.vegetarian || false,
               vegan: recipe.vegan || false,
@@ -718,8 +1074,8 @@ async function generateAutoMealPlan(targetCalories) {
       // Automatically switch to manual mode
       planningMode.value = 'manual'
 
-      // Move the currentWeek to the same week that was auto generated
-      currentWeek.value = new Date(autoGenWeek.value)
+      // Move the currentWeek to the week containing the start date
+      currentWeek.value = new Date(startDate.value)
       displayToast('Meal plan generated successfully!')
     }
 
@@ -893,49 +1249,54 @@ function selectOnlineRecipe(recipe) {
 }
 
 async function saveMealPlan() {
-  let recipeToSave = null
+  savingMeal.value = true
 
-  if (searchMode.value === 'saved') {
-    if (!selectedRecipeId.value) return
-    recipeToSave = savedRecipes.value.find(r => r.id === selectedRecipeId.value)
-  } else {
-    if (!selectedOnlineRecipe.value) return
-    recipeToSave = selectedOnlineRecipe.value
+  try {
+    let recipeToSave = null
 
+    if (searchMode.value === 'saved') {
+      if (!selectedRecipeId.value) return
+      recipeToSave = savedRecipes.value.find(r => r.id === selectedRecipeId.value)
+    } else {
+      if (!selectedOnlineRecipe.value) return
+      recipeToSave = selectedOnlineRecipe.value
+    }
+
+    if (!recipeToSave) return
+
+    console.log('Recipe to save:', recipeToSave)
+    console.log('analyzedInstructions:', recipeToSave.analyzedInstructions)
+    console.log('Type:', typeof recipeToSave.analyzedInstructions)
+
+    if (!mealPlans.value[selectedDate.value]) {
+      mealPlans.value[selectedDate.value] = {}
+    }
+
+    mealPlans.value[selectedDate.value][selectedMealType.value] = {
+      id: recipeToSave.id,
+      title: recipeToSave.title,
+      image: recipeToSave.image || '',
+      readyInMinutes: recipeToSave.readyInMinutes || 0,
+      servings: recipeToSave.servings || 0,
+      aggregateLikes: recipeToSave.aggregateLikes || 0,
+      summary: recipeToSave.summary || '',
+      analyzedInstructions: recipeToSave.analyzedInstructions || '',
+      extendedIngredients: recipeToSave.extendedIngredients || [],
+      dishTypes: recipeToSave.dishTypes || []
+    }
+
+    console.log(mealPlans.value[selectedDate.value][selectedMealType.value].extendedIngredients)
+    console.log(recipeToSave);
+
+    await saveMealPlansToSupabase()
+    closePlanMealModal()
+    displayToast('Meal added to plan')
+  } catch (error) {
+    console.error('Error saving meal:', error)
+    displayToast('Failed to add meal. Please try again.')
+  } finally {
+    savingMeal.value = false
   }
-
-  if (!recipeToSave) return
-
-  console.log('Recipe to save:', recipeToSave)
-  console.log('analyzedInstructions:', recipeToSave.analyzedInstructions)
-  console.log('Type:', typeof recipeToSave.analyzedInstructions)
-
-  if (!mealPlans.value[selectedDate.value]) {
-    mealPlans.value[selectedDate.value] = {}
-  }
-
-  mealPlans.value[selectedDate.value][selectedMealType.value] = {
-    id: recipeToSave.id,
-    title: recipeToSave.title,
-    image: recipeToSave.image || '',
-    readyInMinutes: recipeToSave.readyInMinutes || 0,
-    servings: recipeToSave.servings || 0,
-    aggregateLikes: recipeToSave.aggregateLikes || 0,
-    summary: recipeToSave.summary || '',
-    analyzedInstructions: recipeToSave.analyzedInstructions
-        ? JSON.stringify(recipeToSave.analyzedInstructions)
-        : '',
-    extendedIngredients: recipeToSave.extendedIngredients || [],
-    dishTypes: recipeToSave.dishTypes || []
-  }
-
-  console.log(mealPlans.value[selectedDate.value][selectedMealType.value].extendedIngredients)
-
-  console.log(recipeToSave);
-
-  await saveMealPlansToSupabase()
-  closePlanMealModal()
-  displayToast('Meal added to plan')
 }
 
 async function removeMeal() {
@@ -956,6 +1317,9 @@ async function removeMeal() {
 }
 
 function closePlanMealModal() {
+  // Only close if not currently saving
+  if (savingMeal.value) return
+
   showPlanMealModal.value = false
   selectedDate.value = ''
   selectedMealType.value = ''
@@ -1037,9 +1401,7 @@ async function fetchMealPlans() {
         servings: plan.servings || 0,
         aggregateLikes: plan.aggregateLikes || 0,
         summary: plan.summary || '',
-        analyzedInstructions: plan.analyzedInstructions
-            ? JSON.stringify(plan.analyzedInstructions)
-            : '',
+        analyzedInstructions: plan.analyzedInstructions || '',
         extendedIngredients: plan.extendedIngredients || [],
         dishTypes: plan.dishTypes || []
       }
@@ -1096,6 +1458,14 @@ async function saveMealPlansToSupabase() {
     return false
   }
 }
+
+// Watch for selection mode changes
+watch(selectionMode, (newMode) => {
+  if (newMode === 'duration') {
+    // Clear end date when switching to duration mode
+    endDate.value = null
+  }
+})
 
 // Initialize
 onMounted(async () => {
@@ -1537,6 +1907,127 @@ function closeRecipeModal() {
 }
 
 /* Search Mode Styles */
+.search-mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.search-mode-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e0e0e0;
+  background: white;
+  color: #6b7280;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-mode-btn:hover {
+  border-color: #ff6b1a;
+  color: #ff6b1a;
+}
+
+.search-mode-btn.active {
+  border-color: #ff6b1a;
+  background: #ff6b1a;
+  color: white;
+}
+
+.saved-recipes-section,
+.online-search-section {
+  min-height: 300px;
+}
+
+.saved-recipes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.saved-recipe-card {
+  display: flex;
+  border: 2px solid #f0f0f0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+  padding: 1rem;
+  background: white;
+}
+
+.saved-recipe-card:hover {
+  border-color: #ff6b1a;
+  box-shadow: 0 4px 12px rgba(255, 107, 26, 0.15);
+  transform: translateY(-2px);
+}
+
+.saved-recipe-card.selected {
+  border-color: #ff6b1a;
+  background: rgba(255, 107, 26, 0.05);
+}
+
+.recipe-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+  margin-right: 1rem;
+}
+
+.recipe-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.recipe-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1.3;
+}
+
+.recipe-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.recipe-meta span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.recipe-meta i {
+  color: #ff6b1a;
+}
+
+.search-input-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.search-input {
+  flex: 1;
+}
+
+.search-btn {
+  white-space: nowrap;
+}
+
 .search-results {
   max-height: 400px;
   overflow-y: auto;
@@ -1544,6 +2035,7 @@ function closeRecipeModal() {
 
 .results-grid {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1rem;
 }
 
@@ -1554,6 +2046,8 @@ function closeRecipeModal() {
   cursor: pointer;
   transition: all 0.3s;
   position: relative;
+  padding: 1rem;
+  background: white;
 }
 
 .result-card:hover {
@@ -1573,6 +2067,7 @@ function closeRecipeModal() {
   object-fit: cover;
   border-radius: 8px;
   flex-shrink: 0;
+  margin-right: 1rem;
 }
 
 .result-info {
@@ -1587,6 +2082,7 @@ function closeRecipeModal() {
   font-size: 1rem;
   font-weight: 600;
   color: #1a1a1a;
+  line-height: 1.3;
 }
 
 .result-meta {
@@ -1621,6 +2117,21 @@ function closeRecipeModal() {
   font-size: 1.2rem;
 }
 
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.empty-state i {
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
 .auto-generate-card {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(10px);
@@ -1629,44 +2140,193 @@ function closeRecipeModal() {
   border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
-.week-selector {
+.date-range-selector {
   display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 1rem;
   padding: 1rem;
   background: rgba(255, 255, 255, 0.8);
   border-radius: 12px;
   border: 2px solid #e0e0e0;
+  position: relative;
 }
 
-.selected-week-display {
-  position: relative;
+.date-selection-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.selection-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.radio-label {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  transition: all 0.2s;
-  min-width: 320px;
-  justify-content: center;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 500;
   color: #6b46c1;
-}
-
-.selected-week-display span {
   cursor: pointer;
 }
 
-.selected-week-display:hover {
-  border-color: #6b46c1;
-  box-shadow: 0 2px 8px rgba(107, 70, 193, 0.15);
+.radio-label input[type="radio"] {
+  margin: 0;
+  accent-color: #6b46c1;
 }
 
-.selected-week-display i {
+.duration-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.duration-inputs {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.duration-number {
+  width: 80px;
+  padding: 0.5rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.duration-number:focus {
+  outline: none;
+  border-color: #6b46c1;
+  box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+}
+
+.duration-unit {
+  padding: 0.5rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  cursor: pointer;
+}
+
+.duration-unit:focus {
+  outline: none;
+  border-color: #6b46c1;
+  box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+}
+
+.calendar-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 300px; /* Increased to accommodate larger calendar */
+}
+
+.calendar-container {
+  position: relative;
+}
+
+.date-input-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.date-label {
+  font-size: 0.875rem;
+  font-weight: 600;
   color: #6b46c1;
+  margin: 0;
+}
+
+.date-input-wrapper {
+  position: relative;
+}
+
+.date-input {
+  width: 100%;
+  padding: 0.75rem 2.5rem 0.75rem 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: #6b46c1;
+  box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+}
+
+.date-input::placeholder {
+  color: #9ca3af;
+}
+
+.date-icon {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b46c1;
+  cursor: pointer;
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+/* Calendar dropdown positioning */
+.date-input-wrapper {
+  position: relative;
+  z-index: 10;
+}
+
+/* Compact calendar styling */
+.large-calendar :deep(.mini-calendar) {
+  width: 280px !important; /* Increased from 220px for better visibility */
+  padding: 0.6rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
+  background: white !important;
+}
+
+.large-calendar :deep(.calendar-dropdown) {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.large-calendar :deep(.dropdown-content) {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.large-calendar :deep(.mini-calendar-days) {
+  grid-template-columns: repeat(7, 1fr) !important;
+}
+
+.large-calendar :deep(.mini-calendar-day) {
+  width: 26px !important;
+  height: 26px !important;
+  font-size: 0.8rem !important;
 }
 
 /* Goal Builder Styles */
@@ -1772,6 +2432,44 @@ function closeRecipeModal() {
 
   .goal-text {
     width: 100%;
+  }
+
+  .date-range-selector {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .date-selection-left {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .calendar-right {
+    min-width: auto;
+    align-items: center;
+  }
+
+  .mode-toggle {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .duration-inputs {
+    flex-wrap: wrap;
+  }
+
+  .date-input {
+    padding: 0.625rem 2rem 0.625rem 0.875rem;
+  }
+
+  .date-icon {
+    right: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .date-input-wrapper {
+    position: static;
   }
 }
 

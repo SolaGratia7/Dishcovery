@@ -69,34 +69,22 @@ const emit = defineEmits(['close'])
 // Handle both formats: API (array) and Supabase (JSON string)
 const instructions = computed(() => {
   if (!props.recipe) return []
-  
+
   let data = props.recipe.analyzedInstructions
-  
-  // If it's already an array (from API - fresh search)
-  if (Array.isArray(data)) {
-    return data
-  }
-  
-  // If it's a string, we need to parse it (possibly multiple times)
-  if (typeof data === 'string' && data) {
+
+  // Parse repeatedly until it's not a string anymore
+  while (typeof data === 'string' && data.trim()) {
     try {
-      // First parse
-      let parsed = JSON.parse(data)
-      
-      // Check if it's STILL a string (double-stringified)
-      if (typeof parsed === 'string') {
-        parsed = JSON.parse(parsed)
-      }
-      
-      return Array.isArray(parsed) ? parsed : []
+      data = JSON.parse(data)
     } catch (e) {
+      // If parsing fails, stop and return empty
       console.error('Error parsing instructions:', e)
       console.log('Raw data:', data)
       return []
     }
   }
-  
-  return []
+
+  return Array.isArray(data) ? data : []
 })
 
 const closeModal = () => {

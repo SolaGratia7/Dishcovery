@@ -2,7 +2,7 @@
   <div class="shopping-gen-container">
     <!-- Generate Button -->
     <div class="text-center mt-4">
-      <button @click="openModal" class="btn btn-success px-4 py-2">
+      <button @click="openModal" class="btn btn-orange px-4 py-2">
         <i class="bi bi-cart-plus me-2"></i>Generate Shopping List
       </button>
     </div>
@@ -18,7 +18,7 @@
 
           <!-- Header -->
           <div class="modal-header">
-            <h3><i class="bi bi-cart-plus me-2 text-success"></i>Generate Shopping List</h3>
+            <h3><i class="bi bi-cart-plus me-2" style="color: #ff6b1a;"></i>Generate Shopping List</h3>
             <p class="text-muted">Select your date range to build your shopping list</p>
           </div>
 
@@ -63,6 +63,8 @@
                     :current-week="currentWeek"
                     :selected-dates="selectedDatesForShopping"
                     mode="range"
+                    dropdown-position="below"
+                    class="small-calendar"
                     @select-date="onStartDateSelected"
                   />
                 </div>
@@ -85,6 +87,8 @@
                     :current-week="currentWeek"
                     :selected-dates="selectedDatesForShopping"
                     mode="range"
+                    dropdown-position="below"
+                    class="small-calendar"
                     @select-date="onEndDateSelected"
                   />
                 </div>
@@ -110,7 +114,7 @@
             <button @click="closeModal" class="btn btn-secondary">Cancel</button>
             <button
               @click="confirmGenerateShoppingList"
-              class="btn btn-success ms-2"
+              class="btn btn-orange ms-2"
               :disabled="!shoppingStartDate || !shoppingEndDate || isProcessing"
             >
               <i class="bi bi-check-circle me-1"></i>Generate
@@ -376,21 +380,46 @@ async function confirmGenerateShoppingList() {
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
+/* --- Button Styles --- */
+.btn-orange {
+  background: linear-gradient(135deg, #ff6b1a 0%, #ff9800 100%);
+  border: none;
+  color: white;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(255, 107, 26, 0.3);
+}
+
+.btn-orange:hover {
+  background: linear-gradient(135deg, #e55a00 0%, #e68900 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 107, 26, 0.4);
+}
+
+.btn-orange:disabled {
+  background: #ccc;
+  transform: none;
+  box-shadow: none;
+}
+
 /* --- Modal --- */
 .modal-overlay {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
   display: flex; justify-content: center; align-items: center;
   z-index: 1000;
 }
 .modal-content {
-  background: white;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
   border-radius: 16px;
   max-width: 640px;
   width: 100%;
   box-shadow: 0 6px 30px rgba(0,0,0,0.2);
   animation: slide-up 0.35s ease;
   display: flex; flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 @keyframes slide-up {
   from { transform: translateY(40px); opacity: 0; }
@@ -398,7 +427,7 @@ async function confirmGenerateShoppingList() {
 }
 .modal-header, .modal-footer {
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid rgba(255, 107, 26, 0.1);
 }
 .modal-body { padding: 1.5rem 2rem; position: relative; }
 .btn-close-modal {
@@ -448,8 +477,8 @@ async function confirmGenerateShoppingList() {
   font-weight: 600; margin: 0 auto 6px;
 }
 .step.active .circle {
-  background: #10b981; color: #fff;
-  box-shadow: 0 0 0 3px rgba(16,185,129,0.2);
+  background: #ff6b1a; color: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.2);
 }
 
 /* --- Date Inputs --- */
@@ -458,24 +487,66 @@ async function confirmGenerateShoppingList() {
 }
 .date-wrapper { position: relative; }
 .date-wrapper input {
-  width: 100%; border: 1px solid #ddd; border-radius: 8px;
+  width: 100%; border: 2px solid #e0e0e0; border-radius: 8px;
   padding: 0.6rem 2.5rem 0.6rem 1rem; cursor: pointer;
+  background: white; font-size: 0.875rem; font-weight: 500;
+  color: #1a1a1a; transition: all 0.2s;
+}
+.date-wrapper input:focus {
+  outline: none; border-color: #ff6b1a; box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.1);
 }
 .date-wrapper input:disabled { background: #f7f7f7; cursor: not-allowed; }
 .calendar-icon {
   position: absolute; right: 0.75rem; top: 50%;
-  transform: translateY(-50%); color: #10b981;
+  transform: translateY(-50%); color: #666;
+}
+
+/* --- Small Calendar --- */
+.small-calendar :deep(.mini-calendar) {
+  width: 220px !important;
+  padding: 0.5rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+  background: white !important;
+}
+
+.small-calendar :deep(.calendar-dropdown) {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.small-calendar :deep(.dropdown-content) {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.small-calendar :deep(.mini-calendar-days) {
+  grid-template-columns: repeat(7, 1fr) !important;
+}
+
+.small-calendar :deep(.mini-calendar-day) {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 0.7rem !important;
 }
 
 /* --- Toast --- */
 .toast {
   position: fixed; bottom: 2rem; right: 2rem;
   color: white; padding: 1rem 1.5rem;
-  border-radius: 10px; display: flex; align-items: center;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  border-radius: 12px; display: flex; align-items: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  animation: slideInUp 0.3s ease;
 }
-.toast.success { background: linear-gradient(135deg, #16a34a, #22c55e); }
-.toast.error { background: linear-gradient(135deg, #dc2626, #ef4444); }
+.toast.success { background: linear-gradient(135deg, #10b981, #34d399); }
+.toast.error { background: linear-gradient(135deg, #dc2626, #f87171); }
 .slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s; }
 .slide-up-enter-from, .slide-up-leave-to { transform: translateY(30px); opacity: 0; }
+
+@keyframes slideInUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
 </style>

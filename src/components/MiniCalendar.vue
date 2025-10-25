@@ -120,10 +120,13 @@ const props = defineProps({
   },
   // highlight today's date
   highlightToday: {
-  type: Boolean,
-  default: true // PantryView can set this to false
-}
-
+    type: Boolean,
+    default: true // PantryView can set this to false
+  },
+  autoClose: {
+    type: Boolean,
+    default: true // Set to false for inline calendars
+  }
 })
 
 
@@ -312,10 +315,13 @@ function handleDateClick(day) {
   selectedDateStr.value = formatDateLocal(day.date)
   emit('select-date', day.date)
 
-  // Delay closing slightly so highlight renders first
-  setTimeout(() => {
-    closeCalendar()
-  }, 150)
+  // Only close if autoClose is enabled
+  if (props.autoClose) {
+    // Delay closing slightly so highlight renders first
+    setTimeout(() => {
+      closeCalendar()
+    }, 150)
+  }
 }
 
 
