@@ -1092,10 +1092,10 @@ onBeforeUnmount(() => {
 /* === Scrollable Table Container === */
 .pantry-table-container {
   position: relative;
-  overflow: auto; /* horizontal & vertical scroll */
+  overflow: auto;
   max-height: 500px;
   background: #ffffff;
-  border-radius: 1rem;
+  border-radius: 1.5rem;
   box-shadow: 0 4px 16px rgba(107, 70, 193, 0.08);
   border: 1px solid rgba(107, 70, 193, 0.1);
 }
@@ -1105,9 +1105,8 @@ onBeforeUnmount(() => {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: 1rem;
   background: #ffffff;
-  table-layout: auto; /* allow columns to size based on content */
+  table-layout: auto;
 }
 
 /* === Sticky Header === */
@@ -1115,31 +1114,46 @@ onBeforeUnmount(() => {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: #faf5ff; /* solid background */
+  background: #faf5ff;
   color: #6b46c1;
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 0.85rem;
-  padding: 14px 18px;
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+  padding: 20px 24px;
   border-bottom: 2px solid rgba(107, 70, 193, 0.15);
-  white-space: nowrap; /* prevent text from wrapping */
+  white-space: nowrap;
 }
 
 /* Rounded corners on first/last header cells */
 .pantry-table thead th:first-child {
-  border-top-left-radius: 1rem;
+  border-top-left-radius: 1.5rem;
 }
 .pantry-table thead th:last-child {
-  border-top-right-radius: 1rem;
+  border-top-right-radius: 1.5rem;
+}
+
+/* === Body Rows === */
+.pantry-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.pantry-table tbody tr:hover {
+  background-color: rgba(107, 70, 193, 0.03);
 }
 
 /* === Body Cells === */
 .pantry-table td {
-  padding: 14px 18px;
+  padding: 16px 24px;
   color: #111827;
   border-bottom: 1px solid #f1f0f8;
   background-clip: padding-box;
-  white-space: nowrap; /* keep content in one line */
+  white-space: nowrap;
+}
+
+/* Remove border from last row */
+.pantry-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 /* === Entire Row Highlight for Freshness === */
