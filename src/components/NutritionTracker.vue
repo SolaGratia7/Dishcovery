@@ -19,6 +19,7 @@
                 :datesWithMeals="datesWithMeals"
                 mode="single"
                 :highlight-selected="true"
+                :auto-close="false"
                 @select-date="onDateSelect"
               />
             </div>
@@ -237,7 +238,6 @@ const localFoodsDB = [
 const selectedDate = ref(new Date())
 const selectedDateStr = computed(() => formatDate(selectedDate.value))
 const todayStr = computed(() => formatDate(new Date()))
-const showCalendar = ref(false)
 
 const loggedMeals = ref([])
 const goals = ref({
@@ -448,10 +448,6 @@ function removeMeal(id) {
 
 function onDateSelect(date) {
   selectedDate.value = date
-}
-
-function toggleCalendar() {
-  showCalendar.value = !showCalendar.value
 }
 
 function formatDisplayDate(date) {
@@ -836,7 +832,6 @@ onMounted(() => {
 }
 
 .calendar-dropdown {
-  margin-top: 1rem;
   background: white;
   border-radius: 8px;
   padding: 1rem;
@@ -894,10 +889,11 @@ onMounted(() => {
 }
 
 .hasMeal {
-  border: 2px solid #48bb78; /* green highlight for logged meals */
+  border: 2px solid #48bb78;
   border-radius: 50%;
   box-shadow: 0 0 8px rgba(72, 187, 120, 0.5);
 }
+
 .fade-in {
   opacity: 0;
   transform: translateY(20px);
@@ -905,10 +901,8 @@ onMounted(() => {
   transition-delay: var(--delay, 0s);
 }
 
-
 .fade-in.visible {
   opacity: 1;
   transform: translateY(0);
 }
-
 </style>
