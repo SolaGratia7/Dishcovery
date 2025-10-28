@@ -124,7 +124,7 @@
                     class="autocomplete-item"
                     @click="selectMeal(suggestion)"
                   >
-                    {{ suggestion.name }}
+                    {{ suggestion.name || suggestion.title }}
                   </div>
                 </div>
               </div>
@@ -155,7 +155,11 @@
         <!-- Today's Meals -->
         <div class="nutrition-card">
           <h5 class="mb-3">{{ selectedDateStr === todayStr ? "Today's" : selectedDateStr + "'s" }} Meals</h5>
-          <div v-if="currentMeals.length === 0" class="empty-state">
+          <div v-if="isLoadingMeals" class="empty-state">
+            <span class="loading-spinner-large"></span>
+            <p>Loading meals...</p>
+          </div>
+          <div v-else-if="currentMeals.length === 0" class="empty-state">
             <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">🍽️</div>
             <p>No meals logged yet. Log a meal above!</p>
           </div>
@@ -200,39 +204,120 @@ import Chart from 'chart.js/auto'
 import MiniCalendar from './MiniCalendar.vue'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 
-
 // Constants
 const USE_LOCAL_DATABASE = true
 const SPOONACULAR_API_KEY = '0ca96dd220c842a6bfdcddfcbcf15b5d'
 const API_BASE = 'https://api.spoonacular.com'
 
-// Local databases (from shoppingNutrition.js)
+// Extended local foods database
 const localFoodsDB = [
-  { id: 5001, name: "Grilled Chicken Salad", calories: 350, protein: "35g", carbs: "15g", fat: "18g" },
-  { id: 5002, name: "Spaghetti Bolognese", calories: 550, protein: "28g", carbs: "65g", fat: "18g" },
-  { id: 5003, name: "Beef Burger", calories: 520, protein: "30g", carbs: "40g", fat: "25g" },
-  { id: 5004, name: "Caesar Salad", calories: 380, protein: "15g", carbs: "12g", fat: "32g" },
-  { id: 5005, name: "Chicken Stir Fry", calories: 420, protein: "32g", carbs: "45g", fat: "12g" },
-  { id: 5006, name: "Salmon with Rice", calories: 480, protein: "35g", carbs: "50g", fat: "15g" },
-  { id: 5007, name: "Pizza Margherita", calories: 450, protein: "18g", carbs: "55g", fat: "18g" },
-  { id: 5008, name: "Vegetable Curry", calories: 320, protein: "12g", carbs: "48g", fat: "10g" },
-  { id: 5009, name: "Beef Tacos", calories: 380, protein: "25g", carbs: "35g", fat: "16g" },
-  { id: 5010, name: "Tuna Sandwich", calories: 340, protein: "22g", carbs: "42g", fat: "8g" },
-  { id: 5011, name: "Chicken Burrito", calories: 520, protein: "30g", carbs: "58g", fat: "18g" },
-  { id: 5012, name: "Greek Salad", calories: 280, protein: "12g", carbs: "15g", fat: "20g" },
-  { id: 5013, name: "Pork Fried Rice", calories: 480, protein: "24g", carbs: "62g", fat: "16g" },
-  { id: 5014, name: "Chicken Quesadilla", calories: 440, protein: "28g", carbs: "38g", fat: "20g" },
-  { id: 5015, name: "Beef Stew", calories: 380, protein: "32g", carbs: "28g", fat: "15g" },
-  { id: 5016, name: "Fish and Chips", calories: 620, protein: "28g", carbs: "68g", fat: "28g" },
-  { id: 5017, name: "Chicken Wrap", calories: 420, protein: "26g", carbs: "45g", fat: "14g" },
-  { id: 5018, name: "Vegetable Lasagna", calories: 380, protein: "18g", carbs: "42g", fat: "16g" },
-  { id: 5019, name: "Shrimp Pasta", calories: 460, protein: "28g", carbs: "52g", fat: "14g" },
-  { id: 5020, name: "BBQ Chicken", calories: 390, protein: "35g", carbs: "25g", fat: "16g" },
-  { id: 5021, name: "Omelette", calories: 280, protein: "20g", carbs: "4g", fat: "20g" },
-  { id: 5022, name: "Pancakes", calories: 520, protein: "12g", carbs: "78g", fat: "18g" },
-  { id: 5023, name: "French Toast", calories: 480, protein: "14g", carbs: "68g", fat: "16g" },
-  { id: 5024, name: "Avocado Toast", calories: 320, protein: "12g", carbs: "38g", fat: "14g" },
-  { id: 5025, name: "Smoothie Bowl", calories: 380, protein: "8g", carbs: "72g", fat: "8g" }
+  { id: 5001, name: "Grilled Chicken Salad", calories: 350, protein: 35, carbs: 15, fat: 18 },
+  { id: 5002, name: "Spaghetti Bolognese", calories: 550, protein: 28, carbs: 65, fat: 18 },
+  { id: 5003, name: "Beef Burger", calories: 520, protein: 30, carbs: 40, fat: 25 },
+  { id: 5004, name: "Caesar Salad", calories: 380, protein: 15, carbs: 12, fat: 32 },
+  { id: 5005, name: "Chicken Stir Fry", calories: 420, protein: 32, carbs: 45, fat: 12 },
+  { id: 5006, name: "Salmon with Rice", calories: 480, protein: 35, carbs: 50, fat: 15 },
+  { id: 5007, name: "Pizza Margherita", calories: 450, protein: 18, carbs: 55, fat: 18 },
+  { id: 5008, name: "Vegetable Curry", calories: 320, protein: 12, carbs: 48, fat: 10 },
+  { id: 5009, name: "Beef Tacos", calories: 380, protein: 25, carbs: 35, fat: 16 },
+  { id: 5010, name: "Tuna Sandwich", calories: 340, protein: 22, carbs: 42, fat: 8 },
+  { id: 5011, name: "Chicken Burrito", calories: 520, protein: 30, carbs: 58, fat: 18 },
+  { id: 5012, name: "Greek Salad", calories: 280, protein: 12, carbs: 15, fat: 20 },
+  { id: 5013, name: "Pork Fried Rice", calories: 480, protein: 24, carbs: 62, fat: 16 },
+  { id: 5014, name: "Chicken Quesadilla", calories: 440, protein: 28, carbs: 38, fat: 20 },
+  { id: 5015, name: "Beef Stew", calories: 380, protein: 32, carbs: 28, fat: 15 },
+  { id: 5016, name: "Fish and Chips", calories: 620, protein: 28, carbs: 68, fat: 28 },
+  { id: 5017, name: "Chicken Wrap", calories: 420, protein: 26, carbs: 45, fat: 14 },
+  { id: 5018, name: "Vegetable Lasagna", calories: 380, protein: 18, carbs: 42, fat: 16 },
+  { id: 5019, name: "Shrimp Pasta", calories: 460, protein: 28, carbs: 52, fat: 14 },
+  { id: 5020, name: "BBQ Chicken", calories: 390, protein: 35, carbs: 25, fat: 16 },
+  { id: 5021, name: "Omelette", calories: 280, protein: 20, carbs: 4, fat: 20 },
+  { id: 5022, name: "Pancakes", calories: 520, protein: 12, carbs: 78, fat: 18 },
+  { id: 5023, name: "French Toast", calories: 480, protein: 14, carbs: 68, fat: 16 },
+  { id: 5024, name: "Avocado Toast", calories: 320, protein: 12, carbs: 38, fat: 14 },
+  { id: 5025, name: "Smoothie Bowl", calories: 380, protein: 8, carbs: 72, fat: 8 },
+  { id: 5026, name: "Mushroom Quesadillas", calories: 420, protein: 16, carbs: 45, fat: 18 },
+  { id: 5027, name: "Cinnamon Rolls", calories: 480, protein: 8, carbs: 68, fat: 20 },
+  { id: 5028, name: "Mung Bean Sprout and Quinoa Salad", calories: 290, protein: 12, carbs: 38, fat: 10 },
+  { id: 5029, name: "Orange Ginger Granola Bars", calories: 220, protein: 5, carbs: 32, fat: 9 },
+  { id: 5030, name: "Cold Soba Noodles", calories: 310, protein: 14, carbs: 52, fat: 6 },
+  { id: 5031, name: "Grilled Portabella and Poblano Tacos", calories: 280, protein: 10, carbs: 35, fat: 12 },
+  { id: 5032, name: "Instant Pot Quinoa Grain Bowl", calories: 380, protein: 14, carbs: 58, fat: 11 },
+  { id: 5033, name: "Strawberries and Cream Scones", calories: 340, protein: 6, carbs: 48, fat: 14 },
+  { id: 5034, name: "Avocado Tomato & Mozzarella Panini", calories: 420, protein: 18, carbs: 38, fat: 22 },
+  { id: 5035, name: "One Pot Veggie Quinoa", calories: 320, protein: 11, carbs: 52, fat: 8 },
+  { id: 5036, name: "Smoky Black Bean Soup With Sweet Potato & Kale", calories: 280, protein: 14, carbs: 48, fat: 5 },
+  { id: 5037, name: "Easy Avocado Egg Quinoa Breakfast Bowl", calories: 390, protein: 16, carbs: 42, fat: 18 },
+  { id: 5038, name: "Avocado and Orange Salad With Orange-Ginger Dressing", calories: 250, protein: 4, carbs: 28, fat: 14 },
+  { id: 5039, name: "Breakfast Tacos", calories: 380, protein: 18, carbs: 32, fat: 20 },
+  { id: 5040, name: "Indian Lentil Dahl", calories: 310, protein: 16, carbs: 48, fat: 7 },
+  { id: 5041, name: "Cracked Wheat Cereal", calories: 260, protein: 8, carbs: 52, fat: 3 },
+  { id: 5042, name: "Coriander Ravioli With Pumpkin & Cottage Cheese Filling", calories: 420, protein: 18, carbs: 52, fat: 16 },
+  { id: 5043, name: "Black Lentil and Couscous Salad", calories: 340, protein: 15, carbs: 55, fat: 8 },
+  { id: 5044, name: "Cinnamon Buns With Maple Glaze", calories: 510, protein: 9, carbs: 72, fat: 21 },
+  { id: 5045, name: "Lemon White Wine Chicken over Linguini", calories: 540, protein: 38, carbs: 58, fat: 14 },
+  { id: 5046, name: "Farfalle with Peas, Ham and Cream", calories: 580, protein: 28, carbs: 62, fat: 24 },
+  { id: 5047, name: "Cauliflower, Brown Rice, and Vegetable Fried Rice", calories: 320, protein: 10, carbs: 54, fat: 8 },
+  { id: 5048, name: "Bruschetta Style Pork & Pasta", calories: 520, protein: 32, carbs: 56, fat: 18 },
+  { id: 5049, name: "Mushroom Tarragon Fish", calories: 280, protein: 32, carbs: 12, fat: 12 },
+  { id: 5050, name: "Agedashi Tofu", calories: 240, protein: 14, carbs: 18, fat: 12 },
+  { id: 5051, name: "Lemon Scented Polenta Pancakes with Blueberry Thyme Syrup", calories: 420, protein: 8, carbs: 68, fat: 14 },
+  { id: 5052, name: "Ozoni", calories: 290, protein: 12, carbs: 42, fat: 8 },
+  { id: 5053, name: "Lemon-Poppy Seed Scones", calories: 380, protein: 7, carbs: 52, fat: 16 },
+  { id: 5054, name: "Potato Gnocchi With Kale and Mushrooms In A Goat Cheese Sauce", calories: 480, protein: 16, carbs: 58, fat: 20 },
+  { id: 5055, name: "Korean Sweet n Sour Chicken", calories: 460, protein: 32, carbs: 52, fat: 14 },
+  { id: 5056, name: "Beef Lo Mein Noodles", calories: 520, protein: 28, carbs: 62, fat: 18 },
+  { id: 5057, name: "Boozy Bbq Chicken", calories: 410, protein: 36, carbs: 28, fat: 16 },
+  { id: 5058, name: "Caldo Verde - Portuguese Kale Soup", calories: 280, protein: 14, carbs: 32, fat: 11 },
+  { id: 5059, name: "Chocolate Chip Coconut Muffins", calories: 340, protein: 6, carbs: 48, fat: 15 },
+  { id: 5060, name: "Roasted Chicken and Brown Rice Soup", calories: 320, protein: 24, carbs: 38, fat: 9 },
+  { id: 5061, name: "Thai Basil Chicken With Green Curry", calories: 420, protein: 32, carbs: 28, fat: 20 },
+  { id: 5062, name: "Carrot Quinoa Muffins", calories: 280, protein: 7, carbs: 42, fat: 10 },
+  { id: 5063, name: "3 Delicious Twists on an Egg Salad Sandwich", calories: 380, protein: 18, carbs: 32, fat: 20 },
+  { id: 5064, name: "Classic Wedge Salad", calories: 320, protein: 12, carbs: 18, fat: 24 },
+  { id: 5065, name: "Chicken Sweet Corn and Green Chile Chowder", calories: 380, protein: 26, carbs: 42, fat: 12 },
+  { id: 5066, name: "Easy Zesty Blueberry Muffins with Streusel Topping", calories: 360, protein: 6, carbs: 54, fat: 14 },
+  { id: 5067, name: "Gluten Free Almond Blueberry Coffee Cake", calories: 420, protein: 9, carbs: 58, fat: 18 },
+  { id: 5068, name: "Duck Breast with Redcurrant and Port Sauce", calories: 480, protein: 38, carbs: 22, fat: 28 },
+  { id: 5069, name: "Bigoli with smoked salmon", calories: 520, protein: 28, carbs: 58, fat: 18 },
+  { id: 5070, name: "Colorful Tomato and Spinach Seafood Pasta", calories: 440, protein: 32, carbs: 52, fat: 12 },
+  { id: 5071, name: "Easy Chicken, Kielbasa and Shrimp Paella", calories: 560, protein: 38, carbs: 58, fat: 18 },
+  { id: 5072, name: "Black Bean Garlic Shrimp Scramble", calories: 340, protein: 28, carbs: 24, fat: 14 },
+  { id: 5073, name: "Easy Chicken Wings", calories: 480, protein: 32, carbs: 8, fat: 36 },
+  { id: 5074, name: "Lemon Rosemary Chickpea Soup", calories: 290, protein: 14, carbs: 42, fat: 8 },
+  { id: 5075, name: "Asparagus Parmesan Frittata", calories: 280, protein: 18, carbs: 8, fat: 20 },
+  { id: 5076, name: "Egg Salad Wrap", calories: 360, protein: 16, carbs: 32, fat: 18 },
+  { id: 5077, name: "Creamy Chicken Tikka Masala", calories: 520, protein: 36, carbs: 32, fat: 28 },
+  { id: 5078, name: "Quiche with Swiss Chard and Mushroom", calories: 380, protein: 16, carbs: 28, fat: 24 },
+  { id: 5079, name: "Mushroom Barley Soup", calories: 240, protein: 8, carbs: 42, fat: 5 },
+  { id: 5080, name: "A Post Thanksgiving Sopa De Tortilla", calories: 320, protein: 18, carbs: 38, fat: 11 },
+  { id: 5081, name: "Paneer & Fig Pizza", calories: 480, protein: 20, carbs: 58, fat: 18 },
+  { id: 5082, name: "Mushroom Tofu Stew", calories: 260, protein: 16, carbs: 28, fat: 10 },
+  { id: 5083, name: "Poached Egg With Spinach and Tomato", calories: 220, protein: 14, carbs: 12, fat: 14 },
+  { id: 5084, name: "Blast Of Color Mexican Stuffed Bell Peppers", calories: 340, protein: 22, carbs: 38, fat: 12 },
+  { id: 5085, name: "No Fuss Sunday Slow-Cooker Balsamic Pot Roast", calories: 420, protein: 36, carbs: 18, fat: 24 },
+  { id: 5086, name: "Three-Cup Chicken", calories: 380, protein: 32, carbs: 22, fat: 18 },
+  { id: 5087, name: "Strawberry Poppy Seed Muffins", calories: 320, protein: 6, carbs: 48, fat: 12 },
+  { id: 5088, name: "Grilled Chicken Banh Mi", calories: 420, protein: 32, carbs: 42, fat: 14 },
+  { id: 5089, name: "Pan Seared Lamb Loin With Chimichurri", calories: 520, protein: 38, carbs: 12, fat: 36 },
+  { id: 5090, name: "Cherry Coconut Milk Smoothie", calories: 280, protein: 4, carbs: 42, fat: 12 },
+  { id: 5091, name: "Gluten Free Dairy Free Sugar Free Chinese Chicken Salad", calories: 320, protein: 28, carbs: 24, fat: 14 },
+  { id: 5092, name: "Persimmon, Pomegranate, and Goat Cheese Salad", calories: 290, protein: 8, carbs: 32, fat: 15 },
+  { id: 5093, name: "Duck Egg Omelette With Caviar and Sour Cream", calories: 380, protein: 22, carbs: 6, fat: 30 },
+  { id: 5094, name: "Applesauce Carrot Cake Muffins", calories: 310, protein: 5, carbs: 48, fat: 12 },
+  { id: 5095, name: "Beef With Oranges and Spices", calories: 440, protein: 32, carbs: 28, fat: 24 },
+  { id: 5096, name: "Celery, Orange and Smoked Mackerel Salad", calories: 320, protein: 24, carbs: 18, fat: 18 },
+  { id: 5097, name: "Slow Cooker Spicy Hot Wings", calories: 460, protein: 36, carbs: 12, fat: 32 },
+  { id: 5098, name: "Black Muffins", calories: 340, protein: 7, carbs: 52, fat: 13 },
+  { id: 5099, name: "Layered Chicken Salad With Couscous", calories: 380, protein: 28, carbs: 42, fat: 11 },
+  { id: 5100, name: "Chicken Ranch Burgers", calories: 520, protein: 34, carbs: 38, fat: 26 },
+  { id: 5101, name: "Wan Ton Mee", calories: 420, protein: 22, carbs: 58, fat: 11 },
+  { id: 5102, name: "Easy Sheet Pan Pancakes", calories: 480, protein: 12, carbs: 72, fat: 16 },
+  { id: 5103, name: "Pan-Seared Honey Glazed Salmon with Collard Greens", calories: 460, protein: 36, carbs: 28, fat: 22 },
+  { id: 5104, name: "Gluten Free Frosted Pumpkin Doughnuts", calories: 380, protein: 6, carbs: 58, fat: 15 },
+  { id: 5105, name: "Baked Spare Ribs With Red Wine Lees", calories: 580, protein: 32, carbs: 18, fat: 42 },
+  { id: 5106, name: "Classic French Mussels", calories: 320, protein: 28, carbs: 18, fat: 14 },
+  { id: 5107, name: "Miniature Fruit Tarts", calories: 280, protein: 4, carbs: 42, fat: 11 }
 ]
 
 // Reactive data
@@ -242,6 +327,7 @@ const selectedDateStr = computed(() => formatDate(selectedDate.value))
 const todayStr = computed(() => formatDate(new Date()))
 
 const loggedMeals = ref([])
+const isLoadingMeals = ref(false)
 const goals = ref({
   calories: 2000,
   protein: 150,
@@ -300,18 +386,98 @@ function formatDate(date) {
   return `${year}-${month}-${day}`
 }
 
-// Supabase functions
+function parseNutritionValue(value) {
+  if (!value) return 0
+  // Remove anything that's not a digit or decimal point
+  return parseFloat(value.toString().replace(/[^0-9.]/g, '')) || 0
+}
+
+// Get nutrition data by food name (local DB or Spoonacular)
+async function getNutritionByName(mealName) {
+  if (USE_LOCAL_DATABASE) {
+    const found = localFoodsDB.find(f =>
+      f.name.toLowerCase() === mealName.toLowerCase() ||
+      f.name.toLowerCase().includes(mealName.toLowerCase()) ||
+      mealName.toLowerCase().includes(f.name.toLowerCase())
+    )
+
+    if (found) {
+      return {
+        calories: Number(found.calories) || 0,
+        protein: Number(found.protein) || 0,
+        carbs: Number(found.carbs) || 0,
+        fat: Number(found.fat) || 0
+      }
+    }
+
+    return { calories: 400, protein: 20, carbs: 45, fat: 15 }
+  }
+
+  try {
+    const searchResponse = await fetch(
+      `${API_BASE}/food/menuItems/search?apiKey=${SPOONACULAR_API_KEY}&query=${encodeURIComponent(mealName)}&number=1`
+    )
+    if (!searchResponse.ok) throw new Error('Search failed')
+    const searchData = await searchResponse.json()
+
+    if (!searchData.menuItems || searchData.menuItems.length === 0) {
+      throw new Error('Food not found')
+    }
+
+    const foodId = searchData.menuItems[0].id
+    const nutritionResponse = await fetch(
+      `${API_BASE}/food/menuItems/${foodId}?apiKey=${SPOONACULAR_API_KEY}`
+    )
+    if (!nutritionResponse.ok) throw new Error('Nutrition fetch failed')
+    const nutritionData = await nutritionResponse.json()
+
+    return {
+      calories: parseNutritionValue(nutritionData.nutrition?.calories),
+      protein: parseNutritionValue(nutritionData.nutrition?.protein),
+      carbs: parseNutritionValue(nutritionData.nutrition?.carbs),
+      fat: parseNutritionValue(nutritionData.nutrition?.fat)
+    }
+  } catch (error) {
+    console.error('Error getting nutrition by name:', error)
+    return { calories: 500, protein: 30, carbs: 50, fat: 20 }
+  }
+}
+
+// Get nutrition data by food ID (local DB or Spoonacular)
+
 async function loadMealsFromSupabase() {
+  isLoadingMeals.value = true
   try {
     const { data, error } = await supabase
-      .from('nutrition_meals')
+      .from('meal_plans')
       .select('*')
       .eq('user_id', currentUser.value.id)
       .order('date', { ascending: false })
 
     if (error) throw error
     
-    loggedMeals.value = data || []
+    const transformedMeals = []
+    
+    // Process meals and fetch real nutrition data from Spoonacular
+    for (const plan of data || []) {
+      // Get actual nutrition data from Spoonacular
+      const nutrition = await getNutritionByName(plan.title)
+      const servings = plan.servings || 1
+
+      transformedMeals.push({
+        id: `${plan.date}-${plan.meal_type}-${plan.id}`,
+        name: plan.title,
+        servings: servings,
+        calories: nutrition.calories,
+        protein: nutrition.protein,
+        carbs: nutrition.carbs,
+        fat: nutrition.fat,
+        date: plan.date,
+        timestamp: new Date(plan.date).toISOString()
+      })
+    }
+    
+    loggedMeals.value = transformedMeals
     
   } catch (error) {
     console.error('Error loading meals from Supabase:', error)
@@ -324,6 +490,8 @@ async function loadMealsFromSupabase() {
         console.warn('Failed to parse saved meals')
       }
     }
+  } finally {
+    isLoadingMeals.value = false
   }
 }
 
@@ -349,7 +517,6 @@ async function saveMealToSupabase(meal) {
     
   } catch (error) {
     console.error('Error saving meal to Supabase:', error)
-    // Fallback to localStorage
     localStorage.setItem('nutritionMeals', JSON.stringify(loggedMeals.value))
     return false
   }
@@ -357,7 +524,6 @@ async function saveMealToSupabase(meal) {
 
 async function deleteMealFromSupabase(mealId) {
   try {
-    // Find the meal to get its database ID
     const mealToDelete = loggedMeals.value.find(m => m.id === mealId)
     
     if (!mealToDelete) return false
@@ -404,12 +570,11 @@ async function getFoodNutrition(id) {
   if (USE_LOCAL_DATABASE) {
     const found = localFoodsDB.find(f => f.id == id)
     if (!found) return { calories: 0, protein: 0, carbs: 0, fat: 0 }
-
     return {
-      calories: found.calories,
-      protein: parseFloat(found.protein.replace('g', '')) || 0,
-      carbs: parseFloat(found.carbs.replace('g', '')) || 0,
-      fat: parseFloat(found.fat.replace('g', '')) || 0
+      calories: Number(found.calories) || 0,
+      protein: Number(found.protein) || 0,
+      carbs: Number(found.carbs) || 0,
+      fat: Number(found.fat) || 0
     }
   }
 
@@ -417,25 +582,24 @@ async function getFoodNutrition(id) {
     const response = await fetch(
       `${API_BASE}/food/menuItems/${id}?apiKey=${SPOONACULAR_API_KEY}`
     )
-
     if (!response.ok) throw new Error('API request failed')
     const data = await response.json()
 
     return {
-      calories: data.nutrition?.calories || 0,
-      protein: data.nutrition?.protein || 0,
-      carbs: data.nutrition?.carbs || 0,
-      fat: data.nutrition?.fat || 0
+      calories: parseNutritionValue(data.nutrition?.calories),
+      protein: parseNutritionValue(data.nutrition?.protein),
+      carbs: parseNutritionValue(data.nutrition?.carbs),
+      fat: parseNutritionValue(data.nutrition?.fat)
     }
   } catch (error) {
     console.error('Food nutrition error:', error)
     const found = localFoodsDB.find(f => f.id == id)
     if (!found) return { calories: 0, protein: 0, carbs: 0, fat: 0 }
     return {
-      calories: found.calories,
-      protein: parseFloat(found.protein.replace('g', '')) || 0,
-      carbs: parseFloat(found.carbs.replace('g', '')) || 0,
-      fat: parseFloat(found.fat.replace('g', '')) || 0
+      calories: Number(found.calories) || 0,
+      protein: Number(found.protein) || 0,
+      carbs: Number(found.carbs) || 0,
+      fat: Number(found.fat) || 0
     }
   }
 }
@@ -456,7 +620,7 @@ function onMealInput() {
 
 function selectMeal(suggestion) {
   selectedFood.value = suggestion
-  mealName.value = suggestion.name
+  mealName.value = suggestion.name || suggestion.title
   mealSuggestions.value = []
 }
 
@@ -479,7 +643,7 @@ async function logMeal() {
     const newMeal = {
       id: Date.now(),
       spoonacularId: selectedFood.value.id,
-      name: selectedFood.value.name,
+      name: selectedFood.value.name || selectedFood.value.title,
       servings: mealServings.value,
       calories: nutrition.calories * mealServings.value,
       protein: nutrition.protein * mealServings.value,
@@ -489,15 +653,12 @@ async function logMeal() {
       timestamp: new Date().toISOString()
     }
 
-    // Save to Supabase
     const success = await saveMealToSupabase(newMeal)
     
     if (success) {
-      // Reload from Supabase to get the correct ID
       await loadMealsFromSupabase()
       updateCharts()
 
-      // Reset form
       mealName.value = ''
       mealServings.value = 1
       selectedFood.value = null
@@ -519,7 +680,6 @@ async function removeMeal(id) {
     loggedMeals.value = loggedMeals.value.filter(m => m.id !== id)
     updateCharts()
   } else {
-    // Fallback to local deletion
     loggedMeals.value = loggedMeals.value.filter(m => m.id !== id)
     localStorage.setItem('nutritionMeals', JSON.stringify(loggedMeals.value))
     updateCharts()
@@ -614,11 +774,8 @@ function setupScrollAnimations() {
   })
 }
 
-
-// Watchers
 watch(selectedDate, updateCharts)
 
-// Lifecycle
 onMounted(async () => {
   try {
     currentUser.value = await getCurrentUser()
@@ -627,7 +784,6 @@ onMounted(async () => {
     setupScrollAnimations()
   } catch (error) {
     console.error('Error initializing:', error)
-    // Fallback to localStorage if user not authenticated
     const saved = localStorage.getItem('nutritionMeals')
     if (saved) {
       try {
@@ -820,7 +976,6 @@ onMounted(async () => {
   padding: 0.5rem 1rem;
 }
 
-
 .autocomplete-container {
   position: relative;
 }
@@ -864,6 +1019,17 @@ onMounted(async () => {
   border-top-color: white;
   animation: spin 0.8s linear infinite;
   margin-right: 0.5rem;
+}
+
+.loading-spinner-large {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(102, 126, 234, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--primary-color);
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 1rem;
 }
 
 @keyframes spin {
