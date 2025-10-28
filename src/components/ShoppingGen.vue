@@ -138,22 +138,33 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import MiniCalendar from '@/components/MiniCalendar.vue'
 import { IngredientCategorizer } from '@/utils/IngredientsCategorizer.js'
 import { groupAndNormalizeIngredients } from '@/utils/IngredientsNormalisation.js'
+import Swal from 'sweetalert2'
 
 const router = useRouter()
 const currentUser = ref(null)
 
 onMounted(async () => {
   currentUser.value = await getCurrentUser()
+  document.addEventListener('click', handleClickOutside)
 })
 
-//props
-const props = defineProps({ currentWeek: { type: Date, default: () => new Date() } })
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
+// Props
+const props = defineProps({ 
+  currentWeek: { 
+    type: Date, 
+    default: () => new Date() 
+  } 
+})
 
 // State
 const showModal = ref(false)
@@ -167,6 +178,8 @@ const processingMessage = ref('')
 const showToast = ref(false)
 const toastMessage = ref('')
 const toastType = ref('success')
+const startDateRef = ref(null)
+const endDateRef = ref(null)
 
 // Step tracker
 const steps = [
@@ -189,44 +202,95 @@ const formattedDateRange = computed(() => {
 })
 
 // Helpers
-const formatDate = dateStr => new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-const formatDateLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-const displayToast = (msg, type = 'success') => {
-  toastMessage.value = msg
-  toastType.value = type
-  showToast.value = true
-  setTimeout(() => (showToast.value = false), 3000)
+const formatDate = dateStr => {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+const formatDateLocal = d => {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const displayAlert = async (msg, type = 'success', title = null) => {
+  const config = {
+    text: msg,
+    confirmButtonColor: '#6b46c1'
+  }
+
+  if (type === 'success') {
+    config.icon = 'success'
+    config.title = title || 'Success!'
+  } else if (type === 'error') {
+    config.icon = 'error'
+    config.title = title || 'Error!'
+  } else if (type === 'info') {
+    config.icon = 'info'
+    config.title = title || 'Information'
+  } else if (type === 'warning') {
+    config.icon = 'warning'
+    config.title = title || 'Warning!'
+  }
+
+  await Swal.fire(config)
+}
+
+// Click outside handler
+function handleClickOutside(event) {
+  if (showStartCalendar.value && startDateRef.value && !startDateRef.value.contains(event.target)) {
+    showStartCalendar.value = false
+  }
+  if (showEndCalendar.value && endDateRef.value && !endDateRef.value.contains(event.target)) {
+    showEndCalendar.value = false
+  }
 }
 
 // UI handlers
-function openModal() { showModal.value = true }
+function openModal() { 
+  showModal.value = true 
+  resetDateSelection()
+}
+
 function closeModal() {
   showModal.value = false
   resetDateSelection()
 }
+
 function toggleStartCalendar() {
   showStartCalendar.value = !showStartCalendar.value
   showEndCalendar.value = false
 }
+
 function toggleEndCalendar() {
   if (!shoppingStartDate.value) return
   showEndCalendar.value = !showEndCalendar.value
   showStartCalendar.value = false
 }
+
 function onStartDateSelected(date) {
   shoppingStartDate.value = formatDateLocal(date)
   shoppingEndDate.value = ''
   dateSelectionStep.value = 'end'
   showStartCalendar.value = false
-  setTimeout(() => (showEndCalendar.value = true), 200)
+  setTimeout(() => {
+    showEndCalendar.value = true
+  }, 200)
 }
+
 function onEndDateSelected(date) {
   const dateStr = formatDateLocal(date)
   if (dateStr < shoppingStartDate.value) {
-    [shoppingStartDate.value, shoppingEndDate.value] = [dateStr, shoppingStartDate.value]
-  } else shoppingEndDate.value = dateStr
+    const temp = shoppingStartDate.value
+    shoppingStartDate.value = dateStr
+    shoppingEndDate.value = temp
+  } else {
+    shoppingEndDate.value = dateStr
+  }
   showEndCalendar.value = false
 }
+
 function resetDateSelection() {
   shoppingStartDate.value = ''
   shoppingEndDate.value = ''
@@ -235,143 +299,167 @@ function resetDateSelection() {
   showEndCalendar.value = false
 }
 
-// Main Function (same logic but cleaned)
 // Main Function
 async function confirmGenerateShoppingList() {
   if (!shoppingStartDate.value || !shoppingEndDate.value) {
-    displayToast('Please select both start and end dates', 'error');
-    return;
+    await displayAlert('Please select both start and end dates', 'error', 'Missing Dates')
+    return
   }
 
-  const start = new Date(shoppingStartDate.value);
-  const end = new Date(shoppingEndDate.value);
-  const days = (end - start) / 86400000;
+  const start = new Date(shoppingStartDate.value)
+  const end = new Date(shoppingEndDate.value)
+  const days = Math.ceil((end - start) / 86400000) + 1
 
   if (days < 0) {
-    displayToast('End date must be after start date', 'error');
-    return;
+    await displayAlert('End date must be after start date', 'error', 'Invalid Date Range')
+    return
   }
   if (days > 30) {
-    displayToast('Date range too large (max 30 days)', 'error');
-    return;
+    await displayAlert('Date range too large (max 30 days)', 'error', 'Range Too Large')
+    return
   }
 
-  isProcessing.value = true;
-  processingMessage.value = 'Fetching meal plans...';
+  isProcessing.value = true
+  processingMessage.value = 'Fetching meal plans...'
 
   try {
-    // --- Fetch meal plans within date range ---
+    // Fetch meal plans within date range
     const { data: plans, error } = await supabase
       .from('meal_plans')
       .select('*')
       .eq('user_id', currentUser.value.id)
       .gte('date', shoppingStartDate.value)
-      .lte('date', shoppingEndDate.value);
+      .lte('date', shoppingEndDate.value)
 
-    if (error) throw error;
-    if (!plans?.length) {
-      displayToast('No meals found in selected range', 'error');
-      return;
+    if (error) throw error
+
+    if (!plans || plans.length === 0) {
+      await displayAlert('No meals found in selected range', 'info', 'No Meals Found')
+      isProcessing.value = false
+      return
     }
 
-    // --- Extract ingredients from meals ---
-    processingMessage.value = 'Extracting ingredients...';
-    let ingredients = [];
+    // Extract ingredients from meals
+    processingMessage.value = 'Extracting ingredients...'
+    const ingredients = []
+    
     plans.forEach(plan => {
-      if (Array.isArray(plan.extendedIngredients)) {
+      if (Array.isArray(plan.extendedIngredients) && plan.extendedIngredients.length > 0) {
         plan.extendedIngredients.forEach(ing => {
+          const amount = parseFloat(ing.amount)
+          const validAmount = !isNaN(amount) && amount > 0 ? amount : 1
+          
           ingredients.push({
-            name: ing.name || 'Unknown',
-            amount: parseFloat(ing.amount) || 1,
-            unit: ing.unit || 'piece'
-          });
-        });
+            name: ing.name || ing.originalName || 'Unknown Ingredient',
+            amount: validAmount,
+            unit: ing.unit || ing.measures?.metric?.unitShort || 'piece'
+          })
+        })
       }
-    });
+    })
 
-    if (!ingredients.length) {
-      displayToast('No ingredients found', 'error');
-      return;
+    if (ingredients.length === 0) {
+      await displayAlert('No ingredients found in meal plans', 'info', 'No Ingredients')
+      isProcessing.value = false
+      return
     }
 
-    // --- Normalize and categorize ingredients ---
-    processingMessage.value = 'Normalizing ingredients...';
-    let grouped = groupAndNormalizeIngredients(ingredients);
-    grouped = IngredientCategorizer.categorizeIngredients(grouped);
+    // Normalize and categorize ingredients
+    processingMessage.value = 'Normalizing ingredients...'
+    let grouped = groupAndNormalizeIngredients(ingredients)
+    grouped = IngredientCategorizer.categorizeIngredients(grouped)
 
-    // --- Fetch existing shopping items ---
-    processingMessage.value = 'Checking existing shopping list...';
+    // Fetch existing shopping items
+    processingMessage.value = 'Checking existing shopping list...'
     const { data: existing, error: existingError } = await supabase
       .from('shopping_items')
       .select('*')
       .eq('user_id', currentUser.value.id)
-      .eq('purchased', false);
+      .eq('purchased', false)
 
-    if (existingError) throw existingError;
+    if (existingError) throw existingError
 
-    const insert = [];
-    const update = [];
+    const insert = []
+    const update = []
 
-    // --- Compare and merge with existing items ---
+    // Compare and merge with existing items
     grouped.forEach(newItem => {
+      const newAmount = Number(newItem.amount) || 1
+      const roundedAmount = Math.max(1, Math.round(newAmount))
+
       const match = existing?.find(
         i =>
-          i.name.toLowerCase() === newItem.name.toLowerCase() &&
+          i.name.toLowerCase().trim() === newItem.name.toLowerCase().trim() &&
           i.unit === newItem.unit
-      );
+      )
 
       if (match) {
-        // Update existing quantity
+        const existingQty = Number(match.quantity) || 0
+        const newQty = Math.max(1, Math.round(existingQty + newAmount))
+        
         update.push({
           id: match.id,
-          quantity: Math.round(parseFloat(match.quantity) + parseFloat(newItem.amount)),
-          category: newItem.category
-        });
+          user_id: currentUser.value.id,
+          name: match.name,
+          unit: match.unit,
+          quantity: newQty,
+          category: newItem.category || match.category || 'Other',
+          purchased: false
+        })
       } else {
-        // Prepare new item for insert
         insert.push({
           user_id: currentUser.value.id,
-          name: newItem.name,
-          quantity: Math.round(parseFloat(newItem.amount)), // ensure integer
+          name: newItem.name.trim(),
+          quantity: roundedAmount,
           unit: newItem.unit || '',
           category: newItem.category || 'Other',
           purchased: false
-        });
+        })
       }
-    });
+    })
 
-    // --- Perform updates and inserts ---
-    processingMessage.value = 'Saving shopping list...';
+    // Perform updates and inserts
+    processingMessage.value = 'Saving shopping list...'
 
     if (update.length > 0) {
       const { error: updateError } = await supabase
         .from('shopping_items')
-        .upsert(update, { onConflict: 'id' });
-      if (updateError) throw updateError;
+        .upsert(update, { onConflict: 'id' })
+      
+      if (updateError) throw updateError
     }
 
     if (insert.length > 0) {
       const { error: insertError } = await supabase
         .from('shopping_items')
-        .insert(insert);
-      if (insertError) throw insertError;
+        .insert(insert)
+      
+      if (insertError) throw insertError
     }
 
-    // --- Success ---
-    displayToast(
-      `Shopping list updated successfully! (${insert.length} new, ${update.length} updated)`,
-      'success'
-    );
-    router.push('/shopping');
+    // Success
+    await Swal.fire({
+      icon: 'success',
+      title: 'Shopping List Generated!',
+      text: `${insert.length} new items added, ${update.length} items updated`,
+      confirmButtonColor: '#6b46c1',
+      timer: 4000,
+      timerProgressBar: true
+    })
+    
+    showModal.value = false
+    setTimeout(() => {
+      router.push('/shopping')
+    }, 500)
+
   } catch (err) {
-    console.error('Error generating shopping list:', err);
-    displayToast(`Error: ${err.message}`, 'error');
+    console.error('Error generating shopping list:', err)
+    await displayAlert(err.message || 'Unknown error occurred', 'error', 'Generation Failed')
   } finally {
-    isProcessing.value = false;
-    showModal.value = false;
+    isProcessing.value = false
+    processingMessage.value = ''
   }
 }
-
 </script>
 
 <style scoped>
@@ -400,16 +488,22 @@ async function confirmGenerateShoppingList() {
   background: #ccc;
   transform: none;
   box-shadow: none;
+  cursor: not-allowed;
 }
 
 /* --- Modal --- */
 .modal-overlay {
-  position: fixed; inset: 0;
+  position: fixed; 
+  inset: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
-  display: flex; justify-content: center; align-items: center;
+  display: flex; 
+  justify-content: center; 
+  align-items: center;
   z-index: 1000;
+  padding: 1rem;
 }
+
 .modal-content {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
@@ -418,87 +512,216 @@ async function confirmGenerateShoppingList() {
   width: 100%;
   box-shadow: 0 6px 30px rgba(0,0,0,0.2);
   animation: slide-up 0.35s ease;
-  display: flex; flex-direction: column;
+  display: flex; 
+  flex-direction: column;
   border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
 }
+
 @keyframes slide-up {
   from { transform: translateY(40px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
-.modal-header, .modal-footer {
+
+.modal-header {
   padding: 1.5rem 2rem;
   border-bottom: 1px solid rgba(255, 107, 26, 0.1);
 }
-.modal-body { padding: 1.5rem 2rem; position: relative; }
+
+.modal-header h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.modal-body { 
+  padding: 1.5rem 2rem; 
+  position: relative; 
+  overflow: visible;
+}
+
+.modal-footer {
+  padding: 1rem 2rem 1.5rem;
+  border-top: 1px solid rgba(255, 107, 26, 0.1);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 .btn-close-modal {
-  position: absolute; top: 1rem; right: 1rem;
-  background: white; border: none; border-radius: 50%;
+  position: absolute; 
+  top: 1rem; 
+  right: 1rem;
+  background: white; 
+  border: none; 
+  border-radius: 50%;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  width: 36px; height: 36px; cursor: pointer;
+  width: 36px; 
+  height: 36px; 
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
 }
-.btn-close-modal:hover { background: #f3f3f3; }
-.modal-body-custom {
-  overflow: visible !important;
-  position: relative;
+
+.btn-close-modal:hover { 
+  background: #f3f3f3; 
 }
-.modal-content-custom.modal-large {
-  max-height: 90vh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+
+/* --- Processing Overlay --- */
+.processing-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: 8px;
 }
-.date-input-wrapper {
-  position: relative;
-  overflow: visible !important;
-  z-index: 999;
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #ff6b1a;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
-@media (max-height: 700px) {
-  .modal-content-custom.modal-large {
-    max-height: 80vh;
-    overflow-y: auto;
-  }
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* --- Steps --- */
 .step-tracker {
-  display: flex; justify-content: space-around; align-items: center;
-  position: relative; margin-bottom: 1rem;
+  display: flex; 
+  justify-content: space-around; 
+  align-items: center;
+  position: relative; 
+  margin-bottom: 2rem;
 }
+
 .step-tracker::before {
-  content: ''; position: absolute; top: 16px; left: 10%;
-  right: 10%; height: 2px; background: #ddd; z-index: 0;
+  content: ''; 
+  position: absolute; 
+  top: 16px; 
+  left: 20%;
+  right: 20%; 
+  height: 2px; 
+  background: #ddd; 
+  z-index: 0;
 }
+
 .step {
-  text-align: center; z-index: 1;
+  text-align: center; 
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 }
+
 .step .circle {
-  width: 32px; height: 32px;
-  border-radius: 50%; background: #e0e0e0;
-  color: #555; display: flex; align-items: center; justify-content: center;
-  font-weight: 600; margin: 0 auto 6px;
+  width: 32px; 
+  height: 32px;
+  border-radius: 50%; 
+  background: #e0e0e0;
+  color: #555; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  font-weight: 600;
+  transition: all 0.3s;
 }
+
 .step.active .circle {
-  background: #ff6b1a; color: #fff;
+  background: #ff6b1a; 
+  color: #fff;
   box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.2);
+  transform: scale(1.1);
+}
+
+.step span {
+  font-size: 0.875rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.step.active span {
+  color: #ff6b1a;
+  font-weight: 600;
 }
 
 /* --- Date Inputs --- */
 .date-inputs {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
-.date-wrapper { position: relative; }
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.input-group label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.date-wrapper { 
+  position: relative; 
+}
+
 .date-wrapper input {
-  width: 100%; border: 2px solid #e0e0e0; border-radius: 8px;
-  padding: 0.6rem 2.5rem 0.6rem 1rem; cursor: pointer;
-  background: white; font-size: 0.875rem; font-weight: 500;
-  color: #1a1a1a; transition: all 0.2s;
+  width: 100%; 
+  border: 2px solid #e0e0e0; 
+  border-radius: 8px;
+  padding: 0.75rem 2.5rem 0.75rem 1rem; 
+  cursor: pointer;
+  background: white; 
+  font-size: 0.875rem; 
+  font-weight: 500;
+  color: #1a1a1a; 
+  transition: all 0.2s;
 }
+
 .date-wrapper input:focus {
-  outline: none; border-color: #ff6b1a; box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.1);
+  outline: none; 
+  border-color: #ff6b1a; 
+  box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.1);
 }
-.date-wrapper input:disabled { background: #f7f7f7; cursor: not-allowed; }
+
+.date-wrapper input:disabled { 
+  background: #f7f7f7; 
+  cursor: not-allowed;
+  color: #999;
+}
+
 .calendar-icon {
-  position: absolute; right: 0.75rem; top: 50%;
-  transform: translateY(-50%); color: #666;
+  position: absolute; 
+  right: 0.75rem; 
+  top: 50%;
+  transform: translateY(-50%); 
+  color: #666;
+  pointer-events: none;
+}
+
+/* --- Selected Range --- */
+.selected-range {
+  text-align: center;
+  padding: 1rem;
+  background: rgba(255, 107, 26, 0.05);
+  border-radius: 8px;
+  color: #ff6b1a;
+  font-size: 0.875rem;
 }
 
 /* --- Small Calendar --- */
@@ -534,19 +757,49 @@ async function confirmGenerateShoppingList() {
 
 /* --- Toast --- */
 .toast {
-  position: fixed; bottom: 2rem; right: 2rem;
-  color: white; padding: 1rem 1.5rem;
-  border-radius: 12px; display: flex; align-items: center;
+  position: fixed; 
+  bottom: 2rem; 
+  right: 2rem;
+  color: white; 
+  padding: 1rem 1.5rem;
+  border-radius: 12px; 
+  display: flex; 
+  align-items: center;
   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
   animation: slideInUp 0.3s ease;
+  z-index: 9999;
 }
-.toast.success { background: linear-gradient(135deg, #10b981, #34d399); }
-.toast.error { background: linear-gradient(135deg, #dc2626, #f87171); }
-.slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s; }
-.slide-up-enter-from, .slide-up-leave-to { transform: translateY(30px); opacity: 0; }
+
+.toast.success { 
+  background: linear-gradient(135deg, #10b981, #34d399); 
+}
+
+.toast.error { 
+  background: linear-gradient(135deg, #dc2626, #f87171); 
+}
+
+.slide-up-enter-active, .slide-up-leave-active { 
+  transition: all 0.3s; 
+}
+
+.slide-up-enter-from, .slide-up-leave-to { 
+  transform: translateY(30px); 
+  opacity: 0; 
+}
 
 @keyframes slideInUp {
   from { transform: translateY(100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* --- Responsive --- */
+@media (max-width: 640px) {
+  .date-inputs {
+    grid-template-columns: 1fr;
+  }
+  
+  .step span {
+    font-size: 0.75rem;
+  }
 }
 </style>

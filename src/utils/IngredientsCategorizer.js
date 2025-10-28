@@ -68,7 +68,7 @@ export const IngredientCategorizer = {
       'popcorn', 'pretzel', 'nut', 'nuts', 'almond', 'cashew', 'peanut'
     ])) return 'Snacks';
 
-    return 'Other';
+    return 'Others';
   },
 
   /**
@@ -123,7 +123,7 @@ export const IngredientCategorizer = {
       'Canned & Jarred',
       'Beverages',
       'Snacks',
-      'Other'
+      'Others'
     ];
   }
 };

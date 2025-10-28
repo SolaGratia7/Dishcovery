@@ -34,46 +34,82 @@
         <!-- Add Item Card -->
         <div class="add-item-card mb-4">
           <div class="add-item-form">
-            <input 
-              v-model="newItemName"
-              type="text" 
-              class="form-control item-input" 
-              placeholder="Item name"
-              @keyup.enter="addItem"
-            >
-            <input 
-              v-model="newItemQuantity"
-              type="text" 
-              class="form-control quantity-input" 
-              placeholder="Quantity"
-              @keyup.enter="addItem"
-            >
-            <select v-model="newItemUnit" class="form-select unit-select">
-              <option value="piece">piece</option>
-              <option value="kg">kg</option>
-              <option value="g">g</option>
-              <option value="lbs">lbs</option>
-              <option value="oz">oz</option>
-              <option value="gallon">gallon</option>
-              <option value="liter">liter</option>
-              <option value="carton">carton</option>
-              <option value="bottle">bottle</option>
-              <option value="can">can</option>
-              <option value="box">box</option>
-              <option value="bag">bag</option>
-              <option value="bunch">bunch</option>
-              <option value="loaf">loaf</option>
-              <option value="dozen">dozen</option>
-              <option value="cup">cup</option>
-            </select>
-            <select v-model="newItemCategory" class="form-select category-select">
-              <option value="Dairy">Dairy</option>
-              <option value="Meat">Meat</option>
-              <option value="Vegetable">Vegetable</option>
-              <option value="Fruits">Fruits</option>
-              <option value="Produce">Produce</option>
-              <option value="Others">Others</option>
-            </select>
+            <!-- Item Name -->
+            <div class="input-wrapper">
+              <input 
+                v-model="newItemName"
+                type="text" 
+                :class="['form-control', 'item-input', { 'is-invalid': nameError}]" 
+                placeholder="Item name"
+                @keyup.enter="addItem"
+              >
+              <div v-if="nameError" class="error-text-below">
+                {{ nameError }}
+              </div>
+            </div>
+            
+            <!-- Quantity -->
+            <div class="input-wrapper">
+              <input 
+                v-model="newItemQuantity"
+                type="text" 
+                :class="['form-control', 'quantity-input', { 'is-invalid': qtyError }]" 
+                placeholder="Quantity"
+                @input="validateQty"
+                @keyup.enter="addItem"
+              >
+              <div v-if="qtyError" class="error-text-below">
+                {{ qtyError }}
+              </div>
+            </div>
+            
+            <!-- Unit (with autocomplete) -->
+            <div class="input-wrapper">
+              <div class= "unit-wrapper">
+                <div class="autocomplete-wrapper">
+                  <input
+                    v-model="newItemUnit"
+                    @input="handleInput"
+                    @keydown="handleKeydown"
+                    type="text"
+                    :class="['form-control', 'unit-input', { 'is-invalid': unitError }]"
+                    placeholder="Unit (e.g., kg)"
+                    autocomplete="off"
+                  />
+                  
+                  <!-- Dropdown suggestions -->
+                  <ul v-if="showSuggestions && filteredUnits.length > 0" class="suggestions-dropdown">
+                    <li
+                      v-for="(unit, index) in filteredUnits"
+                      :key="unit"
+                      :class="['suggestion-item', { 'active': index === selectedIndex }]"
+                      @mousedown.prevent="selectUnit(unit)"
+                      @mouseenter="selectedIndex = index"
+                    >
+                      {{ unit }}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <div v-if="unitError" class="error-text-below">
+                {{ unitError }}
+              </div>
+            </div>
+            
+            <!-- Category -->
+            <div class="input-wrapper"> 
+              <input 
+                v-model="newItemCategory"
+                placeholder="Category"
+                :class="['form-control', 'category-select', { 'is-invalid': categoryError }]"
+                @input="capitalizeCategory"
+              />
+              <div v-if="categoryError" class="error-text-below">
+                {{ categoryError }}
+              </div>                 
+            </div>
+            
+            <!-- Add Button -->
             <button @click="addItem" class="btn btn-primary add-btn">
               <i class="bi bi-plus-lg"></i>
               Add
@@ -113,7 +149,20 @@
               <div class="category-header" @click="toggleCategory(category.name)">
                 <i :class="['bi', isCategoryExpanded(category.name) ? 'bi-chevron-down' : 'bi-chevron-right']"></i>
                 <span class="category-name">{{ category.name }}</span>
+
+                <!-- Clear Category Button -->
+                <button
+                  v-if="category.items.length > 0"
+                  class="btn-clear-category"
+                  @click.stop="confirmClearCategory(category.name)"
+                  title="Clear all items in this category"
+                >
+                  <i class="bi bi-trash"></i>
+                  Clear
+                </button>
+
                 <span class="category-count">{{ category.items.length }}</span>
+          
               </div>
 
               <div v-show="isCategoryExpanded(category.name)" class="category-items">
@@ -150,11 +199,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout.vue'
 import AnimatedBackground from '@/components/AnimatedBackground.vue'
+import { IngredientCategorizer } from '@/utils/IngredientsCategorizer.js'
+import Swal from "sweetalert2"
 
 const router = useRouter()
 const currentUser = ref(null)
@@ -163,8 +214,7 @@ const currentUser = ref(null)
 const loading = ref(true)
 const newItemName = ref('')
 const newItemQuantity = ref('')
-const newItemUnit = ref('piece')
-const newItemCategory = ref('Others')
+const newItemCategory = ref('')
 const shoppingItems = ref([])
 const expandedCategories = ref({})
 const sortMode = ref('category') // add sorting mode
@@ -173,10 +223,217 @@ const sortMode = ref('category') // add sorting mode
 const showToast = ref(false)
 const toastMessage = ref('')
 
+// ---------- UNITS ----------
+const newItemUnit = ref('')
+const showSuggestions = ref(false)
+const selectedIndex = ref(0)
+
+// ---------- ERROR MSG ----------
+const nameError = ref('')
+const qtyError = ref('')
+const unitError = ref('')
+const categoryError = ref('')
+
+const validateName = () => {
+  if (!newItemName.value.trim()) {
+    nameError.value = 'Item name is required'
+    return false
+  } 
+  else {
+    nameError.value = ''
+    return true
+  }
+}
+
+const validateQty = () => {
+  const value = newItemQuantity.value.trim()
+  
+  if (!value) {
+    qtyError.value = 'Quantity is required'
+    return false
+  } 
+  else if (!/^\d+(\.\d+)?$/.test(value)) {
+    qtyError.value = 'Please enter a valid number'
+    return false
+  }
+  else {
+    qtyError.value = ''
+    return true
+  }
+}
+
+const validateUnit = () => {
+  const value = newItemUnit.value.trim()
+  
+  if (!value) {
+    unitError.value = 'Unit is required'
+    return false
+  } else {
+    unitError.value = ''
+    return true
+  }
+}
+
+const validateCategory = () => {
+  const value = newItemCategory.value.trim()
+  
+  if (!value) {
+    categoryError.value = 'Category is required'
+    return false
+  } else {
+    categoryError.value = ''
+    return true
+  }
+}
+
+// Available units
+const units = [
+  'piece', 'kg', 'g', 'lbs', 'oz', 
+  'gallon', 'liter', 'carton', 'bottle', 'can', 
+  'box', 'bag', 'bunch', 'loaf', 'dozen', 'cup'
+]
+
 function displayToast(message) {
   toastMessage.value = message
   showToast.value = true
   setTimeout(() => (showToast.value = false), 3000)
+}
+
+// ---------- AUTO UNITS FILTER ----------
+// Filter units based on input
+const filteredUnits = computed(() => {
+  if (!newItemUnit.value) return []
+  
+  const input = newItemUnit.value.toLowerCase()
+  return units.filter(unit => unit.toLowerCase().startsWith(input))
+})
+
+// Ghost text suggestion (first match)
+const suggestion = computed(() => {
+  if (!newItemUnit.value || filteredUnits.value.length === 0) return ''
+  
+  const firstMatch = filteredUnits.value[0]
+  return firstMatch.slice(newItemUnit.value.length)
+})
+
+// Handle input
+const handleInput = () => {
+  showSuggestions.value = true
+  selectedIndex.value = 0
+}
+
+// Handle keyboard navigation
+const handleKeydown = (e) => {
+  if (!showSuggestions.value || filteredUnits.value.length === 0) return
+
+  switch (e.key) {
+    case 'Tab':
+    case 'ArrowRight':
+      // Accept suggestion with Tab or Right Arrow
+      if (suggestion.value) {
+        e.preventDefault()
+        newItemUnit.value = filteredUnits.value[0]
+        showSuggestions.value = false
+      }
+      break
+      
+    case 'ArrowDown':
+      e.preventDefault()
+      selectedIndex.value = Math.min(selectedIndex.value + 1, filteredUnits.value.length - 1)
+      break
+      
+    case 'ArrowUp':
+      e.preventDefault()
+      selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
+      break
+      
+    case 'Enter':
+      e.preventDefault()
+      if (filteredUnits.value.length > 0) {
+        selectUnit(filteredUnits.value[selectedIndex.value])
+      }
+      break
+      
+    case 'Escape':
+      showSuggestions.value = false
+      break
+  }
+}
+
+// Select a unit
+const selectUnit = (unit) => {
+  newItemUnit.value = unit
+  showSuggestions.value = false
+  selectedIndex.value = 0
+}
+
+watch(
+  () => newItemName.value,
+  (newItem) => {
+    if (!newItem || newItem.trim() === '') {
+      newItemCategory.value = ''
+    } else {
+      newItemCategory.value = IngredientCategorizer.categorizeIngredient(newItem)
+    }
+  }
+)
+
+// Clear all items in a specific category
+const confirmClearCategory = async (categoryName) => {
+  // Find items in the category
+  const categoryItems = filteredCategories.value.find(c => c.name === categoryName)?.items || []
+  
+  if (!categoryItems.length) {
+    await Swal.fire({
+      icon: 'info',
+      title: 'Nothing to clear',
+      text: `No items in ${categoryName} category.`,
+      confirmButtonColor: '#6b46c1'
+    })
+    return
+  }
+
+  // SweetAlert2 confirmation
+  const result = await Swal.fire({
+    title: `Are you sure?`,
+    text: `You are about to delete ${categoryItems.length} item(s) from ${categoryName}.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, delete!',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#ff6b1a',
+    cancelButtonColor: '#6b46c1'
+  })
+
+  if (!result.isConfirmed) return
+
+  // Delete items by ID
+  try {
+    const idsToDelete = categoryItems.map((i) => i.id)
+    const { error } = await supabase
+      .from('shopping_items')
+      .delete()
+      .in('id', idsToDelete)
+      .eq('user_id', currentUser.value.id)
+
+    if (error) throw error
+
+    await fetchShoppingItems()
+    await Swal.fire({
+      icon: 'success',
+      title: 'Deleted!',
+      text: `${categoryItems.length} item(s) from ${categoryName} have been removed.`,
+      confirmButtonColor: '#6b46c1'
+    })
+  } catch (err) {
+    console.error('Error clearing category:', err)
+    await Swal.fire({
+      icon: 'error',
+      title: 'Error!',
+      text: 'Failed to clear category: ' + (err.message || err),
+      confirmButtonColor: '#6b46c1'
+    })
+  }
 }
 
 // ---------- FETCH SHOPPING ITEMS ----------
@@ -259,9 +516,100 @@ function isCategoryExpanded(category) {
 
 // ---------- ITEM ACTIONS ----------
 async function addItem() {
-  if (!newItemName.value.trim()) {
-    displayToast('Please enter an item name')
+  const isNameValid = validateName()
+  const isQtyValid = validateQty()
+  const isUnitValid = validateUnit()
+  const isCatValid = validateCategory()
+
+  if (!isNameValid || !isQtyValid || !isUnitValid || !isCatValid) {
+    await Swal.fire({
+      icon: 'warning',
+      title: 'Please check your inputs',
+      text: 'Fix the highlighted errors before adding',
+      confirmButtonColor: '#6b46c1'
+    })
     return
+  }
+
+  // Check for duplicate item (case-insensitive)
+  const itemName = newItemName.value.trim().toLowerCase()
+  const existingItem = shoppingItems.value.find(
+    item => item.name.toLowerCase() === itemName
+  )
+
+  if (existingItem) {
+    const result = await Swal.fire({
+      icon: 'question',
+      title: 'Item Already Exists',
+      html: `
+        <p>"${existingItem.name}" is already in your list.</p>
+        <p><strong>Current:</strong> ${existingItem.quantity} ${existingItem.unit}</p>
+        <p><strong>Adding:</strong> ${newItemQuantity.value} ${newItemUnit.value}</p>
+      `,
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: 'Update quantity',
+      denyButtonText: 'Add as separate',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#ff6b1a',
+      denyButtonColor: '#6b46c1',
+      cancelButtonColor: '#9ca3af'
+    })
+
+    if (result.isConfirmed) {
+      // Update existing item's quantity
+      try {
+        const newQty = parseFloat(existingItem.quantity) + parseFloat(newItemQuantity.value || 1)
+        
+        const { error } = await supabase
+          .from('shopping_items')
+          .update({ 
+            quantity: newQty.toString(),
+            unit: newItemUnit.value 
+          })
+          .eq('id', existingItem.id)
+          .eq('user_id', currentUser.value.id)
+
+        if (error) throw error
+
+        existingItem.quantity = newQty.toString()
+        existingItem.unit = newItemUnit.value
+
+        // Clear form
+        newItemName.value = ''
+        newItemQuantity.value = ''
+        newItemUnit.value = ''
+        newItemCategory.value = 'Others'
+        nameError.value = ''
+        qtyError.value = ''
+        unitError.value = ''
+        categoryError.value = ''
+
+        await Swal.fire({
+          icon: 'success',
+          title: 'Updated!',
+          text: `${existingItem.name} quantity updated to ${newQty} ${existingItem.unit}`,
+          confirmButtonColor: '#6b46c1',
+          timer: 2000,
+          showConfirmButton: false
+        })
+        return
+      } catch (error) {
+        console.error('Error updating item:', error)
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error!',
+          text: 'Failed to update item: ' + (error.message || error),
+          confirmButtonColor: '#6b46c1'
+        })
+        return
+      }
+    } else if (result.isDenied) {
+      // Continue to add as separate item
+    } else {
+      // Cancelled
+      return
+    }
   }
 
   try {
@@ -284,19 +632,35 @@ async function addItem() {
     const added = data[0]
     shoppingItems.value.unshift(added)
 
-    // ensure category state exists
-    if (!(added.category in expandedCategories.value)) {
-      expandedCategories.value[added.category] = true
-    }
+    // Ensure category exists and EXPAND it
+    expandedCategories.value[added.category] = true
 
+    // Clear form and errors
     newItemName.value = ''
     newItemQuantity.value = ''
-    newItemUnit.value = 'piece'
+    newItemUnit.value = ''
     newItemCategory.value = 'Others'
-    displayToast('Item added successfully')
+    nameError.value = ''
+    qtyError.value = ''
+    unitError.value = ''
+    categoryError.value = ''
+    
+    await Swal.fire({
+      icon: 'success',
+      title: 'Added!',
+      text: `${added.name} has been added to your shopping list.`,
+      confirmButtonColor: '#6b46c1',
+      timer: 2000,
+      showConfirmButton: false
+    })
   } catch (error) {
     console.error('Error adding item:', error)
-    displayToast('Failed to add item')
+    await Swal.fire({
+      icon: 'error',
+      title: 'Error!',
+      text: 'Failed to add item: ' + (error.message || error),
+      confirmButtonColor: '#6b46c1'
+    })
   }
 }
 
@@ -321,18 +685,44 @@ async function togglePurchased(itemId) {
 }
 
 async function deleteItem(itemId) {
-  if (!confirm('Are you sure you want to delete this item?')) return
+  const result = await Swal.fire({
+    title: 'Are you sure?',
+    text: 'Do you want to delete this item from your shopping list?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, delete it!',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#ff6b1a',
+    cancelButtonColor: '#6b46c1'
+  })
+
+  if (!result.isConfirmed) return
+
   try {
     const { error } = await supabase
       .from('shopping_items')
       .delete()
       .eq('id', itemId)
+      .eq('user_id', currentUser.value.id) // ← Add user_id check for security
+    
     if (error) throw error
-    shoppingItems.value = shoppingItems.value.filter(i => i.id !== itemId)
-    displayToast('Item deleted successfully')
+
+    await fetchShoppingItems() // ← Better than manual filter
+
+    await Swal.fire({
+      title: 'Deleted!',
+      text: 'The item has been removed from your shopping list.',
+      icon: 'success',
+      confirmButtonColor: '#6b46c1'
+    })
   } catch (error) {
     console.error('Error deleting item:', error)
-    displayToast('Failed to delete item')
+    await Swal.fire({
+      title: 'Error!',
+      text: 'Failed to delete item: ' + (error.message || error),
+      icon: 'error',
+      confirmButtonColor: '#6b46c1'
+    })
   }
 }
 
@@ -378,6 +768,57 @@ onMounted(async () => {
   color: #d97706;
   margin: 0;
   font-size: 0.95rem;
+}
+
+/*units Dropdwon */
+.autocomplete-wrapper {
+  position: relative;
+  flex: 0 0 140px;
+  z-index: 100;
+}
+
+.unit-wrapper{
+  width: 180px;
+}
+
+/* Dropdown */
+.suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.suggestion-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.suggestion-item:hover,
+.suggestion-item.active {
+  background: #f0f0f0;
+}
+
+.suggestion-item:first-child {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+.suggestion-item:last-child {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
 }
 
 /* Sort Dropdown Styling */
@@ -443,29 +884,66 @@ onMounted(async () => {
   border-radius: 12px;
   padding: 1.25rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: visible;
+  position: relative;
+  z-index: 10;
 }
 
 .add-item-form {
   display: flex;
   gap: 0.75rem;
-  align-items: center;
+  align-items: flex-start;
+  width: 100%;
 }
 
-.item-input {
+.input-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Item name - fills remaining space */
+.input-wrapper:first-child {
   flex: 1;
-  min-width: 200px;
+  min-width: 150px;
 }
 
-.quantity-input {
-  width: 120px;
+/* Quantity - fixed width */
+.input-wrapper:nth-child(2) {
+  flex: 0 0 170px;
 }
 
-.unit-select {
-  width: 140px;
+/* Unit - fixed width */
+
+/* Category - fixed width */
+.input-wrapper:nth-child(4) {
+  flex: 0 0 160px;
 }
 
-.category-select {
-  width: 140px;
+/* Button - auto width */
+.add-btn {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  margin-top: 0;
+}
+
+/* Autocomplete specific */
+.autocomplete-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.is-invalid {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+}
+
+.error-text-below {
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  font-weight: 500;
 }
 
 .add-btn {
@@ -476,6 +954,7 @@ onMounted(async () => {
   align-items: center;
   gap: 0.5rem;
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .add-btn:hover {
@@ -512,6 +991,8 @@ onMounted(async () => {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 .list-header {
@@ -648,6 +1129,39 @@ onMounted(async () => {
   background: rgba(220, 38, 38, 0.1);
 }
 
+.btn-clear-category {
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid rgba(180, 83, 9, 0.15);
+  background: transparent;
+  color: #b45309;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto; /* ← Pushes button to the right */
+  opacity: 0;
+  transform: translateX(10px);
+}
+
+.category-header:hover .btn-clear-category {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.btn-clear-category:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(107, 70, 193, 0.08);
+  background: rgba(107, 70, 193, 0.04);
+}
+
+.btn-clear-category i {
+  font-size: 0.7rem;
+}
+
 /* Toast Notification */
 .toast-notification {
   position: fixed;
@@ -683,7 +1197,7 @@ onMounted(async () => {
 
   .item-input,
   .quantity-input,
-  .unit-select,
+  .unit-input,
   .category-select,
   .add-btn {
     width: 100%;
