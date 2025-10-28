@@ -161,7 +161,7 @@
                       type="number"
                       class="goal-input"
                       placeholder="3"
-                      min="0.5"
+                      min="0"
                       max="20"
                       step="0.5"
                     >
@@ -822,7 +822,7 @@ function selectDate(date) {
 
 // Computed for validation
 const isGoalValid = computed(() => {
-  return weightChange.value > 0 && (timeframeDisplay.value || timeframe.value > 0)
+  return weightChange.value >= 0 && (timeframeDisplay.value || timeframe.value > 0)
 })
 
 const isDateRangeValid = computed(() => {

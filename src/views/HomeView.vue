@@ -68,6 +68,15 @@
                       :alt="img.title"
                       class="carousel-image"
                     />
+                     <button
+                      v-if="img.recipe"
+                      class="favourite-btn"
+                      :class="{ favourited: isRecipeSaved(img.recipe.id) }"
+                      @click.stop="toggleFavourite(img.recipe)"
+                    >
+                      <i class="bi" :class="isRecipeSaved(img.recipe.id) ? 'bi-heart-fill text-danger' : 'bi-heart'"></i>
+                    </button>
+
                     <div class="carousel-caption-custom">
                       <h4>{{ img.title }}</h4>
                       <p>
@@ -251,6 +260,7 @@
                   :title="recipe.title"
                   :time="recipe.readyInMinutes"
                   :servings="recipe.servings"
+                  :current-user="currentUser"
                   @click="openModal"
                   @removed="handleRecipeRemoved"
                 />
@@ -278,6 +288,7 @@ import RecipeCard from '@/components/RecipeCard.vue'
 import RecipeModal from '@/components/RecipeModal.vue'
 import axios from 'axios'
 import { Carousel } from 'bootstrap'
+import Swal from 'sweetalert2'
 
 const router = useRouter()
 const currentUser = ref(null)
@@ -349,9 +360,48 @@ const openModal = (recipe) => {
   selectedRecipe.value = recipe
 }
 
-function handleRecipeRemoved(id) {
-  savedRecipes.value = savedRecipes.value.filter(r => r.id !== id)
+const handleRecipeRemoved = async (id) => {
+  const result = await Swal.fire({
+    title: 'Remove from favourites?',
+    text: 'Are you sure you want to unfavourite this recipe?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Yes, remove it',
+    cancelButtonText: 'Cancel'
+  })
+
+  if (!result.isConfirmed) return
+
+  try {
+    const { error } = await supabase
+      .from('saved_recipes')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', currentUser.value.id)
+
+    if (error) throw error
+
+
+    savedRecipes.value = savedRecipes.value.filter(r => r.id !== id)
+
+    Swal.fire({
+      title: 'Removed!',
+      text: 'The recipe has been removed from your favourites.',
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false
+    })
+  } catch (error) {
+    console.error('Error removing recipe:', error)
+    Swal.fire('Error', 'Something went wrong while removing the recipe.', 'error')
+  }
 }
+
+
+const handleSwipeRecipeRemoved = handleRecipeRemoved
+
 
 // Mouse handler functions for horizontal scrolling
 const handleMouseDown = (e) => {
@@ -397,35 +447,35 @@ const fetchSavedRecipes = async () => {
   }
 }
 
-const handleSwipeRecipeRemoved = (id) => {
-  savedRecipes.value = savedRecipes.value.filter(r => r.id !== id)
-}
-
 // Default carousel images fallback
 const getDefaultCarouselImages = () => [
   {
     id: 'default-1',
     image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c',
     title: 'Explore Fresh Recipes',
-    description: 'Discover delicious meals you can make with your pantry items'
+    description: 'Discover delicious meals you can make with your pantry items',
+    recipe: null,
   },
   {
     id: 'default-2',
     image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836',
     title: 'Cook with Confidence',
-    description: 'Find recipes that match your ingredients and skill level'
+    description: 'Find recipes that match your ingredients and skill level',
+    recipe: null,
   },
   {
     id: 'default-3',
     image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd',
     title: 'Reduce Food Waste',
-    description: 'Use expiring ingredients before they go bad'
+    description: 'Use expiring ingredients before they go bad',
+    recipe: null,
   },
   {
     id: 'default-4',
     image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061',
     title: 'Plan Your Meals',
-    description: 'Organize your weekly menu with ease'
+    description: 'Organize your weekly menu with ease',
+    recipe: null,
   },
   {
     id: 'default-5',
@@ -649,6 +699,62 @@ onMounted(async () => {
     router.push('/login')
   }
 })
+
+// Check if a recipe is saved
+const isRecipeSaved = (recipeId) => {
+  return savedRecipes.value.some(r => r.id === recipeId)
+}
+
+// Toggle favourite status
+const toggleFavourite = async (recipe) => {
+  const saved = isRecipeSaved(recipe.id)
+
+  if (saved) {
+    // Confirm before removing
+    const result = await Swal.fire({
+      title: 'Remove from favourites?',
+      text: 'Are you sure you want to unfavourite this recipe?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, remove it',
+      cancelButtonText: 'Cancel'
+    })
+
+    if (!result.isConfirmed) return
+
+    try {
+      const { error } = await supabase
+        .from('saved_recipes')
+        .delete()
+        .eq('id', recipe.id)
+        .eq('user_id', currentUser.value.id)
+      if (error) throw error
+
+      savedRecipes.value = savedRecipes.value.filter(r => r.id !== recipe.id)
+      Swal.fire('Removed!', 'Recipe has been removed from your favourites.', 'success')
+    } catch (error) {
+      console.error(error)
+      Swal.fire('Error', 'Failed to remove recipe', 'error')
+    }
+  } else {
+    // Add to favourites
+    try {
+      const { error } = await supabase
+        .from('saved_recipes')
+        .insert({ user_id: currentUser.value.id, id: recipe.id, title: recipe.title, image: recipe.image })
+      if (error) throw error
+
+      savedRecipes.value.push(recipe)
+      Swal.fire('Added!', 'Recipe has been added to your favourites.', 'success')
+    } catch (error) {
+      console.error(error)
+      Swal.fire('Error', 'Failed to add recipe', 'error')
+    }
+  }
+}
+
 </script>
 
 <style scoped>
@@ -1362,4 +1468,36 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 }
+
+.favourite-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 5; /* higher than caption and image */
+  background-color: rgba(255, 255, 255, 0.85);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: transform 0.2s;
+}
+
+.favourite-btn:hover {
+  transform: scale(1.1);
+  background-color: rgba(255, 255, 255, 1);
+}
+
+.favourite-btn .bi-heart-fill {
+  color: #ff6b1a;
+}
+
+.favourite-btn .bi-heart {
+  color: #6b7280;
+}
+
 </style>

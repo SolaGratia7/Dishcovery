@@ -601,8 +601,15 @@ const addItem = async () => {
     const { error } = await supabase.from("pantry_items").insert([payload])
     if (error) throw error
 
-    closeModal()
+
     await fetchPantry()
+    await Swal.fire({
+      icon: 'success',
+      title: 'Added!',
+      text: `${form.value.name} has been added to your pantry.`,
+      confirmButtonColor: '#6b46c1'
+    })
+    closeModal()
   } catch (error) {
     console.error("Error adding item:", error)
     alert("Failed to add item: " + (error.message || error))
@@ -652,8 +659,15 @@ const updateItem = async () => {
 
     if (error) throw error
 
-    closeModal()
+
     await fetchPantry()
+    await Swal.fire({
+        icon: 'success',
+        title: 'Updated!',
+        text: `${form.value.name} has been updated successfully.`,
+        confirmButtonColor: '#6b46c1'
+      })
+    closeModal()
   } catch (error) {
     console.error("Error updating item:", error)
     alert("Failed to update item: " + (error.message || error))

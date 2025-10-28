@@ -7,11 +7,11 @@
     <div :class="['dropdown-content', { 'below': dropdownPosition === 'below', 'above': openAbove }]">
       <div class="mini-calendar">
         <div class="mini-calendar-header">
-          <button @click="changeMonth(-1)" class="month-nav-btn">
+          <button type ="button" @click="changeMonth(-1)" class="month-nav-btn">
             <i class="bi bi-chevron-left"></i>
           </button>
           <span class="current-month-year" @click="toggleMonthSelector">{{ miniCalendarMonthYear }}</span>
-          <button @click="changeMonth(1)" class="month-nav-btn">
+          <button type ="button" @click="changeMonth(1)" class="month-nav-btn">
             <i class="bi bi-chevron-right"></i>
           </button>
         </div>
@@ -19,11 +19,11 @@
         <!-- Month Selector Dropdown -->
         <div v-if="showMonthSelector" class="month-selector">
           <div class="month-selector-header">
-            <button @click="changeYear(-1)" class="year-nav-btn">
+            <button type ="button" @click="changeYear(-1)" class="year-nav-btn">
               <i class="bi bi-chevron-left"></i>
             </button>
             <span class="selected-year">{{ selectedYear }}</span>
-            <button @click="changeYear(1)" class="year-nav-btn">
+            <button type ="button" @click="changeYear(1)" class="year-nav-btn">
               <i class="bi bi-chevron-right"></i>
             </button>
           </div>
@@ -72,7 +72,7 @@
 
         <!-- Today Button -->
         <div v-if="showTodayButton" class="card-bottom">
-          <button @click="goToToday" class="today-btn">
+          <button type ="button" @click="goToToday" class="today-btn">
             Today
           </button>
         </div>

@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <AnimatedBackground />
-    
+
     <div class="recipe-page">
       <!-- Header -->
       <div class="recipe-header">
@@ -19,7 +19,7 @@
         <!-- Search Card -->
         <div class="search-card">
           <div class="search-buttons">
-            <button 
+            <button
               @click="searchByPantry"
               :disabled="loading"
               class="pantry-search-btn"
@@ -28,19 +28,19 @@
               <span>Find Recipes with My Ingredients</span>
               <span v-if="loading" class="spinner-border spinner-border-sm ms-2"></span>
             </button>
-            
+
             <div class="divider-text">OR</div>
-            
+
             <div class="search-input-group">
               <i class="bi bi-search"></i>
-              <input 
+              <input
                 type="text"
                 v-model="searchQuery"
                 placeholder="Search for any recipe... (pasta, chicken, tacos)"
                 @keyup.enter="searchRecipes"
                 class="search-input"
               >
-              <button 
+              <button
                 @click="searchRecipes"
                 :disabled="loading || !searchQuery.trim()"
                 class="search-btn"
@@ -99,8 +99,8 @@
           <div v-for="recipe in recipes" :key="recipe.id" class="recipe-card">
             <!-- Recipe Image -->
             <div class="recipe-image-container">
-              <img 
-                :src="recipe.image" 
+              <img
+                :src="recipe.image"
                 :alt="recipe.title"
                 class="recipe-image"
                 @click="showRecipeDetails(recipe)"
@@ -141,7 +141,7 @@
               </div>
 
               <!-- View Button -->
-              <button 
+              <button
                 @click="showRecipeDetails(recipe)"
                 class="btn-view-recipe"
               >
@@ -166,11 +166,16 @@
         </div>
       </div>
 
-      <RecipeModal 
-        :recipe="selectedRecipe" 
-        @close="selectedRecipe = null" 
+      <RecipeModal
+        :recipe="selectedRecipe"
+        @close="selectedRecipe = null"
       />
     </div>
+    <transition name="toast-fade">
+      <div v-if="showToast" class="toast-box">
+        {{ toastMessage }}
+      </div>
+    </transition>
   </AppLayout>
 </template>
 
@@ -182,7 +187,7 @@ import axios from 'axios'
 import AppLayout from '@/components/AppLayout.vue'
 import AnimatedBackground from '@/components/AnimatedBackground.vue'
 import RecipeModal from '@/components/RecipeModal.vue'
-
+import Swal from 'sweetalert2'
 
 const router = useRouter()
 const currentUser = ref(null)
@@ -203,7 +208,8 @@ const filters = ref({
 const SPOONACULAR_API_KEY = [
   '0ca96dd220c842a6bfdcddfcbcf15b5d',
   'c96375c9282445708f1b26ce2d7e04a9',
-  '19de6749a5064deea9ebf17f2455d6bb'
+  '19de6749a5064deea9ebf17f2455d6bb',
+  'c9c026de53dd4dc38768a9d0bc9e823e'
 ]
 
 let currentKeyIndex = 0
@@ -240,19 +246,29 @@ const searchByPantry = async () => {
     if (error) throw error
 
     if (!pantryItems || pantryItems.length === 0) {
-      alert('Your pantry is empty! Add some ingredients first.')
+      Swal.fire({
+        icon: 'warning',
+        title: 'Pantry Empty',
+        text: 'Add some ingredients first.'
+      })
       loading.value = false
       return
     }
 
-    const ingredients = pantryItems.map(item => item.name).join(',')
+    // const ingredients = pantryItems.map(item => item.name).join(',')
+
+    const ingredients = pantryItems
+      .map(item => item.name.trim())
+      .filter(Boolean)
+      .join(',')
 
     const params = {
-      includeIngredients: ingredients,
+      ingredients,
       number: 12,
       addRecipeInformation: true,
       addRecipeInstructions: true,
-      fillIngredients: true
+      fillIngredients: true,
+      ignorePantry: true
     }
 
     if (filters.value.diet) params.diet = filters.value.diet
@@ -263,11 +279,19 @@ const searchByPantry = async () => {
     recipes.value = response.data.results || []
 
     if (recipes.value.length === 0) {
-      alert('No recipes found with your pantry ingredients.')
+      Swal.fire({
+        icon: 'info',
+        title: 'No Recipes Found',
+        text: 'No recipes found with your pantry ingredients.'
+      })
     }
   } catch (error) {
     console.error('Error:', error)
-    alert('Failed to search recipes. Please try again.')
+    Swal.fire({
+      icon: 'error',
+      title: 'Oops...',
+      text: 'Failed to search recipes. Please try again.'
+    })
   } finally {
     loading.value = false
   }
@@ -275,7 +299,11 @@ const searchByPantry = async () => {
 
 const searchRecipes = async () => {
   if (!searchQuery.value.trim()) {
-    alert('Please enter a recipe name to search')
+    Swal.fire({
+      icon: 'warning',
+      title: 'Empty Search',
+      text: 'Please enter a recipe name to search.'
+    })
     return
   }
 
@@ -297,11 +325,19 @@ const searchRecipes = async () => {
     recipes.value = response.data.results || []
 
     if (recipes.value.length === 0) {
-      alert('No recipes found. Try a different search term!')
+      Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: 'No recipes found. Try a different search term!'
+      })
     }
   } catch (error) {
     console.error('Error:', error)
-    alert('Failed to search recipes. Please try again.')
+    Swal.fire({
+      icon: 'info',
+      title: 'No Recipes Found',
+      text: 'Try a different search term!'
+    })
   } finally {
     loading.value = false
   }
@@ -353,9 +389,9 @@ const toggleFavorite = async (id) => {
         .eq('id', id)
 
       if (error) throw error
-      
+
       savedRecipeIds.value.delete(id) // Update UI
-      
+      showToastMessage("Recipe Removed from Favourites")
     } else {
       // Add to favorites
       const { error } = await supabase
@@ -369,7 +405,7 @@ const toggleFavorite = async (id) => {
           servings: recipe.servings || 0,
           aggregateLikes: recipe.aggregateLikes || 0,
           summary: recipe.summary || '',
-          analyzedInstructions: recipe.analyzedInstructions 
+          analyzedInstructions: recipe.analyzedInstructions
             ? JSON.stringify(recipe.analyzedInstructions)
             : '',
           extendedIngredients: recipe.extendedIngredients || [],
@@ -380,13 +416,18 @@ const toggleFavorite = async (id) => {
         })
 
       if (error) throw error
-      
+
       savedRecipeIds.value.add(id) // Update UI
+      showToastMessage('Recipe saved to Favourites!')
     }
 
   } catch (error) {
     console.error('Error toggling favorite:', error)
-    alert('Failed to update favorites. Please try again.')
+    Swal.fire({
+      icon: 'error',
+      title: 'Oops...',
+      text: 'Failed to search recipes. Please try again.'
+    })
   }
 }
 
@@ -395,6 +436,21 @@ const stripHtml = (html) => {
   div.innerHTML = html
   return div.textContent || div.innerText || ''
 }
+
+const toastMessage = ref('')
+const showToast = ref(false)
+let toastTimeout = null
+
+const showToastMessage = (message) => {
+  toastMessage.value = message
+  showToast.value = true
+
+  clearTimeout(toastTimeout)
+  toastTimeout = setTimeout(() => {
+    showToast.value = false
+  }, 2500) // auto-hide after 2.5s
+}
+
 
 onMounted(async () => {
   try {
@@ -768,13 +824,38 @@ onMounted(async () => {
   .recipes-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .search-input-group {
     flex-direction: column;
   }
-  
+
   .search-btn {
     width: 100%;
   }
 }
+/* Toast Notification */
+.toast-box {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  padding: 0.9rem 1.25rem;
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  opacity: 0.95;
+}
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
 </style>
