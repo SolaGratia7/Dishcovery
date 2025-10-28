@@ -19,6 +19,7 @@
                 :datesWithMeals="datesWithMeals"
                 mode="single"
                 :highlight-selected="true"
+                :autoClose="false"
                 @select-date="onDateSelect"
               />
             </div>
@@ -197,6 +198,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import Chart from 'chart.js/auto'
 import MiniCalendar from './MiniCalendar.vue'
+import { supabase, getCurrentUser } from '@/lib/supabase'
 
 
 // Constants
@@ -234,10 +236,10 @@ const localFoodsDB = [
 ]
 
 // Reactive data
+const currentUser = ref(null)
 const selectedDate = ref(new Date())
 const selectedDateStr = computed(() => formatDate(selectedDate.value))
 const todayStr = computed(() => formatDate(new Date()))
-const showCalendar = ref(false)
 
 const loggedMeals = ref([])
 const goals = ref({
@@ -298,19 +300,81 @@ function formatDate(date) {
   return `${year}-${month}-${day}`
 }
 
-function loadMeals() {
-  const saved = localStorage.getItem('nutritionMeals')
-  if (saved) {
-    try {
-      loggedMeals.value = JSON.parse(saved)
-    } catch {
-      console.warn('Failed to parse saved meals')
+// Supabase functions
+async function loadMealsFromSupabase() {
+  try {
+    const { data, error } = await supabase
+      .from('nutrition_meals')
+      .select('*')
+      .eq('user_id', currentUser.value.id)
+      .order('date', { ascending: false })
+
+    if (error) throw error
+    
+    loggedMeals.value = data || []
+    
+  } catch (error) {
+    console.error('Error loading meals from Supabase:', error)
+    // Fallback to localStorage
+    const saved = localStorage.getItem('nutritionMeals')
+    if (saved) {
+      try {
+        loggedMeals.value = JSON.parse(saved)
+      } catch {
+        console.warn('Failed to parse saved meals')
+      }
     }
   }
 }
 
-function saveMeals() {
-  localStorage.setItem('nutritionMeals', JSON.stringify(loggedMeals.value))
+async function saveMealToSupabase(meal) {
+  try {
+    const { error } = await supabase
+      .from('nutrition_meals')
+      .insert({
+        user_id: currentUser.value.id,
+        spoonacular_id: meal.spoonacularId,
+        name: meal.name,
+        servings: meal.servings,
+        calories: meal.calories,
+        protein: meal.protein,
+        carbs: meal.carbs,
+        fat: meal.fat,
+        date: meal.date,
+        timestamp: meal.timestamp
+      })
+
+    if (error) throw error
+    return true
+    
+  } catch (error) {
+    console.error('Error saving meal to Supabase:', error)
+    // Fallback to localStorage
+    localStorage.setItem('nutritionMeals', JSON.stringify(loggedMeals.value))
+    return false
+  }
+}
+
+async function deleteMealFromSupabase(mealId) {
+  try {
+    // Find the meal to get its database ID
+    const mealToDelete = loggedMeals.value.find(m => m.id === mealId)
+    
+    if (!mealToDelete) return false
+
+    const { error } = await supabase
+      .from('nutrition_meals')
+      .delete()
+      .eq('id', mealToDelete.id)
+      .eq('user_id', currentUser.value.id)
+
+    if (error) throw error
+    return true
+    
+  } catch (error) {
+    console.error('Error deleting meal from Supabase:', error)
+    return false
+  }
 }
 
 async function searchFood(query) {
@@ -412,7 +476,7 @@ async function logMeal() {
   try {
     const nutrition = await getFoodNutrition(selectedFood.value.id)
 
-    loggedMeals.value.push({
+    const newMeal = {
       id: Date.now(),
       spoonacularId: selectedFood.value.id,
       name: selectedFood.value.name,
@@ -423,15 +487,23 @@ async function logMeal() {
       fat: nutrition.fat * mealServings.value,
       date: selectedDateStr.value,
       timestamp: new Date().toISOString()
-    })
+    }
 
-    saveMeals()
-    updateCharts()
+    // Save to Supabase
+    const success = await saveMealToSupabase(newMeal)
+    
+    if (success) {
+      // Reload from Supabase to get the correct ID
+      await loadMealsFromSupabase()
+      updateCharts()
 
-    // Reset form
-    mealName.value = ''
-    mealServings.value = 1
-    selectedFood.value = null
+      // Reset form
+      mealName.value = ''
+      mealServings.value = 1
+      selectedFood.value = null
+    } else {
+      alert('Failed to save meal to database. Saved locally instead.')
+    }
   } catch (error) {
     alert('Failed to log meal. Please try again.')
     console.error(error)
@@ -440,18 +512,22 @@ async function logMeal() {
   }
 }
 
-function removeMeal(id) {
-  loggedMeals.value = loggedMeals.value.filter(m => m.id !== id)
-  saveMeals()
-  updateCharts()
+async function removeMeal(id) {
+  const success = await deleteMealFromSupabase(id)
+  
+  if (success) {
+    loggedMeals.value = loggedMeals.value.filter(m => m.id !== id)
+    updateCharts()
+  } else {
+    // Fallback to local deletion
+    loggedMeals.value = loggedMeals.value.filter(m => m.id !== id)
+    localStorage.setItem('nutritionMeals', JSON.stringify(loggedMeals.value))
+    updateCharts()
+  }
 }
 
 function onDateSelect(date) {
   selectedDate.value = date
-}
-
-function toggleCalendar() {
-  showCalendar.value = !showCalendar.value
 }
 
 function formatDisplayDate(date) {
@@ -543,10 +619,26 @@ function setupScrollAnimations() {
 watch(selectedDate, updateCharts)
 
 // Lifecycle
-onMounted(() => {
-  loadMeals()
-  initCharts()
-  setupScrollAnimations()
+onMounted(async () => {
+  try {
+    currentUser.value = await getCurrentUser()
+    await loadMealsFromSupabase()
+    initCharts()
+    setupScrollAnimations()
+  } catch (error) {
+    console.error('Error initializing:', error)
+    // Fallback to localStorage if user not authenticated
+    const saved = localStorage.getItem('nutritionMeals')
+    if (saved) {
+      try {
+        loggedMeals.value = JSON.parse(saved)
+      } catch {
+        console.warn('Failed to parse saved meals')
+      }
+    }
+    initCharts()
+    setupScrollAnimations()
+  }
 })
 </script>
 
@@ -836,7 +928,6 @@ onMounted(() => {
 }
 
 .calendar-dropdown {
-  margin-top: 1rem;
   background: white;
   border-radius: 8px;
   padding: 1rem;
@@ -894,10 +985,11 @@ onMounted(() => {
 }
 
 .hasMeal {
-  border: 2px solid #48bb78; /* green highlight for logged meals */
+  border: 2px solid #48bb78;
   border-radius: 50%;
   box-shadow: 0 0 8px rgba(72, 187, 120, 0.5);
 }
+
 .fade-in {
   opacity: 0;
   transform: translateY(20px);
@@ -905,10 +997,8 @@ onMounted(() => {
   transition-delay: var(--delay, 0s);
 }
 
-
 .fade-in.visible {
   opacity: 1;
   transform: translateY(0);
 }
-
 </style>
