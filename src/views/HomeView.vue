@@ -199,8 +199,8 @@
             <i class="bi bi-bookmark-x"></i>
             <h3>No Recipes Saved Yet</h3>
             <p>Start exploring and save your favorite recipes to see them here!</p>
-            <button @click="router.push('/recipes')" class="btn btn-primary">
-              <i class="bi bi-search me-2"></i>
+            <button @click="router.push('/recipes')" class="btn btn-danger">
+              <i class="bi bi-search me-2" style="font-size:1rem;color:white"></i>
               Discover Recipes
             </button>
           </div>
@@ -233,8 +233,9 @@
                   :time="recipe.readyInMinutes"
                   :servings="recipe.servings"
                   :current-user="currentUser"
+                  :show-remove-confirmation="true"
                   @click="openModal"
-                  @removed="handleSwipeRecipeRemoved"
+                  @removed="handleRecipeRemoved"
                 />
               </div>
               <RecipeModal
@@ -261,6 +262,7 @@
                   :time="recipe.readyInMinutes"
                   :servings="recipe.servings"
                   :current-user="currentUser"
+                  :show-remove-confirmation="true"
                   @click="openModal"
                   @removed="handleRecipeRemoved"
                 />
@@ -297,7 +299,7 @@ const SPOONACULAR_API_KEY = [
   '0ca96dd220c842a6bfdcddfcbcf15b5d',
   'c96375c9282445708f1b26ce2d7e04a9',
   '19de6749a5064deea9ebf17f2455d6bb'
-].filter(Boolean) // Remove any undefined keys
+].filter(Boolean)
 
 let currentKeyIndex = 0
 
@@ -329,7 +331,6 @@ const makeSpoonacularRequest = async (url, params, retries = SPOONACULAR_API_KEY
     })
     return response
   } catch (error) {
-    // If rate limited (402) or unauthorized (401) and we have more keys to try
     if ((error.response?.status === 402 || error.response?.status === 401) && retries > 1) {
       console.log(`API key ${currentKeyIndex + 1} failed, trying next key...`)
       currentKeyIndex = (currentKeyIndex + 1) % SPOONACULAR_API_KEY.length
@@ -360,47 +361,11 @@ const openModal = (recipe) => {
   selectedRecipe.value = recipe
 }
 
-const handleRecipeRemoved = async (id) => {
-  const result = await Swal.fire({
-    title: 'Remove from favourites?',
-    text: 'Are you sure you want to unfavourite this recipe?',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'Yes, remove it',
-    cancelButtonText: 'Cancel'
-  })
-
-  if (!result.isConfirmed) return
-
-  try {
-    const { error } = await supabase
-      .from('saved_recipes')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', currentUser.value.id)
-
-    if (error) throw error
-
-
-    savedRecipes.value = savedRecipes.value.filter(r => r.id !== id)
-
-    Swal.fire({
-      title: 'Removed!',
-      text: 'The recipe has been removed from your favourites.',
-      icon: 'success',
-      timer: 1500,
-      showConfirmButton: false
-    })
-  } catch (error) {
-    console.error('Error removing recipe:', error)
-    Swal.fire('Error', 'Something went wrong while removing the recipe.', 'error')
-  }
+// Handle recipe removal from RecipeCard component
+const handleRecipeRemoved = (recipeId) => {
+  // Immediately remove from local state for instant UI update
+  savedRecipes.value = savedRecipes.value.filter(r => r.id !== recipeId)
 }
-
-
-const handleSwipeRecipeRemoved = handleRecipeRemoved
 
 
 // Mouse handler functions for horizontal scrolling
@@ -490,7 +455,6 @@ const fetchPopularRecipes = async () => {
   loadingPopularRecipes.value = true
 
   try {
-    // First, try to get from Supabase
     const { data: cachedRecipes, error: fetchError } = await supabase
       .from('popular_recipes')
       .select('*')
@@ -499,7 +463,6 @@ const fetchPopularRecipes = async () => {
 
     if (fetchError) throw fetchError
 
-    // Check if cache is fresh (less than 24 hours old)
     const isCacheFresh = cachedRecipes && cachedRecipes.length > 0 &&
       cachedRecipes.some(recipe => {
         const updatedAt = new Date(recipe.updated_at)
@@ -524,7 +487,6 @@ const fetchPopularRecipes = async () => {
       return
     }
 
-    // Cache is stale or empty, fetch from API with multiple key support
     console.log('Fetching fresh popular recipes from API')
     const response = await makeSpoonacularRequest(
       'https://api.spoonacular.com/recipes/complexSearch',
@@ -545,7 +507,6 @@ const fetchPopularRecipes = async () => {
       return
     }
 
-    // Save to Supabase
     const recipesToSave = response.data.results.map(recipe => ({
       id: recipe.id,
       title: recipe.title,
@@ -574,7 +535,6 @@ const fetchPopularRecipes = async () => {
       console.log('Popular recipes cached successfully')
     }
 
-    // Transform recipes into carousel format
     pantryImages.value = response.data.results.map(recipe => {
       let description = ''
       if (recipe.summary) {
@@ -641,7 +601,6 @@ const fetchExpiringItems = async () => {
 
     if (error) throw error
 
-    // Calculate days left for each item
     expiringItems.value = (data || []).map(item => {
       const expiryDate = new Date(item.expiration)
       const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24))
@@ -670,7 +629,6 @@ const findRecipesWithExpiringItems = () => {
   })
 }
 
-// Initialize component
 onMounted(async () => {
   try {
     currentUser.value = await getCurrentUser()
@@ -680,17 +638,14 @@ onMounted(async () => {
       return
     }
 
-    // Fetch popular recipes for carousel FIRST
     await fetchPopularRecipes()
     await fetchSavedRecipes()
 
-    // Fetch all other data in parallel
     await Promise.all([
       fetchPantryItems(),
       fetchExpiringItems()
     ])
 
-    // Show content after hero animation
     setTimeout(() => {
       showContent.value = true
     }, 1000)
@@ -705,7 +660,7 @@ const isRecipeSaved = (recipeId) => {
   return savedRecipes.value.some(r => r.id === recipeId)
 }
 
-// Toggle favourite status
+// Toggle favourite status (for carousel only)
 const toggleFavourite = async (recipe) => {
   const saved = isRecipeSaved(recipe.id)
 
@@ -732,8 +687,16 @@ const toggleFavourite = async (recipe) => {
         .eq('user_id', currentUser.value.id)
       if (error) throw error
 
+      // Immediately remove from local state for instant UI update
       savedRecipes.value = savedRecipes.value.filter(r => r.id !== recipe.id)
-      Swal.fire('Removed!', 'Recipe has been removed from your favourites.', 'success')
+
+      Swal.fire({
+        title: 'Removed!',
+        text: 'Recipe has been removed from your favourites.',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false
+      })
     } catch (error) {
       console.error(error)
       Swal.fire('Error', 'Failed to remove recipe', 'error')
@@ -741,20 +704,41 @@ const toggleFavourite = async (recipe) => {
   } else {
     // Add to favourites
     try {
+      const newRecipe = {
+        user_id: currentUser.value.id,
+        id: recipe.id,
+        title: recipe.title,
+        image: recipe.image,
+        readyInMinutes: recipe.readyInMinutes || 0,
+        servings: recipe.servings || 0,
+        created_at: new Date().toISOString()
+      }
+
       const { error } = await supabase
         .from('saved_recipes')
-        .insert({ user_id: currentUser.value.id, id: recipe.id, title: recipe.title, image: recipe.image })
+        .insert(newRecipe)
+
       if (error) throw error
 
-      savedRecipes.value.push(recipe)
-      Swal.fire('Added!', 'Recipe has been added to your favourites.', 'success')
+      // Add to the START of the list (most recent first) for instant UI update
+      savedRecipes.value.unshift({
+        ...newRecipe,
+        ...recipe
+      })
+
+      Swal.fire({
+        title: 'Added!',
+        text: 'Recipe has been added to your favourites.',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false
+      })
     } catch (error) {
       console.error(error)
       Swal.fire('Error', 'Failed to add recipe', 'error')
     }
   }
 }
-
 </script>
 
 <style scoped>
@@ -1499,5 +1483,6 @@ const toggleFavourite = async (recipe) => {
 .favourite-btn .bi-heart {
   color: #6b7280;
 }
+
 
 </style>
