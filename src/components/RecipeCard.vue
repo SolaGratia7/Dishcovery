@@ -1,14 +1,11 @@
 <template>
-  <div class="recipe-card" @click="handleClick">
+  <div class="recipe-card" @click="handleCardClick">
     <div class="recipe-image-container">
-      <img
-        :src="image"
-        :alt="title"
-        class="recipe-image"
-      />
-      <!-- Remove favourite button -->
-      <button class="favorite-btn" @click.stop="removeFavourite(recipe.id)">
-        <i class="bi bi-x-circle-fill"></i> <!-- ❌ Cross sign icon -->
+      <img :src="image" :alt="title" class="recipe-image" />
+
+      <!-- Favorite Button -->
+      <button class="favorite-btn" @click="toggleFavourite">
+        <i :class="isFavourite ? 'bi bi-heart-fill text-red-500' : 'bi bi-heart text-gray-400'"></i>
       </button>
 
       <div class="image-overlay" />
@@ -16,163 +13,85 @@
 
     <div class="recipe-content">
       <h3 class="recipe-title">{{ title }}</h3>
-
       <div class="recipe-meta">
-        <div class="meta-item">
-          <i class="bi bi-clock"></i>
-          <span>{{ time }} min</span>
-        </div>
-
-        <div class="meta-item">
-          <i class="bi bi-people"></i>
-          <span>{{ servings }} servings</span>
-        </div>
+        <div class="meta-item"><i class="bi bi-clock"></i> <span>{{ time }} min</span></div>
+        <div class="meta-item"><i class="bi bi-people"></i> <span>{{ servings }} servings</span></div>
       </div>
     </div>
   </div>
 </template>
 
-<!-- <script setup>
-import { supabase, getCurrentUser } from '@/lib/supabase'
-import { ref, onMounted } from 'vue'
-
-const props = defineProps({
-  image: String,
-  title: String,
-  time: Number,
-  servings: Number,
-  recipe: Object
-})
-
-const emit = defineEmits(['click', 'removed'])
-
-const currentUser = ref(null)
-const savedRecipeIds = ref(new Set())
-
-onMounted(async () => {
-  currentUser.value = await getCurrentUser()
-})
-
-const handleClick = () => {
-  // Emit the full recipe object so parent can open RecipeModal
-  emit('click', props.recipe)
-}
-
-const removeFavourite = async (id) => {
-  try {
-    // Ensure user is logged in
-    if (!currentUser.value) {
-      alert('Please log in first.')
-      return
-    }
-
-    // Check if recipe exists in Supabase favourites
-    const { data: existing, error: fetchError } = await supabase
-      .from('saved_recipes')
-      .select('id')
-      .eq('user_id', currentUser.value.id)
-      .eq('id', id)
-      .maybeSingle()
-
-    if (fetchError) throw fetchError
-
-    // If exists, delete it
-    if (existing) {
-      const { error: deleteError } = await supabase
-        .from('saved_recipes')
-        .delete()
-        .eq('user_id', currentUser.value.id)
-        .eq('id', id)
-
-      if (deleteError) throw deleteError
-
-      // Update UI (remove from local favourite set)
-      savedRecipeIds.value.delete(id)
-      emit('removed', id) // Inform parent to refresh list if needed
-      console.log(`Recipe ${id} removed from favourites.`)
-    } else {
-      console.warn(`Recipe ${id} not found in favourites.`)
-    }
-  } catch (error) {
-    console.error('Error removing favourite:', error)
-    alert('Failed to remove from favourites. Please try again.')
-  }
-}
-</script> -->
 <script setup>
-import { supabase, getCurrentUser } from '@/lib/supabase'
 import { ref, onMounted } from 'vue'
+import { supabase, getCurrentUser } from '@/lib/supabase'
 import Swal from 'sweetalert2'
 
 const props = defineProps({
+  recipe: Object,
   image: String,
   title: String,
   time: Number,
-  servings: Number,
-  recipe: Object
+  servings: Number
 })
-
 
 const emit = defineEmits(['click', 'removed'])
 
 const currentUser = ref(null)
+const isFavourite = ref(false)
 
 onMounted(async () => {
   currentUser.value = await getCurrentUser()
+  if (currentUser.value && props.recipe) {
+    const { data } = await supabase
+      .from('saved_recipes')
+      .select('id')
+      .eq('user_id', currentUser.value.id)
+      .eq('id', props.recipe.id)
+      .single()
+    isFavourite.value = !!data
+  }
 })
 
-const handleClick = () => {
+const handleCardClick = (e) => {
+  // Prevent modal opening when clicking favourite button
+  if (e.target.closest('.favorite-btn')) return
   emit('click', props.recipe)
 }
 
-const removeFavourite = async (id) => {
+const toggleFavourite = async () => {
   if (!currentUser.value) {
-    alert('Please log in first.')
+    Swal.fire('Please log in first', '', 'info')
     return
   }
 
-  // Show SweetAlert2 confirmation
-  const result = await Swal.fire({
-    title: 'Are you sure?',
-    text: 'This recipe will be removed from your favorites.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Yes, remove it!',
-    cancelButtonText: 'Cancel',
-    confirmButtonColor: '#ff6b1a',
-    cancelButtonColor: '#6b46c1'
-  })
-
-  if (!result.isConfirmed) return
-
   try {
-    // Delete from Supabase
-    const { error } = await supabase
-      .from('saved_recipes')
-      .delete()
-      .eq('user_id', currentUser.value.id)
-      .eq('id', id)
+    if (isFavourite.value) {
+      // Remove from favorites
+      await supabase
+        .from('saved_recipes')
+        .delete()
+        .eq('user_id', currentUser.value.id)
+        .eq('id', props.recipe.id)
 
-    if (error) throw error
-
-    // Emit event to parent to remove from savedRecipes list
-    emit('removed', id)
-
-    Swal.fire({
-      title: 'Removed!',
-      text: 'Recipe removed from your favorites.',
-      icon: 'success',
-      confirmButtonColor: '#6b46c1'
-    })
-
-  } catch (error) {
-    console.error('Error removing favourite:', error)
-    Swal.fire({
-      title: 'Error!',
-      text: 'Failed to remove recipe. Please try again.',
-      icon: 'error',
-      confirmButtonColor: '#6b46c1'
-    })
+      isFavourite.value = false
+      emit('removed', props.recipe.id) // Notify parent to remove from list
+      Swal.fire('Removed!', 'Recipe removed from favorites.', 'success')
+    } else {
+      // Add to favorites
+      await supabase.from('saved_recipes').insert({
+        user_id: currentUser.value.id,
+        id: props.recipe.id,
+        title: props.recipe.title,
+        image: props.recipe.image,
+        readyInMinutes: props.recipe.readyInMinutes,
+        servings: props.recipe.servings
+      })
+      isFavourite.value = true
+      Swal.fire('Saved!', 'Recipe added to favorites.', 'success')
+    }
+  } catch (err) {
+    console.error(err)
+    Swal.fire('Error', 'Something went wrong.', 'error')
   }
 }
 </script>
@@ -188,11 +107,13 @@ const removeFavourite = async (id) => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border: none;
   min-width: 300px;
+  scroll-margin-top: 100px;
 }
 
 @media (min-width: 768px) {
   .recipe-card {
     min-width: 350px;
+    margin-top: 0.5rem;
   }
 }
 
@@ -222,24 +143,36 @@ const removeFavourite = async (id) => {
   position: absolute;
   inset: 0;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, transparent 50%, transparent 100%);
+  z-index: 10; /* keep overlay below button */
+  pointer-events: none;
 }
 
 .favorite-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  background: none;        /* remove background */
-  border: none;            /* no border */
-  color: white;            /* white cross for visibility on dark overlay */
-  font-size: 1.5rem;       /* slightly larger cross */
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  background: white;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  z-index: 10;
-  transition: transform 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s;
+   z-index: 30;
 }
 
 .favorite-btn:hover {
-  color: #ff4d4d;          /* soft red when hovered */
-  transform: scale(1.1);   /* subtle enlarge on hover */
+  transform: scale(1.1);
+  background: #fee2e2;
+}
+
+.favorite-btn i {
+  font-size: 1.1rem;
+  color: #ef4444;
 }
 
 .recipe-content {

@@ -6,12 +6,12 @@
             <button @click="closeModal" class="btn-close-modal">
                 <i class="bi bi-x-lg"></i>
             </button>
-            
+
             <img :src="recipe.image" :alt="recipe.title" class="modal-image">
-            
+
             <div class="modal-body">
                 <h2>{{ recipe.title }}</h2>
-                
+
                 <div class="modal-stats">
                 <div class="modal-stat">
                     <i class="bi bi-clock-fill"></i>
@@ -55,7 +55,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch, onUnmounted } from 'vue'
 
 const props = defineProps({
   recipe: {
@@ -87,7 +87,22 @@ const instructions = computed(() => {
   return Array.isArray(data) ? data : []
 })
 
+// Lock body scroll when modal is open
+watch(() => props.recipe, (newRecipe) => {
+  if (newRecipe) {
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = ''
+  }
+}, { immediate: true })
+
+// Cleanup on unmount
+onUnmounted(() => {
+  document.body.style.overflow = ''
+})
+
 const closeModal = () => {
+  document.body.style.overflow = ''
   emit('close')
 }
 </script>
@@ -99,10 +114,13 @@ const closeModal = () => {
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+  padding-top: 5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modal-content {
@@ -110,9 +128,10 @@ const closeModal = () => {
   border-radius: 16px;
   max-width: 700px;
   width: 100%;
-  max-height: 90vh;
+  max-height: calc(100vh - 6rem);
   overflow-y: auto;
   position: relative;
+  margin-bottom: 2rem;
 }
 
 .btn-close-modal {
@@ -215,18 +234,26 @@ const closeModal = () => {
 
 /* Responsive */
 @media (max-width: 768px) {
+  .modal-overlay {
+    padding-top: 4rem;
+  }
+
+  .modal-content {
+    max-height: calc(100vh - 5rem);
+  }
+
   .modal-stats {
     grid-template-columns: 1fr;
   }
-  
+
   .modal-image {
     height: 200px;
   }
-  
+
   .modal-body {
     padding: 1.5rem;
   }
-  
+
   .modal-body h2 {
     font-size: 1.5rem;
   }
