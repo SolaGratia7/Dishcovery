@@ -383,6 +383,7 @@ const handleRecipeRemoved = async (id) => {
 
     if (error) throw error
 
+
     savedRecipes.value = savedRecipes.value.filter(r => r.id !== id)
 
     Swal.fire({
