@@ -255,14 +255,20 @@ const searchByPantry = async () => {
       return
     }
 
-    const ingredients = pantryItems.map(item => item.name).join(',')
+    // const ingredients = pantryItems.map(item => item.name).join(',')
+
+    const ingredients = pantryItems
+      .map(item => item.name.trim())
+      .filter(Boolean)
+      .join(',')
 
     const params = {
-      includeIngredients: ingredients,
+      ingredients,
       number: 12,
       addRecipeInformation: true,
       addRecipeInstructions: true,
-      fillIngredients: true
+      fillIngredients: true,
+      ignorePantry: true
     }
 
     if (filters.value.diet) params.diet = filters.value.diet
