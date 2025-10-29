@@ -10,7 +10,6 @@ import 'bootstrap-icons/font/bootstrap-icons.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 
 // Sweetalert popup
-import 'sweetalert2/dist/sweetalert2.min.css'
 import './assets/popup.css'
 
 
