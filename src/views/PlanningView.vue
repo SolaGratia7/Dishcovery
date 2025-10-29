@@ -1251,6 +1251,8 @@ function selectOnlineRecipe(recipe) {
 async function saveMealPlan() {
   savingMeal.value = true
 
+  let success = false
+
   try {
     let recipeToSave = null
 
@@ -1289,13 +1291,16 @@ async function saveMealPlan() {
     console.log(recipeToSave);
 
     await saveMealPlansToSupabase()
-    closePlanMealModal()
-    displayToast('Meal added to plan')
+    success = true
   } catch (error) {
     console.error('Error saving meal:', error)
     displayToast('Failed to add meal. Please try again.')
   } finally {
     savingMeal.value = false
+    if (success) {
+      closePlanMealModal()
+      displayToast('Meal added to plan')
+    }
   }
 }
 
@@ -1744,6 +1749,7 @@ function closeRecipeModal() {
 
 .meal-slot.empty {
   background: rgba(255, 255, 255, 0.4);
+  min-height: 60px;
 }
 
 .meal-slot:hover {
@@ -1810,6 +1816,10 @@ function closeRecipeModal() {
   font-size: 0.875rem;
   line-height: 1.2;
   text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .plus-sign {
@@ -2401,6 +2411,11 @@ function closeRecipeModal() {
 
 .meal-content {
   position: relative;   /* So .delete-meal-btn positions correctly */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
 }
 
 .delete-meal-btn {
@@ -2420,6 +2435,28 @@ function closeRecipeModal() {
 .delete-meal-btn:hover {
   opacity: 1;
   transform: scale(1.2);  /* Slight grow on hover */
+}
+
+/* Mobile layout for screens less than 992px */
+@media (max-width: 992px) {
+  .meal-content {
+    position: static; /* Remove relative positioning for mobile */
+  }
+
+  .meal-image {
+    order: 1;
+  }
+
+  .meal-title {
+    order: 2;
+  }
+
+  .delete-meal-btn {
+    position: static; /* Remove absolute positioning */
+    order: 3; /* Place below the title */
+    margin-top: 0.25rem; /* Add small margin above the button */
+    align-self: center; /* Center the button */
+  }
 }
 
 /* Responsive */
@@ -2516,9 +2553,19 @@ function closeRecipeModal() {
     font-size: 0.875rem;
   }
 
+  .meal-slot.empty {
+    min-height: 45px;
+  }
+
+  .meal-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
   .week-nav {
-    flex-direction: column;
-    gap: 0.5rem;
+    flex-direction: row;
   }
 
   .current-week {
@@ -2531,6 +2578,10 @@ function closeRecipeModal() {
     flex-direction: column;
     gap: 1rem;
     align-items: flex-start;
+  }
+
+  .week-nav {
+    flex-direction: row;
   }
 
   .meal-planner-table th,

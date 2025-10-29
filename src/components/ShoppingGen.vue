@@ -32,64 +32,90 @@
               </div>
             </transition>
 
-            <!-- Step Indicator -->
-            <div class="step-tracker mb-4">
-              <div
-                v-for="(step, index) in steps"
-                :key="index"
-                class="step"
-                :class="{ active: dateSelectionStep === step.key }"
-              >
-                <div class="circle">{{ index + 1 }}</div>
-                <span>{{ step.label }}</span>
-              </div>
-            </div>
+            <!-- Date Range Selection -->
+            <div class="date-range-selector mb-4">
+              <div class="date-selection-left">
+                <div class="date-input-group">
+                  <label class="date-label">Start Date</label>
+                  <div class="date-input-wrapper" ref="startDateRef">
+                    <input
+                      v-model="startDateDisplay"
+                      type="text"
+                      class="form-control date-input"
+                      readonly
+                      @click="toggleStartDatePicker"
+                      placeholder="Select start date"
+                    >
+                    <i class="bi bi-calendar date-icon" :class="{ 'd-none': showStartDatePicker }" @click="toggleStartDatePicker"></i>
+                  </div>
+                </div>
 
-            <!-- Date Inputs -->
-            <div class="date-inputs">
-              <div class="input-group">
-                <label>Start Date</label>
-                <div class="date-wrapper" ref="startDateRef">
-                  <input
-                    type="text"
-                    readonly
-                    :value="shoppingStartDate ? formatDate(shoppingStartDate) : ''"
-                    placeholder="Select start date"
-                    @click="toggleStartCalendar"
-                  />
-                  <i class="bi bi-calendar3 calendar-icon"></i>
-                  <MiniCalendar
-                    v-if="showStartCalendar"
-                    :current-week="currentWeek"
-                    :selected-dates="selectedDatesForShopping"
-                    mode="range"
-                    dropdown-position="below"
-                    class="small-calendar"
-                    @select-date="onStartDateSelected"
-                  />
+                <div class="selection-mode">
+                  <div class="mode-toggle">
+                    <label class="radio-label">
+                      <input
+                        type="radio"
+                        v-model="selectionMode"
+                        value="endDate"
+                      >
+                      Select End Date
+                    </label>
+                    <label class="radio-label">
+                      <input
+                        type="radio"
+                        v-model="selectionMode"
+                        value="duration"
+                      >
+                      Select Duration
+                    </label>
+                  </div>
+
+                  <div v-if="selectionMode === 'endDate'" class="date-input-group">
+                    <label class="date-label">End Date</label>
+                    <div class="date-input-wrapper" ref="endDateRef">
+                      <input
+                        v-model="endDateDisplay"
+                        type="text"
+                        class="form-control date-input"
+                        readonly
+                        @click="toggleEndDatePicker"
+                        placeholder="Select end date"
+                      >
+                      <i class="bi bi-calendar date-icon" :class="{ 'd-none': showEndDatePicker }" @click="toggleEndDatePicker"></i>
+                    </div>
+                  </div>
+
+                  <div v-if="selectionMode === 'duration'" class="duration-input-group">
+                    <label class="date-label">Duration</label>
+                    <div class="duration-inputs">
+                      <input
+                        v-model.number="durationValue"
+                        type="number"
+                        class="duration-number"
+                        min="1"
+                        max="365"
+                        placeholder="1"
+                      >
+                      <select v-model="durationUnit" class="duration-unit">
+                        <option value="days">day(s)</option>
+                        <option value="weeks">week(s)</option>
+                        <option value="months">month(s)</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div class="input-group">
-                <label>End Date</label>
-                <div class="date-wrapper" ref="endDateRef">
-                  <input
-                    type="text"
-                    readonly
-                    :disabled="!shoppingStartDate"
-                    :value="shoppingEndDate ? formatDate(shoppingEndDate) : ''"
-                    placeholder="Select end date"
-                    @click="toggleEndCalendar"
-                  />
-                  <i class="bi bi-calendar3 calendar-icon"></i>
+              <div class="calendar-right">
+                <div class="calendar-container">
                   <MiniCalendar
-                    v-if="showEndCalendar"
-                    :current-week="currentWeek"
-                    :selected-dates="selectedDatesForShopping"
-                    mode="range"
-                    dropdown-position="below"
-                    class="small-calendar"
-                    @select-date="onEndDateSelected"
+                    :key="selectionMode + (startDate ? startDate.toISOString() : '') + (endDate ? endDate.toISOString() : '')"
+                    :current-week="calendarCurrentWeek"
+                    :selected-dates="selectedDateRange"
+                    :mode="'range'"
+                    class="large-calendar"
+                    :auto-close="false"
+                    @select-date="handleCalendarDateSelect"
                   />
                 </div>
               </div>
@@ -102,7 +128,7 @@
             </div>
 
             <!-- Reset -->
-            <div class="mt-3 text-center" v-if="shoppingStartDate">
+            <div class="mt-3 text-center" v-if="startDate">
               <button @click="resetDateSelection" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Selection
               </button>
@@ -152,10 +178,12 @@ const currentUser = ref(null)
 onMounted(async () => {
   currentUser.value = await getCurrentUser()
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('click', handleDatePickerClickOutside)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('click', handleDatePickerClickOutside)
 })
 
 // Props
@@ -168,37 +196,77 @@ const props = defineProps({
 
 // State
 const showModal = ref(false)
-const shoppingStartDate = ref('')
-const shoppingEndDate = ref('')
-const dateSelectionStep = ref('start')
-const showStartCalendar = ref(false)
-const showEndCalendar = ref(false)
+const startDate = ref(null)
+const endDate = ref(null)
+const showStartDatePicker = ref(false)
+const showEndDatePicker = ref(false)
+const startDateRef = ref(null)
+const endDateRef = ref(null)
+const selectionMode = ref('endDate') // 'endDate' or 'duration'
+const durationValue = ref(1)
+const durationUnit = ref('weeks') // 'days', 'weeks', 'months'
 const isProcessing = ref(false)
 const processingMessage = ref('')
 const showToast = ref(false)
 const toastMessage = ref('')
 const toastType = ref('success')
-const startDateRef = ref(null)
-const endDateRef = ref(null)
-
-// Step tracker
-const steps = [
-  { key: 'start', label: 'Select Start Date' },
-  { key: 'end', label: 'Select End Date' }
-]
 
 // Computed
-const selectedDatesForShopping = computed(() => {
+const startDateDisplay = computed(() => {
+  if (!startDate.value) return ''
+  return startDate.value.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+})
+
+const endDateDisplay = computed(() => {
+  if (!endDate.value) return ''
+  return endDate.value.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+})
+
+const selectedDateRange = computed(() => {
   const dates = []
-  if (shoppingStartDate.value) dates.push(shoppingStartDate.value)
-  if (shoppingEndDate.value) dates.push(shoppingEndDate.value)
+  if (startDate.value) dates.push(formatDateLocal(startDate.value))
+
+  const effectiveEndDate = selectionMode.value === 'duration' ? endDateFromDuration.value : endDate.value
+  if (effectiveEndDate) dates.push(formatDateLocal(effectiveEndDate))
+
   return dates
 })
 
+// Computed for end date from duration
+const endDateFromDuration = computed(() => {
+  if (!startDate.value || !durationValue.value) return null
+
+  const endDate = new Date(startDate.value)
+  const value = durationValue.value
+
+  if (durationUnit.value === 'days') {
+    endDate.setDate(endDate.getDate() + value - 1) // Subtract 1 to include start date
+  } else if (durationUnit.value === 'weeks') {
+    endDate.setDate(endDate.getDate() + (value * 7) - 1) // Subtract 1 to include start date
+  } else if (durationUnit.value === 'months') {
+    endDate.setMonth(endDate.getMonth() + value)
+    endDate.setDate(endDate.getDate() - 1) // Subtract 1 to include start date
+  }
+
+  return endDate
+})
+
 const formattedDateRange = computed(() => {
-  if (!shoppingStartDate.value) return 'Select start date'
-  if (!shoppingEndDate.value) return `${formatDate(shoppingStartDate.value)} - Select end date`
-  return `${formatDate(shoppingStartDate.value)} - ${formatDate(shoppingEndDate.value)}`
+  if (!startDate.value) return 'Select start date'
+  const effectiveEndDate = selectionMode.value === 'duration' ? endDateFromDuration.value : endDate.value
+  if (!effectiveEndDate) return `${startDateDisplay.value} - Select end date`
+  return `${startDateDisplay.value} - ${effectiveEndDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}`
+})
+
+const calendarCurrentWeek = computed(() => {
+  const effectiveEndDate = selectionMode.value === 'duration' ? endDateFromDuration.value : endDate.value
+  return effectiveEndDate || startDate.value || new Date()
+})
+
+const shoppingStartDate = computed(() => startDate.value)
+
+const shoppingEndDate = computed(() => {
+  return selectionMode.value === 'duration' ? endDateFromDuration.value : endDate.value
 })
 
 // Helpers
@@ -248,8 +316,8 @@ function handleClickOutside(event) {
 }
 
 // UI handlers
-function openModal() { 
-  showModal.value = true 
+function openModal() {
+  showModal.value = true
   resetDateSelection()
 }
 
@@ -258,56 +326,117 @@ function closeModal() {
   resetDateSelection()
 }
 
-function toggleStartCalendar() {
-  showStartCalendar.value = !showStartCalendar.value
-  showEndCalendar.value = false
+function toggleStartDatePicker() {
+  showStartDatePicker.value = !showStartDatePicker.value
+  showEndDatePicker.value = false
 }
 
-function toggleEndCalendar() {
-  if (!shoppingStartDate.value) return
-  showEndCalendar.value = !showEndCalendar.value
-  showStartCalendar.value = false
+function toggleEndDatePicker() {
+  showEndDatePicker.value = !showEndDatePicker.value
+  showStartDatePicker.value = false
 }
 
-function onStartDateSelected(date) {
-  shoppingStartDate.value = formatDateLocal(date)
-  shoppingEndDate.value = ''
-  dateSelectionStep.value = 'end'
-  showStartCalendar.value = false
-  setTimeout(() => {
-    showEndCalendar.value = true
-  }, 200)
-}
+function selectStartDate(date) {
+  startDate.value = new Date(date)
+  showStartDatePicker.value = false
 
-function onEndDateSelected(date) {
-  const dateStr = formatDateLocal(date)
-  if (dateStr < shoppingStartDate.value) {
-    const temp = shoppingStartDate.value
-    shoppingStartDate.value = dateStr
-    shoppingEndDate.value = temp
-  } else {
-    shoppingEndDate.value = dateStr
+  // If end date is before start date, clear it
+  if (endDate.value && endDate.value < startDate.value) {
+    endDate.value = null
   }
-  showEndCalendar.value = false
+
+  // If using duration mode, end date will be computed automatically via endDateFromDuration
+}
+
+function selectEndDate(date) {
+  endDate.value = new Date(date)
+  showEndDatePicker.value = false
+
+  // If start date is after end date, clear it
+  if (startDate.value && startDate.value > endDate.value) {
+    startDate.value = null
+  }
+}
+
+function handleCalendarDateSelect(dates) {
+  if (Array.isArray(dates)) {
+    if (dates.length >= 1) {
+      startDate.value = new Date(dates[0])
+    }
+    if (dates.length >= 2) {
+      endDate.value = new Date(dates[1])
+    }
+  } else {
+    // Single date selection - update the appropriate date based on which picker is open
+    const selectedDate = new Date(dates)
+    if (showStartDatePicker.value) {
+      startDate.value = selectedDate
+      showStartDatePicker.value = false
+      // If end date is before start date, clear it
+      if (endDate.value && endDate.value < startDate.value) {
+        endDate.value = null
+      }
+    } else if (showEndDatePicker.value) {
+      endDate.value = selectedDate
+      showEndDatePicker.value = false
+      // If start date is after end date, clear it
+      if (startDate.value && startDate.value > endDate.value) {
+        startDate.value = null
+      }
+    } else {
+      // Fallback: allow range selection
+      if (!startDate.value) {
+        startDate.value = selectedDate
+      } else if (!endDate.value) {
+        endDate.value = selectedDate
+      } else {
+        // Reset and start new selection
+        startDate.value = selectedDate
+        endDate.value = null
+      }
+    }
+  }
+
+  // If duration mode is selected, update the end date based on duration
+  if (selectionMode.value === 'duration' && startDate.value) {
+    // endDate will be computed automatically via endDateFromDuration
+  }
+}
+
+function handleDatePickerClickOutside(event) {
+  if (showStartDatePicker.value &&
+      startDateRef.value &&
+      !startDateRef.value.contains(event.target)) {
+    showStartDatePicker.value = false
+  }
+  if (showEndDatePicker.value &&
+      endDateRef.value &&
+      !endDateRef.value.contains(event.target)) {
+    showEndDatePicker.value = false
+  }
 }
 
 function resetDateSelection() {
-  shoppingStartDate.value = ''
-  shoppingEndDate.value = ''
-  dateSelectionStep.value = 'start'
-  showStartCalendar.value = false
-  showEndCalendar.value = false
+  startDate.value = null
+  endDate.value = null
+  selectionMode.value = 'endDate'
+  durationValue.value = 1
+  durationUnit.value = 'weeks'
+  showStartDatePicker.value = false
+  showEndDatePicker.value = false
 }
 
 // Main Function
 async function confirmGenerateShoppingList() {
-  if (!shoppingStartDate.value || !shoppingEndDate.value) {
+  const effectiveEndDate = selectionMode.value === 'duration' ? endDateFromDuration.value : endDate.value
+
+  if (!startDate.value || !effectiveEndDate) {
     await displayAlert('Please select both start and end dates', 'error', 'Missing Dates')
     return
   }
 
-  const start = new Date(shoppingStartDate.value)
-  const end = new Date(shoppingEndDate.value)
+  const start = new Date(startDate.value)
+  const end = new Date(effectiveEndDate)
   const days = Math.ceil((end - start) / 86400000) + 1
 
   if (days < 0) {
@@ -328,8 +457,8 @@ async function confirmGenerateShoppingList() {
       .from('meal_plans')
       .select('*')
       .eq('user_id', currentUser.value.id)
-      .gte('date', shoppingStartDate.value)
-      .lte('date', shoppingEndDate.value)
+      .gte('date', formatDateLocal(startDate.value))
+      .lte('date', formatDateLocal(effectiveEndDate))
 
     if (error) throw error
 
@@ -656,62 +785,160 @@ async function confirmGenerateShoppingList() {
   font-weight: 600;
 }
 
-/* --- Date Inputs --- */
-.date-inputs {
-  display: grid; 
-  grid-template-columns: 1fr 1fr; 
-  gap: 1rem;
-  margin-bottom: 1rem;
+/* --- Date Range Selector --- */
+.date-range-selector {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
 }
 
-.input-group {
+.date-selection-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.date-input-group {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.input-group label {
+.date-label {
   font-size: 0.875rem;
   font-weight: 600;
   color: #1a1a1a;
 }
 
-.date-wrapper { 
-  position: relative; 
+.date-input-wrapper {
+  position: relative;
 }
 
-.date-wrapper input {
-  width: 100%; 
-  border: 2px solid #e0e0e0; 
+.date-input {
+  width: 100%;
+  border: 2px solid #e0e0e0;
   border-radius: 8px;
-  padding: 0.75rem 2.5rem 0.75rem 1rem; 
+  padding: 0.75rem 2.5rem 0.75rem 1rem;
   cursor: pointer;
-  background: white; 
-  font-size: 0.875rem; 
+  background: white;
+  font-size: 0.875rem;
   font-weight: 500;
-  color: #1a1a1a; 
+  color: #1a1a1a;
   transition: all 0.2s;
 }
 
-.date-wrapper input:focus {
-  outline: none; 
-  border-color: #ff6b1a; 
+.date-input:focus {
+  outline: none;
+  border-color: #ff6b1a;
   box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.1);
 }
 
-.date-wrapper input:disabled { 
-  background: #f7f7f7; 
+.date-input:disabled {
+  background: #f7f7f7;
   cursor: not-allowed;
   color: #999;
 }
 
-.calendar-icon {
-  position: absolute; 
-  right: 0.75rem; 
+.date-icon {
+  position: absolute;
+  right: 0.75rem;
   top: 50%;
-  transform: translateY(-50%); 
+  transform: translateY(-50%);
   color: #666;
   pointer-events: none;
+}
+
+.selection-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  cursor: pointer;
+}
+
+.radio-label input[type="radio"] {
+  margin: 0;
+  accent-color: #ff6b1a;
+}
+
+.duration-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.duration-inputs {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.duration-number {
+  flex: 1;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  transition: all 0.2s;
+}
+
+.duration-number:focus {
+  outline: none;
+  border-color: #ff6b1a;
+  box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.1);
+}
+
+.duration-unit {
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.duration-unit:focus {
+  outline: none;
+  border-color: #ff6b1a;
+  box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.1);
+}
+
+.calendar-right {
+  flex-shrink: 0;
+}
+
+.calendar-container {
+  width: 280px;
+  height: 290px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+
+.large-calendar {
+  width: 100%;
+  height: 100%;
 }
 
 /* --- Selected Range --- */
@@ -793,11 +1020,30 @@ async function confirmGenerateShoppingList() {
 }
 
 /* --- Responsive --- */
-@media (max-width: 640px) {
-  .date-inputs {
-    grid-template-columns: 1fr;
+@media (max-width: 992px) {
+  .date-range-selector {
+    flex-direction: row;
+    gap: 2rem;
   }
-  
+
+  .calendar-container {
+    width: 280px;
+    height: 290px;
+  }
+}
+
+@media (max-width: 640px) {
+  .mode-toggle {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .duration-inputs {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
   .step span {
     font-size: 0.75rem;
   }
