@@ -161,7 +161,7 @@
                       :disabled="expiringItems.length === 0"
                     >
                       <i class="bi bi-search me-2"></i>
-                      Find Recipes!
+                      Find Recipes with These Ingredients!
                     </button>
                   </div>
                 </div>
@@ -632,9 +632,26 @@ const getExpirySeverityClass = (daysLeft) => {
 }
 
 const findRecipesWithExpiringItems = () => {
+  // Extract just the ingredient names from expiring items
+  const expiringIngredients = expiringItems.value
+    .map(item => item.name.trim())
+    .filter(Boolean)
+    .join(',')
+
+  console.log('Expiring items:', expiringItems.value)
+  console.log('Navigating with ingredients:', expiringIngredients)
+
+  if (!expiringIngredients) {
+    console.error('No ingredients to search with')
+    return
+  }
+
   router.push({
     path: '/recipes',
-    query: { useExpiringItems: true }
+    query: {
+      autoSearch: 'expiring',
+      ingredients: expiringIngredients
+    }
   })
 }
 

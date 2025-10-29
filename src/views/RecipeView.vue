@@ -180,7 +180,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import axios from 'axios'
@@ -255,7 +255,7 @@ const searchByPantry = async () => {
       return
     }
 
-    // const ingredients = pantryItems.map(item => item.name).join(',')
+
 
     const ingredients = pantryItems
       .map(item => item.name.trim())
@@ -283,6 +283,52 @@ const searchByPantry = async () => {
         icon: 'info',
         title: 'No Recipes Found',
         text: 'No recipes found with your pantry ingredients.'
+      })
+    }
+  } catch (error) {
+    console.error('Error:', error)
+    Swal.fire({
+      icon: 'error',
+      title: 'Oops...',
+      text: 'Failed to search recipes. Please try again.'
+    })
+  } finally {
+    loading.value = false
+  }
+}
+
+// if redirected from find recipes with expiring items on home page
+const searchWithSpecificIngredients = async (ingredients) => {
+  loading.value = true
+  try {
+    console.log('Searching with ingredients:', ingredients)
+
+    const params = {
+      ingredients: ingredients,
+      number: 12,
+      addRecipeInformation: true,
+      addRecipeInstructions: true,
+      fillIngredients: true,
+      ignorePantry: true,
+      ranking: 2 // Maximize used ingredients
+    }
+
+    if (filters.value.diet) params.diet = filters.value.diet
+    if (filters.value.cuisine) params.cuisine = filters.value.cuisine
+    if (filters.value.maxReadyTime) params.maxReadyTime = filters.value.maxReadyTime
+
+    console.log('API params:', params)
+
+    const response = await makeApiRequest(params)
+    recipes.value = response.data.results || []
+
+    console.log('Recipes found:', recipes.value.length)
+
+    if (recipes.value.length === 0) {
+      Swal.fire({
+        icon: 'info',
+        title: 'No Recipes Found',
+        text: 'No recipes found with your expiring ingredients. Try different filters!'
       })
     }
   } catch (error) {
@@ -454,8 +500,24 @@ const showToastMessage = (message) => {
 
 onMounted(async () => {
   try {
+    console.log('RecipeView mounted')
+
     currentUser.value = await getCurrentUser()
     await loadSavedRecipes()
+
+    // Wait a tick to ensure route is fully loaded
+    await nextTick()
+
+    const query = router.currentRoute.value.query
+    console.log('Current route query:', query)
+    console.log('autoSearch:', query.autoSearch)
+    console.log('ingredients:', query.ingredients)
+
+    // Check if we should auto-search with expiring ingredients
+    if (query.autoSearch === 'expiring' && query.ingredients) {
+      console.log('Auto-searching with expiring ingredients:', query.ingredients)
+      await searchWithSpecificIngredients(query.ingredients)
+    }
   } catch (error) {
     console.error('Error:', error)
     router.push('/login')
@@ -536,7 +598,6 @@ onMounted(async () => {
   font-weight: 600;
   margin: 1rem 0;
 }
-
 .search-input-group {
   display: flex;
   gap: 0.5rem;
@@ -549,6 +610,7 @@ onMounted(async () => {
   left: 1rem;
   color: #999;
   font-size: 1.1rem;
+  z-index: 1;
 }
 
 .search-input {
@@ -572,6 +634,7 @@ onMounted(async () => {
   border-radius: 10px;
   font-weight: 600;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .search-btn:hover:not(:disabled) {
@@ -581,6 +644,32 @@ onMounted(async () => {
 .search-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .recipes-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .search-input-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input-group i {
+    position: absolute;
+    left: 1rem;
+    top: 0.75rem;
+  }
+
+  .search-input {
+    width: 100%;
+  }
+
+  .search-btn {
+    width: 100%;
+  }
 }
 
 /* Filters */
