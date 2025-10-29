@@ -66,7 +66,21 @@ const toggleFavourite = async () => {
 
   try {
     if (isFavourite.value) {
-      // Remove from favorites
+      // 🧩 Show confirmation before unfavouriting
+      const result = await Swal.fire({
+        title: 'Remove from favourites?',
+        text: `Are you sure you want to remove "${props.recipe.title}" from your favourites?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, remove it',
+        cancelButtonText: 'Cancel'
+      })
+
+      if (!result.isConfirmed) return // user cancelled
+
+      // Remove from favourites
       await supabase
         .from('saved_recipes')
         .delete()
@@ -74,10 +88,10 @@ const toggleFavourite = async () => {
         .eq('id', props.recipe.id)
 
       isFavourite.value = false
-      emit('removed', props.recipe.id) // Notify parent to remove from list
-      Swal.fire('Removed!', 'Recipe removed from favorites.', 'success')
+      emit('removed', props.recipe.id)
+      Swal.fire('Removed!', 'Recipe removed from favourites.', 'success')
     } else {
-      // Add to favorites
+      // Add to favourites
       await supabase.from('saved_recipes').insert({
         user_id: currentUser.value.id,
         id: props.recipe.id,
@@ -87,13 +101,14 @@ const toggleFavourite = async () => {
         servings: props.recipe.servings
       })
       isFavourite.value = true
-      Swal.fire('Saved!', 'Recipe added to favorites.', 'success')
+      Swal.fire('Saved!', 'Recipe added to favourites.', 'success')
     }
   } catch (err) {
     console.error(err)
     Swal.fire('Error', 'Something went wrong.', 'error')
   }
 }
+
 </script>
 
 

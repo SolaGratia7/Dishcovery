@@ -186,6 +186,7 @@
                 <input
                   type="text"
                   v-model="form.name"
+                  @input="form.name = form.name.toLowerCase()"
                   placeholder="e.g., Chicken, Pork"
                   required
                   class="form-input"
@@ -195,12 +196,12 @@
 
             <div class="form-group">
               <label>Category</label>
-              <input 
-                type="text"   
-                v-model="form.category" 
+              <input
+                type="text"
+                v-model="form.category"
                 @input="capitalizeCategory"
                 placeholder="e.g., Dairy, Protiens"
-                class="form-input" 
+                class="form-input"
               />
             </div>
 
@@ -612,7 +613,7 @@ const addItem = async () => {
   try {
     const payload = {
       user_id: currentUser.value.id,
-      name: form.value.name,
+      name: form.value.name.toLowerCase(),
       category: form.value.category, // use autofilled category
       quantity: parseFloat(form.value.quantity),
       unit: form.value.unit,
@@ -643,7 +644,7 @@ const addItem = async () => {
 const startEdit = (item) => {
   editingItem.value = item
   form.value = {
-    name: item.name,
+    name: item.name.toLowerCase(),
     category: item.category,
     quantity: item.quantity,
     unit: item.unit,
@@ -669,7 +670,7 @@ const updateItem = async () => {
     const { error } = await supabase
       .from("pantry_items")
       .update({
-        name: form.value.name,
+        name: form.value.name.toLowerCase(),
         category: form.value.category, // use autofilled category
         quantity: parseFloat(form.value.quantity),
         unit: form.value.unit,
