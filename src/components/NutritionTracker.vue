@@ -38,7 +38,7 @@
               <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Daily Nutrition Goals</h5>
                 <button 
-                  class="btn btn-outline-primary btn-sm"
+                  class="btn btn-primary btn-sm"
                   @click="showGoalsModal = true"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.25rem;">
