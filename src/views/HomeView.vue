@@ -114,48 +114,57 @@
 
           <!-- Right Column: Expiring Items & Quick Actions -->
           <div class="right-column stagger-item" style="--stagger: 1">
-            <!-- Expiring Items Alert -->
-            <div class="expiring-card">
-              <div class="alert-header">
-                <i class="bi bi-exclamation-triangle-fill"></i>
-                <div>
-                  <h3>Items Expiring Soon</h3>
-                  <p>Take action on these items to avoid waste</p>
-                </div>
-              </div>
-              <div class="card-body">
-                <div v-if="expiringItems.length === 0" class="no-items">
-                  <i class="bi bi-check-circle-fill"></i>
-                  <p>All items are fresh!</p>
-                </div>
-
-                <div v-else class="expiring-list">
-                  <div
-                    v-for="item in expiringItems"
-                    :key="item.id"
-                    class="expiring-item"
-                  >
-                    <div class="item-icon">
-                      <i class="bi bi-calendar-event"></i>
-                    </div>
-                    <div class="item-details">
-                      <strong>{{ item.name }}</strong>
-                      <span class="item-category">{{ item.category }}</span>
-                    </div>
-                    <span :class="['badge', getExpirySeverityClass(item.daysLeft)]">
-                      {{ item.daysLeft }} days left
-                    </span>
+            <div class="expiring-container">
+              <!-- Expiring Items Card -->
+              <div class="expiring-card">
+                <div class="alert-header">
+                  <i class="bi bi-exclamation-triangle-fill"></i>
+                  <div>
+                    <h3>Items Expiring Soon</h3>
+                    <p>Take action on these items to avoid waste</p>
                   </div>
                 </div>
 
-                <button
-                  @click="findRecipesWithExpiringItems"
-                  class="btn btn-danger w-100 mt-3"
-                  :disabled="expiringItems.length === 0"
-                >
-                  <i class="bi bi-search me-2"></i>
-                  Find Recipes Using These Items
-                </button>
+                <div class="card-body">
+                  <!-- Scrollable list wrapper -->
+                  <div class="expiring-scroll-wrapper">
+                    <div v-if="expiringItems.length === 0" class="no-items">
+                      <i class="bi bi-check-circle-fill"></i>
+                      <p>All items are fresh!</p>
+                    </div>
+
+                    <div v-else class="expiring-list">
+                      <div
+                        v-for="item in expiringItems"
+                        :key="item.id"
+                        class="expiring-item"
+                      >
+                        <div class="item-icon">
+                          <i class="bi bi-calendar-event"></i>
+                        </div>
+                        <div class="item-details">
+                          <strong>{{ item.name }}</strong>
+                          <span class="item-category">{{ item.category }}</span>
+                        </div>
+                        <span :class="['badge', getExpirySeverityClass(item.daysLeft)]">
+                          {{ item.daysLeft }} days left
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Fixed Bottom Button -->
+                  <div class="expiring-button-wrapper">
+                    <button
+                      @click="findRecipesWithExpiringItems"
+                      class="btn btn-danger w-100"
+                      :disabled="expiringItems.length === 0"
+                    >
+                      <i class="bi bi-search me-2"></i>
+                      Find Recipes!
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -894,22 +903,9 @@ const toggleFavourite = async (recipe) => {
 }
 
 /* Card Styling */
-.expiring-card {
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  background: linear-gradient(to right, rgba(254, 242, 242, 0.8), rgba(255, 247, 237, 0.8));
-  border-color: #fecaca;
-  border-radius: 1rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-}
-
-.card-body {
-  padding: 1.5rem;
-}
-
 .alert-header {
   background: none;
-  padding: 1.5rem;
+  padding: 1rem;
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -1039,12 +1035,92 @@ const toggleFavourite = async (recipe) => {
   margin-bottom: 1rem;
 }
 
-.expiring-list {
+/* Beige container for the entire expiring section */
+.expiring-container {
+  background-color: #fff7ed;
+  border-radius: 1rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
+  height: 450px;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+}
+
+/* Expiring Card inside the container */
+.expiring-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(to right, rgba(254,242,242,0.8), rgba(255,247,237,0.8));
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+/* Alert header - fixed at top */
+.alert-header {
+  flex-shrink: 0;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
   gap: 1rem;
 }
 
+/* Card body adjustments */
+.card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 0 1rem 1rem;
+  overflow: hidden;
+}
+
+/* Scrollable wrapper (fills space between header and button) */
+.expiring-scroll-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-bottom: 0.5rem;
+}
+
+/* No items message */
+.no-items {
+  text-align: center;
+  padding: 2rem;
+  color: #10b981;
+}
+
+.no-items i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+/* List container */
+.expiring-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-right: 0.5rem;
+}
+
+/* Scrollbar styling */
+.expiring-scroll-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.expiring-scroll-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.expiring-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 8px;
+}
+
+.expiring-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Individual expiring item */
 .expiring-item {
   display: flex;
   align-items: center;
@@ -1087,6 +1163,11 @@ const toggleFavourite = async (recipe) => {
 .item-category {
   font-size: 0.875rem;
   color: #6b7280;
+}
+
+/* Button fixed at bottom */
+.expiring-button-wrapper {
+  flex-shrink: 0;
 }
 
 /* Saved Recipes Section */
