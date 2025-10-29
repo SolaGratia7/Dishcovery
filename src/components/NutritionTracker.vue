@@ -31,9 +31,30 @@
       <div class="main-content">
         <h2 class="mb-4">Nutrition Tracking</h2>
 
+        <!-- Nutrition Goals Section -->
+        <div class="row mb-4">
+          <div class="col-12">
+            <div class="nutrition-card fade-in">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Daily Nutrition Goals</h5>
+                <button 
+                  class="btn btn-outline-primary btn-sm"
+                  @click="showGoalsModal = true"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.25rem;">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                  Edit Goals
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Nutrition Progress Circles -->
         <div class="row mb-4">
-          <div class="col-md-3">
+          <div class="col-6 col-md-3 mb-3 mb-md-0">
             <div class="nutrition-card fade-in">
               <div class="progress-circle pc-calories">
                 <span id="cal-display">{{ calPct }}%</span>
@@ -44,7 +65,7 @@
               </div>
             </div>
           </div>
-          <div class="col-md-3">
+          <div class="col-6 col-md-3 mb-3 mb-md-0">
             <div class="nutrition-card fade-in">
               <div class="progress-circle pc-protein">
                 <span>{{ protPct }}%</span>
@@ -55,7 +76,7 @@
               </div>
             </div>
           </div>
-          <div class="col-md-3">
+          <div class="col-6 col-md-3 mb-3 mb-md-0">
             <div class="nutrition-card fade-in">
               <div class="progress-circle pc-carbs">
                 <span>{{ carbPct }}%</span>
@@ -66,7 +87,7 @@
               </div>
             </div>
           </div>
-          <div class="col-md-3">
+          <div class="col-6 col-md-3 mb-3 mb-md-0">
             <div class="nutrition-card fade-in">
               <div class="progress-circle pc-fat">
                 <span>{{ fatPct }}%</span>
@@ -116,6 +137,8 @@
                   required
                   autocomplete="off"
                   @input="onMealInput"
+                  @focus="showLogButton = true"
+                  @blur="handleMealInputBlur"
                 >
                 <div v-if="mealSuggestions.length > 0" class="autocomplete-results">
                   <div
@@ -137,11 +160,25 @@
                   min="0.1"
                   step="0.1"
                   required
+                  @focus="showLogButton = true"
+                  @blur="handleServingsBlur"
                 >
               </div>
               <div class="col-6 col-md-4">
-                <button type="submit" class="btn btn-primary w-100 log-meal-btn" :disabled="isLogging">
-                  <span v-if="!isLogging">Log Meal</span>
+                <button 
+                  type="submit" 
+                  class="btn btn-primary w-100 log-meal-btn" 
+                  :class="{ 'show': showLogButton }"
+                  :disabled="isLogging"
+                  @mouseenter="showLogButton = true"
+                >
+                  <span v-if="!isLogging">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.25rem;">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Log Meal
+                  </span>
                   <span v-else>
                     <span class="loading-spinner"></span>   
                     Logging...
@@ -179,7 +216,7 @@
                 </div>
                 <button
                   class="btn btn-outline-danger btn-sm delete-btn"
-                  @click="removeMeal(meal.id)"
+                  @click="confirmDeleteMeal(meal.id)"
                   title="Delete meal"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -192,6 +229,74 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Goals Modal -->
+    <div v-if="showGoalsModal" class="modal-overlay" @click="showGoalsModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h5>Edit Nutrition Goals</h5>
+          <button class="btn-close" @click="showGoalsModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Calories</label>
+            <input type="number" v-model.number="tempGoals.calories" class="form-control" min="1000" max="5000" step="50">
+          </div>
+          <div class="form-group">
+            <label>Protein (g)</label>
+            <input type="number" v-model.number="tempGoals.protein" class="form-control" min="50" max="500" step="5">
+          </div>
+          <div class="form-group">
+            <label>Carbs (g)</label>
+            <input type="number" v-model.number="tempGoals.carbs" class="form-control" min="50" max="500" step="5">
+          </div>
+          <div class="form-group">
+            <label>Fat (g)</label>
+            <input type="number" v-model.number="tempGoals.fat" class="form-control" min="20" max="200" step="5">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showGoalsModal = false">Cancel</button>
+          <button class="btn btn-primary" @click="saveGoals">Save Goals</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h5>Confirm Delete</h5>
+          <button class="btn-close" @click="showDeleteModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete this meal?</p>
+          <p class="text-muted small">This action cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showDeleteModal = false">Cancel</button>
+          <button class="btn btn-danger" @click="confirmDelete">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Final Confirmation Modal -->
+    <div v-if="showFinalDeleteModal" class="modal-overlay" @click="showFinalDeleteModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h5>Final Confirmation</h5>
+          <button class="btn-close" @click="showFinalDeleteModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <p><strong>Are you absolutely sure?</strong></p>
+          <p class="text-muted small">This will permanently delete the meal from your nutrition log.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showFinalDeleteModal = false">Cancel</button>
+          <button class="btn btn-danger" @click="finalDelete">Yes, Delete It</button>
         </div>
       </div>
     </div>
@@ -341,6 +446,12 @@ const isLogging = ref(false)
 const selectedFood = ref(null)
 const mealSuggestions = ref([])
 let autocompleteTimeout = null
+const showLogButton = ref(false)
+const showGoalsModal = ref(false)
+const showDeleteModal = ref(false)
+const showFinalDeleteModal = ref(false)
+const mealToDelete = ref(null)
+const tempGoals = ref({ ...goals.value })
 
 // Charts refs
 const macroChartCanvas = ref(null)
@@ -388,11 +499,9 @@ function formatDate(date) {
 
 function parseNutritionValue(value) {
   if (!value) return 0
-  // Remove anything that's not a digit or decimal point
   return parseFloat(value.toString().replace(/[^0-9.]/g, '')) || 0
 }
 
-// Get nutrition data by food name (local DB or Spoonacular)
 async function getNutritionByName(mealName) {
   if (USE_LOCAL_DATABASE) {
     const found = localFoodsDB.find(f =>
@@ -443,8 +552,6 @@ async function getNutritionByName(mealName) {
   }
 }
 
-// Get nutrition data by food ID (local DB or Spoonacular)
-
 async function loadMealsFromSupabase() {
   isLoadingMeals.value = true
   try {
@@ -458,9 +565,7 @@ async function loadMealsFromSupabase() {
     
     const transformedMeals = []
     
-    // Process meals and fetch real nutrition data from Spoonacular
     for (const plan of data || []) {
-      // Get actual nutrition data from Spoonacular
       const nutrition = await getNutritionByName(plan.title)
       const servings = plan.servings || 1
 
@@ -481,7 +586,6 @@ async function loadMealsFromSupabase() {
     
   } catch (error) {
     console.error('Error loading meals from Supabase:', error)
-    // Fallback to localStorage
     const saved = localStorage.getItem('nutritionMeals')
     if (saved) {
       try {
@@ -662,6 +766,7 @@ async function logMeal() {
       mealName.value = ''
       mealServings.value = 1
       selectedFood.value = null
+      showLogButton.value = false
     } else {
       alert('Failed to save meal to database. Saved locally instead.')
     }
@@ -693,6 +798,45 @@ function onDateSelect(date) {
 function formatDisplayDate(date) {
   const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }
   return date.toLocaleDateString('en-US', options)
+}
+
+function handleMealInputBlur() {
+  setTimeout(() => {
+    if (!mealSuggestions.value.length) {
+      showLogButton.value = false
+    }
+  }, 200)
+}
+
+function handleServingsBlur() {
+  setTimeout(() => {
+    showLogButton.value = false
+  }, 200)
+}
+
+function confirmDeleteMeal(id) {
+  mealToDelete.value = id
+  showDeleteModal.value = true
+}
+
+function confirmDelete() {
+  showDeleteModal.value = false
+  showFinalDeleteModal.value = true
+}
+
+async function finalDelete() {
+  showFinalDeleteModal.value = false
+  if (mealToDelete.value) {
+    await removeMeal(mealToDelete.value)
+    mealToDelete.value = null
+  }
+}
+
+function saveGoals() {
+  goals.value = { ...tempGoals.value }
+  localStorage.setItem('nutritionGoals', JSON.stringify(goals.value))
+  showGoalsModal.value = false
+  updateCharts()
 }
 
 function initCharts() {
@@ -778,6 +922,13 @@ watch(selectedDate, updateCharts)
 
 onMounted(async () => {
   try {
+    // Load saved goals
+    const savedGoals = localStorage.getItem('nutritionGoals')
+    if (savedGoals) {
+      goals.value = JSON.parse(savedGoals)
+      tempGoals.value = { ...goals.value }
+    }
+    
     currentUser.value = await getCurrentUser()
     await loadMealsFromSupabase()
     initCharts()
@@ -877,6 +1028,7 @@ onMounted(async () => {
   position: relative;
   height: 300px;
   margin-bottom: 2rem;
+  min-height: 250px;
 }
 
 .form-control, .form-select {
@@ -891,7 +1043,8 @@ onMounted(async () => {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
+  /* background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important; */
+  background: linear-gradient(135deg, #5568d3 0%, #653a91 100%) !important;
   border: none !important;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -974,6 +1127,19 @@ onMounted(async () => {
 .log-meal-btn {
   min-height: 38px;
   padding: 0.5rem 1rem;
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.log-meal-btn.show {
+  opacity: 1 !important;
+  transform: translateX(0);
+  visibility: visible !important;
+}
+
+.log-meal-btn:disabled {
+  opacity: 0.7 !important;
 }
 
 .autocomplete-container {
@@ -1122,11 +1288,180 @@ onMounted(async () => {
   transition: margin-left 0.3s ease;
 }
 
+.hasMeal {
+  border: 2px solid #48bb78;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(72, 187, 120, 0.5);
+}
+
+.fade-in {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  transition-delay: var(--delay, 0s);
+}
+
+.fade-in.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h5 {
+  margin: 0;
+  font-weight: 600;
+  color: #333;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  line-height: 1;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.btn-close:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-body p {
+  margin-bottom: 0.5rem;
+}
+
+.modal-footer {
+  padding: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+.btn-outline-primary {
+  background: white;
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-outline-primary:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
 @media (max-width: 768px) {
   .progress-circle {
-    width: 80px;
-    height: 80px;
-    font-size: 1.2rem;
+    width: 70px;
+    height: 70px;
+    font-size: 1rem;
+  }
+
+  .stat-value {
+    font-size: 1.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
   }
 
   .nutrition-tracker {
@@ -1148,23 +1483,31 @@ onMounted(async () => {
   .calendar-dropdown {
     margin-top: 0.5rem;
   }
+
+  .meal-details {
+    font-size: 0.9rem;
+  }
+
+  .meal-details .small {
+    font-size: 0.8rem;
+  }
+  
+  .chart-container {
+    height: 250px;
+    min-height: 200px;
+  }
 }
 
-.hasMeal {
-  border: 2px solid #48bb78;
-  border-radius: 50%;
-  box-shadow: 0 0 8px rgba(72, 187, 120, 0.5);
-}
-
-.fade-in {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.5s ease, transform 0.5s ease;
-  transition-delay: var(--delay, 0s);
-}
-
-.fade-in.visible {
-  opacity: 1;
-  transform: translateY(0);
+@media (max-width: 576px) {
+  .modal-content {
+    max-width: 100%;
+    margin: 0 1rem;
+  }
+  
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 1rem;
+  }
 }
 </style>
