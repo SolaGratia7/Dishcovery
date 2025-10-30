@@ -823,7 +823,15 @@ function initCharts() {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { position: 'bottom' }
+            legend: { 
+              position: 'bottom',
+              labels: {
+                padding: 10,
+                font: {
+                  size: window.innerWidth < 576 ? 10 : 12
+                }
+              }
+            }
           }
         }
       })
@@ -845,9 +853,26 @@ function initCharts() {
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            x: { beginAtZero: true, max: 150 }
+            x: { 
+              beginAtZero: true, 
+              max: 150,
+              ticks: {
+                font: {
+                  size: window.innerWidth < 576 ? 9 : 11
+                }
+              }
+            },
+            y: {
+              ticks: {
+                font: {
+                  size: window.innerWidth < 576 ? 9 : 11
+                }
+              }
+            }
           },
-          plugins: { legend: { display: false } }
+          plugins: { 
+            legend: { display: false }
+          }
         }
       })
     }
