@@ -152,7 +152,7 @@ const closeModal = () => {
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
-  padding-top: 5rem;
+  padding-top: 6rem;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -323,11 +323,12 @@ const closeModal = () => {
 /* Responsive */
 @media (max-width: 768px) {
   .modal-overlay {
-    padding-top: 4rem;
+    padding-top: 5rem;
   }
 
   .modal-content {
-    max-height: calc(100vh - 5rem);
+    max-height: calc(100vh - 6rem);
+    max-height: calc(100dvh - 6rem); /* Use dynamic viewport height for mobile */
   }
 
   .modal-stats {

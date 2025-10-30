@@ -7,7 +7,7 @@
           <div class="calendar-dropdown">
             <div class="calendar-header">
               <h6>View Nutrition History</h6>
-              <small class="text-muted">Click on a date to view nutrition data</small>
+                <small class="text-muted">Choose from a highlighted date to view that day's nutrition data</small>
             </div>
             <div class="selected-date-display">
               <small class="text-muted">Selected: {{ formatDisplayDate(selectedDate) }}</small>
@@ -984,8 +984,7 @@ onMounted(async () => {
 }
 
 .calendar-container {
-  display: flex;
-  justify-content: flex-start;
+  position: relative;
 }
 
 .nutrition-stat {

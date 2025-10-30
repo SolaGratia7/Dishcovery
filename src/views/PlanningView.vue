@@ -311,8 +311,9 @@
           </div>
 
           <div class="card-body">
-            <div class="table-responsive">
-              <table class="meal-planner-table">
+            <div class="table-responsive mobile-scroll">
+              <!-- Desktop Table (dates as rows) -->
+              <table class="meal-planner-table desktop-table">
                 <thead>
                   <tr>
                     <th class="day-col">Day</th>
@@ -355,6 +356,57 @@
                           <span class="meal-title">{{ getMeal(day.dateStr, mealType).title }}</span>
                         </div>
                         <span v-else class="plus-sign">+</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Mobile Table (meals as rows, dates as columns) -->
+              <table class="meal-planner-table mobile-table">
+                <thead>
+                  <tr>
+                    <th class="meal-col-mobile">Meal</th>
+                    <th v-for="(day) in weekDays" :key="day.dateStr" class="day-col-mobile">
+                      <strong>{{ getShortDayName(day.name) }}</strong><br>
+                      <small class="text-muted">{{ day.dateDisplay }}</small>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="mealType in ['breakfast', 'lunch', 'dinner']" :key="mealType">
+                    <td class="meal-col-mobile">
+                      <strong>{{ mealType.charAt(0).toUpperCase() + mealType.slice(1) }}</strong>
+                    </td>
+                    <td
+                      v-for="(day) in weekDays"
+                      :key="day.dateStr"
+                      :class="['meal-cell-mobile', { 'highlighted-row': highlightedTableDate.value === day.dateStr }]"
+                      :data-date="day.dateStr"
+                    >
+                      <div
+                        :id="`slot-${day.dateStr}-${mealType}`"
+                        :class="['meal-slot-mobile', { 'empty': !getMeal(day.dateStr, mealType), 'highlight': isHighlighted(day.dateStr, mealType) }]"
+                        @click="planMeal(day.dateStr, mealType)"
+                      >
+                        <div v-if="getMeal(day.dateStr, mealType)" class="meal-content-mobile">
+                          <button
+                            class="delete-meal-btn-mobile"
+                            @click.stop="deleteMeal(day.dateStr, mealType)"
+                            title="Remove this meal"
+                          >
+                            <i class="bi bi-trash"></i>
+                          </button>
+
+                          <img
+                            :src="getMeal(day.dateStr, mealType).image"
+                            :alt="getMeal(day.dateStr, mealType).title"
+                            class="meal-image-mobile"
+                            @error="handleImageError"
+                          >
+                          <span class="meal-title-mobile">{{ getMeal(day.dateStr, mealType).title }}</span>
+                        </div>
+                        <span v-else class="plus-sign-mobile">+</span>
                       </div>
                     </td>
                   </tr>
@@ -750,6 +802,19 @@ function formatDate(dateStr) {
 function formatHistoryDate(dateStr) {
   const date = new Date(dateStr)
   return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function getShortDayName(dayName) {
+  const shortNames = {
+    'Sunday': 'Sun',
+    'Monday': 'Mon',
+    'Tuesday': 'Tue',
+    'Wednesday': 'Wed',
+    'Thursday': 'Thu',
+    'Friday': 'Fri',
+    'Saturday': 'Sat'
+  }
+  return shortNames[dayName] || dayName
 }
 
 function getMeal(dateStr, mealType) {
@@ -2537,6 +2602,149 @@ function closeRecipeModal() {
   }
 }
 
+/* Mobile Table Styles */
+.mobile-table {
+  display: none;
+  border-spacing: 1rem 0.75rem; /* Increase spacing between cells significantly */
+  margin: 1rem 0; /* Add margin around the table */
+}
+
+/* Mobile scroll container */
+.mobile-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .mobile-scroll {
+    max-width: calc(100vw - 2rem);
+  }
+
+  .mobile-table {
+    min-width: 800px; /* Force horizontal scroll on small screens, showing ~2 days */
+  }
+}
+
+.desktop-table {
+  display: table;
+}
+
+/* Mobile-specific styles */
+.meal-col-mobile {
+  width: 10%;
+  text-align: left;
+  font-weight: 600;
+  color: #6b46c1;
+  padding: 1.5rem 1rem; /* Increase padding significantly */
+}
+
+.day-col-mobile {
+  width: 12.857%;
+  text-align: center;
+  font-size: 0.875rem;
+  padding: 1.5rem 0.5rem; /* Increase padding significantly */
+}
+
+.meal-cell-mobile {
+  width: 12.857%;
+  padding: 1rem 0.5rem; /* Increase padding significantly for more space */
+  text-align: center;
+}
+
+.meal-slot-mobile {
+  min-height: 90px; /* Increase height significantly for more space */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 1rem; /* Increase padding significantly */
+  transition: all 0.3s;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 107, 26, 0.1);
+  font-size: 0.75rem;
+  margin: 0.5rem 0; /* Add more vertical margin */
+}
+
+.meal-content-mobile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.meal-image-mobile {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 107, 26, 0.2);
+}
+
+.meal-title-mobile {
+  font-weight: 500;
+  color: #1a1a1a;
+  word-break: break-word;
+  font-size: 0.7rem;
+  line-height: 1.1;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.plus-sign-mobile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 107, 26, 0.1);
+  color: #ff6b1a;
+  font-size: 1.2rem;
+  font-weight: 300;
+  transition: all 0.3s;
+}
+
+.delete-meal-btn-mobile {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.125rem;
+  color: #dc2626;
+  opacity: 0.8;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.delete-meal-btn-mobile:hover {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+.meal-slot-mobile.empty {
+  min-height: 80px; /* Increase empty slot height significantly */
+}
+
+.meal-slot-mobile:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(255, 107, 26, 0.15);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.meal-slot-mobile:hover .plus-sign-mobile {
+  background: #ff6b1a;
+  color: white;
+  transform: scale(1.05);
+}
+
 /* Responsive */
 @media (max-width: 992px) {
   .day-col {
@@ -2588,6 +2796,34 @@ function closeRecipeModal() {
   .meal-planner-table td {
     padding: 0.5rem;
     font-size: 0.875rem;
+  }
+
+  /* Switch to mobile table layout */
+  .desktop-table {
+    display: none;
+  }
+
+  .mobile-table {
+    display: table;
+  }
+
+  .meal-content-mobile {
+    position: static;
+  }
+
+  .meal-image-mobile {
+    order: 1;
+  }
+
+  .meal-title-mobile {
+    order: 2;
+  }
+
+  .delete-meal-btn-mobile {
+    position: static;
+    order: 3;
+    margin-top: 0.125rem;
+    align-self: center;
   }
 }
 

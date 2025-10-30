@@ -905,10 +905,12 @@ onMounted(async () => {
 }
 
 .add-item-form {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 170px 180px 160px auto;
   gap: 0.75rem;
-  align-items: flex-start;
+  align-items: start;
   width: 100%;
+  min-width: 0;
 }
 
 .input-wrapper {
@@ -918,28 +920,9 @@ onMounted(async () => {
   gap: 0;
 }
 
-/* Item name - fills remaining space */
-.input-wrapper:first-child {
-  flex: 1;
-  min-width: 150px;
-}
-
-/* Quantity - fixed width */
-.input-wrapper:nth-child(2) {
-  flex: 0 0 170px;
-}
-
-/* Unit - fixed width */
-
-/* Category - fixed width */
-.input-wrapper:nth-child(4) {
-  flex: 0 0 160px;
-}
-
 /* Button - auto width */
 .add-btn {
-  flex: 0 0 auto;
-  align-self: flex-start;
+  align-self: start;
   margin-top: 0;
 }
 
@@ -1205,9 +1188,43 @@ onMounted(async () => {
 }
 
 /* Responsive */
+@media (max-width: 992px) {
+  .add-item-form {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .input-wrapper {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .autocomplete-wrapper {
+    width: 100%;
+  }
+
+  .unit-wrapper {
+    width: 100%;
+  }
+
+  .item-input,
+  .quantity-input,
+  .unit-input,
+  .category-select,
+  .add-btn {
+    width: 100%;
+  }
+}
+
 @media (max-width: 768px) {
   .add-item-form {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .input-wrapper {
+    width: 100%;
+    min-width: 0;
   }
 
   .item-input,
@@ -1237,6 +1254,41 @@ onMounted(async () => {
 
   .category-items {
     padding-left: 1rem;
+  }
+
+  /* Header responsive - stack title and sort dropdown vertically */
+  .shopping-page .d-flex.justify-content-between.align-items-center.mb-4 {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .sort-dropdown {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .custom-select-wrapper {
+    flex: 1;
+    max-width: 200px;
+  }
+
+  /* Make input boxes stretch to full width on small screens */
+  .add-item-form .input-wrapper {
+    flex: 1 1 100% !important;
+    min-width: unset !important;
+  }
+
+  .add-item-form .input-wrapper .form-control {
+    width: 100% !important;
+  }
+
+  .autocomplete-wrapper {
+    width: 100% !important;
+  }
+
+  .unit-wrapper {
+    width: 100% !important;
   }
 }
 </style>

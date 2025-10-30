@@ -1317,6 +1317,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+  padding-top: 80px; /* Account for fixed navbar */
 }
 
 .modal-content {
@@ -1418,6 +1419,10 @@ onBeforeUnmount(() => {
   .sort-option {
     justify-content: flex-start;
   }
+
+  .search-input::placeholder {
+    opacity: 0;
+  }
 }
 
 .custom-date-wrapper {
@@ -1495,6 +1500,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .btn-close-modal:hover {

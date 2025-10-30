@@ -284,6 +284,15 @@ const searchByPantry = async () => {
         title: 'No Recipes Found',
         text: 'No recipes found with your pantry ingredients.'
       })
+    } else {
+      // Scroll to cook time filter on smaller screens
+      await nextTick()
+      if (window.innerWidth <= 768) {
+        const cookTimeFilter = document.querySelector('.filter-item:nth-child(3)')
+        if (cookTimeFilter) {
+          cookTimeFilter.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }
     }
   } catch (error) {
     console.error('Error:', error)
@@ -376,6 +385,15 @@ const searchRecipes = async () => {
         title: 'Oops...',
         text: 'No recipes found. Try a different search term!'
       })
+    } else {
+      // Scroll to cook time filter on smaller screens
+      await nextTick()
+      if (window.innerWidth <= 768) {
+        const cookTimeFilter = document.querySelector('.filter-item:nth-child(3)')
+        if (cookTimeFilter) {
+          cookTimeFilter.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }
     }
   } catch (error) {
     console.error('Error:', error)

@@ -15,16 +15,16 @@
           <span class="brand-name">Dishcovery</span>
         </router-link>
         
-        <button 
-          class="navbar-toggler" 
-          type="button" 
-          data-bs-toggle="collapse" 
-          data-bs-target="#navbarNav"
+        <button
+          class="navbar-toggler"
+          :class="{ 'active': isNavbarOpen }"
+          type="button"
+          @click="toggleNavbar"
         >
           <span class="navbar-toggler-icon"></span>
         </button>
-        
-        <div class="collapse navbar-collapse" id="navbarNav">
+
+        <div class="collapse navbar-collapse" :class="{ show: isNavbarOpen }" id="navbarNav">
           <ul class="navbar-nav ms-auto align-items-lg-center">
             <li class="nav-item">
               <router-link to="/home" class="nav-link">
@@ -81,10 +81,16 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabase'
 
 const router = useRouter()
+const isNavbarOpen = ref(false)
+
+const toggleNavbar = () => {
+  isNavbarOpen.value = !isNavbarOpen.value
+}
 
 const handleLogout = async () => {
   await supabase.auth.signOut()
@@ -142,11 +148,26 @@ const handleLogout = async () => {
   min-height: 100vh;
 }
 
+.navbar-toggler {
+  border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.navbar-toggler:focus,
+.navbar-toggler:active,
+.navbar-toggler:hover {
+  border: 2px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: none !important;
+}
+
+.navbar-toggler.active {
+  border: 3px solid rgba(0, 0, 0, 0.3) !important;
+}
+
 @media (max-width: 991px) {
   .navbar-nav {
     padding-top: 1rem;
   }
-  
+
   .nav-item {
     padding: 0.25rem 0;
   }

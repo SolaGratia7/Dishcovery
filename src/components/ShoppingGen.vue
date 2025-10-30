@@ -307,11 +307,11 @@ const displayAlert = async (msg, type = 'success', title = null) => {
 
 // Click outside handler
 function handleClickOutside(event) {
-  if (showStartCalendar.value && startDateRef.value && !startDateRef.value.contains(event.target)) {
-    showStartCalendar.value = false
+  if (showStartDatePicker.value && startDateRef.value && !startDateRef.value.contains(event.target)) {
+    showStartDatePicker.value = false
   }
-  if (showEndCalendar.value && endDateRef.value && !endDateRef.value.contains(event.target)) {
-    showEndCalendar.value = false
+  if (showEndDatePicker.value && endDateRef.value && !endDateRef.value.contains(event.target)) {
+    showEndDatePicker.value = false
   }
 }
 
@@ -622,15 +622,16 @@ async function confirmGenerateShoppingList() {
 
 /* --- Modal --- */
 .modal-overlay {
-  position: fixed; 
+  position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
-  display: flex; 
-  justify-content: center; 
-  align-items: center;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   z-index: 1000;
-  padding: 1rem;
+  padding: 5rem 1rem 1rem;
+  overflow-y: auto;
 }
 
 .modal-content {
@@ -639,12 +640,14 @@ async function confirmGenerateShoppingList() {
   border-radius: 16px;
   max-width: 640px;
   width: 100%;
+  max-height: calc(90vh - 2rem);
   box-shadow: 0 6px 30px rgba(0,0,0,0.2);
   animation: slide-up 0.35s ease;
-  display: flex; 
+  display: flex;
   flex-direction: column;
   border: 1px solid rgba(255, 255, 255, 0.2);
   position: relative;
+  overflow-y: auto;
 }
 
 @keyframes slide-up {
@@ -1022,13 +1025,22 @@ async function confirmGenerateShoppingList() {
 /* --- Responsive --- */
 @media (max-width: 992px) {
   .date-range-selector {
-    flex-direction: row;
-    gap: 2rem;
+    flex-direction: column;
+    gap: 1rem;
   }
 
   .calendar-container {
     width: 280px;
     height: 290px;
+    margin: 0 auto;
+  }
+
+  .date-selection-left {
+    width: 100%;
+  }
+
+  .date-input-group {
+    width: 100%;
   }
 }
 
