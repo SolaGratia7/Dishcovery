@@ -38,9 +38,10 @@
             <div class="input-wrapper">
               <input 
                 v-model="newItemName"
+                @input="newItemName = $event.target.value.toLowerCase()"
                 type="text" 
                 :class="['form-control', 'item-input', { 'is-invalid': nameError}]" 
-                placeholder="Item name"
+                placeholder="Item Name"
                 @keyup.enter="addItem"
               >
               <div v-if="nameError" class="error-text-below">
@@ -135,7 +136,7 @@
         <!-- Shopping List -->
         <div v-else class="shopping-list-card">
           <div class="list-header">
-            <span class="header-label">Item</span>
+            <span class="header-label">Item Name</span>
             <span class="header-label quantity-header">Quantity</span>
           </div>
 
@@ -286,6 +287,14 @@ const validateCategory = () => {
   }
 }
 
+function capitalizeCategory(event) {
+  const input = event.target.value
+  newItemCategory.value = input
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
 // Available units
 const units = [
   'piece', 'kg', 'g', 'lbs', 'oz', 
@@ -305,7 +314,7 @@ const filteredUnits = computed(() => {
   if (!newItemUnit.value) return []
   
   const input = newItemUnit.value.toLowerCase()
-  return units.filter(unit => unit.toLowerCase().startsWith(input))
+  return units.filter(unit => unit.toLowerCase().startsWith(input)).sort()
 })
 
 // Ghost text suggestion (first match)
@@ -464,7 +473,7 @@ async function fetchShoppingItems() {
 const groupedByCategory = computed(() => {
   const grouped = {}
   shoppingItems.value.forEach(i => {
-    const cat = i.category || 'Other'
+    const cat = i.category || 'Others'
     if (!grouped[cat]) grouped[cat] = []
     grouped[cat].push(i)
   })
@@ -475,8 +484,8 @@ const groupedByCategory = computed(() => {
 const sortedCategories = computed(() => {
   const entries = Object.entries(groupedByCategory.value)
   entries.sort((a, b) => {
-    if (a[0] === 'Other') return 1
-    if (b[0] === 'Other') return -1
+    if (a[0] === 'Others') return 1
+    if (b[0] === 'Others') return -1
     return a[0].localeCompare(b[0])
   })
   return Object.fromEntries(entries)
@@ -499,11 +508,14 @@ const filteredCategories = computed(() => {
     return [{ name: 'All Items (A–Z)', items: allItems }]
   }
 
-  // Default: grouped by category
-  return Object.entries(sortedItemsByCategory.value).map(([name, items]) => ({
-    name,
-    items,
-  }))
+  // Default: grouped by category, with "Others" always last
+  return Object.entries(sortedItemsByCategory.value)
+    .map(([name, items]) => ({ name, items }))
+    .sort((a, b) => {
+      if (a.name === 'Others') return 1
+      if (b.name === 'Others') return -1
+      return 0
+    })
 })
 
 // ---------- CATEGORY TOGGLE ----------
@@ -537,7 +549,10 @@ async function addItem() {
     item => item.name.toLowerCase() === itemName
   )
 
-  if (existingItem) {
+  // Find existing category with same name (case-insensitive) to maintain consistent casing
+  const inputCategory = newItemCategory.value.trim()
+
+  if (existingItem.category.toLowerCase() === inputCategory.toLowerCase()) {
     const result = await Swal.fire({
       icon: 'question',
       title: 'Item Already Exists',

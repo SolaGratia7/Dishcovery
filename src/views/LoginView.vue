@@ -190,7 +190,7 @@ const handleLogin = async () => {
     
     message.value = 'Success! Redirecting...'
     messageType.value = 'success'
-    setTimeout(() => router.push('/pantry'), 1000)
+    setTimeout(() => router.push('/home'), 1000)
   } catch (error) {
     message.value = error.message
     messageType.value = 'error'

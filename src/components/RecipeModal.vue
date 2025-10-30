@@ -35,6 +35,19 @@
                     </div>
                 </div>
                 </div>
+                <div class="ingredients-section">
+                  <h4><i class="bi bi-basket-fill me-2"></i>Ingredients</h4>
+                  <ul v-if="ingredients && ingredients.length > 0" class="ingredients-list">
+                      <li v-for="(ingredient, index) in ingredients" :key="index">
+                      <span class="ingredient-amount">{{ ingredient.amount }} {{ ingredient.unit }}</span>
+                      <span class="ingredient-name">{{ ingredient.name }}</span>
+                      </li>
+                  </ul>
+                  <p v-else class="no-ingredients">
+                      <i class="bi bi-info-circle me-2"></i>
+                      Ingredients list not available for this recipe.
+                  </p>
+                </div>                
 
                 <div class="instructions-section">
                 <h4><i class="bi bi-list-ol me-2"></i>Instructions</h4>
@@ -79,6 +92,27 @@ const instructions = computed(() => {
     } catch (e) {
       // If parsing fails, stop and return empty
       console.error('Error parsing instructions:', e)
+      console.log('Raw data:', data)
+      return []
+    }
+  }
+
+  return Array.isArray(data) ? data : []
+})
+
+// Handle ingredients from Supabase (JSON string or array)
+const ingredients = computed(() => {
+  if (!props.recipe) return []
+
+  let data = props.recipe.extendedIngredients
+
+  // Parse repeatedly until it's not a string anymore
+  while (typeof data === 'string' && data.trim()) {
+    try {
+      data = JSON.parse(data)
+    } catch (e) {
+      // If parsing fails, stop and return empty
+      console.error('Error parsing ingredients:', e)
       console.log('Raw data:', data)
       return []
     }
@@ -207,6 +241,60 @@ const closeModal = () => {
   font-size: 1.1rem;
 }
 
+/* Ingredients Section */
+.ingredients-section {
+  margin-bottom: 2rem;
+}
+
+.ingredients-section h4 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+}
+
+.ingredients-list {
+  list-style: none;
+  padding: 0;
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 1.5rem;
+}
+
+.ingredients-list li {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ingredients-list li:last-child {
+  border-bottom: none;
+}
+
+.ingredient-amount {
+  font-weight: 600;
+  color: #ff6b1a;
+  min-width: 100px;
+  font-size: 0.95rem;
+}
+
+.ingredient-name {
+  color: #333;
+  text-transform: capitalize;
+  flex: 1;
+}
+
+.no-ingredients {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 10px;
+  text-align: center;
+  color: #999;
+}
+
+/* Instructions Section */
 .instructions-section h4 {
   font-size: 1.25rem;
   font-weight: 700;
