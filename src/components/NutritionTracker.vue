@@ -216,7 +216,7 @@
                 </div>
                 <button
                   class="btn btn-outline-danger btn-sm delete-btn"
-                  @click="confirmDeleteMeal(meal.id)"
+                  @click="handleDeleteMeal(meal)"
                   title="Delete meal"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -264,42 +264,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h5>Confirm Delete</h5>
-          <button class="btn-close" @click="showDeleteModal = false">×</button>
-        </div>
-        <div class="modal-body">
-          <p>Are you sure you want to delete this meal?</p>
-          <p class="text-muted small">This action cannot be undone.</p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="showDeleteModal = false">Cancel</button>
-          <button class="btn btn-danger" @click="confirmDelete">Delete</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Final Confirmation Modal -->
-    <div v-if="showFinalDeleteModal" class="modal-overlay" @click="showFinalDeleteModal = false">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h5>Final Confirmation</h5>
-          <button class="btn-close" @click="showFinalDeleteModal = false">×</button>
-        </div>
-        <div class="modal-body">
-          <p><strong>Are you absolutely sure?</strong></p>
-          <p class="text-muted small">This will permanently delete the meal from your nutrition log.</p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="showFinalDeleteModal = false">Cancel</button>
-          <button class="btn btn-danger" @click="finalDelete">Yes, Delete It</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -308,6 +272,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import Chart from 'chart.js/auto'
 import MiniCalendar from './MiniCalendar.vue'
 import { supabase, getCurrentUser } from '@/lib/supabase'
+import Swal from 'sweetalert2'
 
 // Constants
 const USE_LOCAL_DATABASE = true
@@ -448,9 +413,6 @@ const mealSuggestions = ref([])
 let autocompleteTimeout = null
 const showLogButton = ref(false)
 const showGoalsModal = ref(false)
-const showDeleteModal = ref(false)
-const showFinalDeleteModal = ref(false)
-const mealToDelete = ref(null)
 const tempGoals = ref({ ...goals.value })
 
 // Charts refs
@@ -730,12 +692,12 @@ function selectMeal(suggestion) {
 
 async function logMeal() {
   if (!selectedFood.value) {
-    alert('Please select a valid food/meal from the suggestions')
+    await Swal.fire('Invalid Selection', 'Please select a valid food/meal from the suggestions', 'info')
     return
   }
 
   if (mealServings.value <= 0) {
-    alert('Please enter a valid number of servings')
+    await Swal.fire('Invalid Servings', 'Please enter a valid number of servings', 'info')
     return
   }
 
@@ -767,27 +729,49 @@ async function logMeal() {
       mealServings.value = 1
       selectedFood.value = null
       showLogButton.value = false
+      
+      await Swal.fire('Meal Logged!', 'Your meal has been successfully logged.', 'success')
     } else {
-      alert('Failed to save meal to database. Saved locally instead.')
+      await Swal.fire('Saved Locally', 'Failed to save to database. Meal saved locally instead.', 'warning')
     }
   } catch (error) {
-    alert('Failed to log meal. Please try again.')
     console.error(error)
+    await Swal.fire('Error', 'Failed to log meal. Please try again.', 'error')
   } finally {
     isLogging.value = false
   }
 }
 
-async function removeMeal(id) {
-  const success = await deleteMealFromSupabase(id)
-  
-  if (success) {
-    loggedMeals.value = loggedMeals.value.filter(m => m.id !== id)
-    updateCharts()
-  } else {
-    loggedMeals.value = loggedMeals.value.filter(m => m.id !== id)
-    localStorage.setItem('nutritionMeals', JSON.stringify(loggedMeals.value))
-    updateCharts()
+async function handleDeleteMeal(meal) {
+  const result = await Swal.fire({
+    title: 'Confirm Delete',
+    text: `Are you sure you want to delete "${meal.name}"? This action cannot be undone.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Delete',
+    cancelButtonText: 'Cancel'
+  })
+
+  if (!result.isConfirmed) return
+
+  try {
+    const success = await deleteMealFromSupabase(meal.id)
+    
+    if (success) {
+      loggedMeals.value = loggedMeals.value.filter(m => m.id !== meal.id)
+      updateCharts()
+      await Swal.fire('Deleted!', 'Meal has been deleted.', 'success')
+    } else {
+      loggedMeals.value = loggedMeals.value.filter(m => m.id !== meal.id)
+      localStorage.setItem('nutritionMeals', JSON.stringify(loggedMeals.value))
+      updateCharts()
+      await Swal.fire('Deleted!', 'Meal has been deleted.', 'success')
+    }
+  } catch (error) {
+    console.error(error)
+    await Swal.fire('Error', 'Failed to delete meal.', 'error')
   }
 }
 
@@ -812,24 +796,6 @@ function handleServingsBlur() {
   setTimeout(() => {
     showLogButton.value = false
   }, 200)
-}
-
-function confirmDeleteMeal(id) {
-  mealToDelete.value = id
-  showDeleteModal.value = true
-}
-
-function confirmDelete() {
-  showDeleteModal.value = false
-  showFinalDeleteModal.value = true
-}
-
-async function finalDelete() {
-  showFinalDeleteModal.value = false
-  if (mealToDelete.value) {
-    await removeMeal(mealToDelete.value)
-    mealToDelete.value = null
-  }
 }
 
 function saveGoals() {
@@ -1042,7 +1008,6 @@ onMounted(async () => {
 }
 
 .btn-primary {
-  /* background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important; */
   background: linear-gradient(135deg, #5568d3 0%, #653a91 100%) !important;
   border: none !important;
   font-weight: 500;
@@ -1311,7 +1276,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0,  0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
