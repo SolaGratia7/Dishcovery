@@ -8,7 +8,7 @@
         <div class="hero-content">
           <div class="animate-fade-in">
             <div class="mx-auto mb-3">
-              <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#6b46c1" stroke-width="2">
+              <svg xmlns="http://www.w3.org/200 0/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#6b46c1" stroke-width="2">
                 <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
                 <line x1="6" y1="17" x2="18" y2="17"/>
               </svg>
@@ -788,7 +788,10 @@ const toggleFavourite = async (recipe) => {
 
   background:
     linear-gradient(135deg, rgba(255, 107, 26, 0.15) 0%, rgba(255, 152, 0, 0.15) 100%),
-    url('https://images.unsplash.com/photo-1556911220-bff31c812dba?w=1200') center/cover;
+    /* url('https://images.unsplash.com/photo-1556911220-bff31c812dba?w=1200') center/cover; */
+    /* url('https://plus.unsplash.com/premium_photo-1684445034987-5c13450cb5b1?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=2940') center/cover; */
+    url('/background.jpg') center/cover;
+
   background-attachment: fixed;
 }
 
