@@ -151,9 +151,11 @@ const closeModal = () => {
   align-items: flex-start;
   justify-content: center;
   z-index: 1000;
-  padding: 1rem;
-  padding-top: 6rem;
+  padding-top: 5rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
 }
 
@@ -164,8 +166,8 @@ const closeModal = () => {
   width: 100%;
   max-height: calc(100vh - 6rem);
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
-  margin-bottom: 2rem;
 }
 
 .btn-close-modal {

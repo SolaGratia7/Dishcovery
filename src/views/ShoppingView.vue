@@ -1,92 +1,68 @@
 <template>
   <AppLayout>
     <AnimatedBackground />
-    
-    <div class="shopping-page container py-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <!-- Header -->
-            <div class="shopping-header">
-                <div class="container">
-                <div class="header-content">
-                    <div class="shopping-text">
-                    <h1>
-                        Shopping List
-                    </h1>
-                    </div>
-                </div>
-                </div>
-            </div>
 
-            <!-- Sorting Dropdown -->
-            <div class="sort-dropdown d-flex align-items-center gap-2">
-            <label class="fw-semibold me-1 sort-label">Sort by:</label>
-            <div class="custom-select-wrapper">
-                <select v-model="sortMode" class="form-select custom-select">
-                <option value="category">Category</option>
-                <option value="alphabet">A–Z</option>
-                </select>
+    <div class="shopping-page">
+      <div class="planning-header">
+        <div class="container">
+          <div class="header-content">
+            <div class="planning-text">
+              <h1>Shopping List</h1>
+              <p>Purchase the ingredients you need efficiently and effectively</p>
             </div>
-            </div>  
-        </div>   
+          </div>
+        </div>
+      </div>
 
       <div class="container my-4">
+
+        <!-- Sorting Dropdown -->
+        <div class="sort-dropdown d-flex align-items-center gap-2 mb-4">
+          <label class="fw-semibold me-1 sort-label">Sort by:</label>
+          <div class="custom-select-wrapper">
+            <select v-model="sortMode" class="form-select custom-select">
+              <option value="category">Category</option>
+              <option value="alphabet">A–Z</option>
+            </select>
+          </div>
+        </div>
 
         <!-- Add Item Card -->
         <div class="add-item-card mb-4">
           <div class="add-item-form">
             <!-- Item Name -->
             <div class="input-wrapper">
-              <input 
-                v-model="newItemName"
-                @input="newItemName = $event.target.value.toLowerCase()"
-                type="text" 
-                :class="['form-control', 'item-input', { 'is-invalid': nameError}]" 
-                placeholder="Item Name"
-                @keyup.enter="addItem"
-              >
+              <input v-model="newItemName" @input="newItemName = $event.target.value.toLowerCase()" type="text"
+                :class="['form-control', 'item-input', { 'is-invalid': nameError }]" placeholder="Item Name"
+                @keyup.enter="addItem">
               <div v-if="nameError" class="error-text-below">
                 {{ nameError }}
               </div>
             </div>
-            
+
             <!-- Quantity -->
             <div class="input-wrapper">
-              <input 
-                v-model="newItemQuantity"
-                type="text" 
-                :class="['form-control', 'quantity-input', { 'is-invalid': qtyError }]" 
-                placeholder="Quantity"
-                @input="validateQty"
-                @keyup.enter="addItem"
-              >
+              <input v-model="newItemQuantity" type="text"
+                :class="['form-control', 'quantity-input', { 'is-invalid': qtyError }]" placeholder="Quantity"
+                @input="validateQty" @keyup.enter="addItem">
               <div v-if="qtyError" class="error-text-below">
                 {{ qtyError }}
               </div>
             </div>
-            
+
             <!-- Unit (with autocomplete) -->
             <div class="input-wrapper">
-              <div class= "unit-wrapper">
+              <div class="unit-wrapper">
                 <div class="autocomplete-wrapper">
-                  <input
-                    v-model="newItemUnit"
-                    @input="handleInput"
-                    @keydown="handleKeydown"
-                    type="text"
-                    :class="['form-control', 'unit-input', { 'is-invalid': unitError }]"
-                    placeholder="Unit (e.g., kg)"
-                    autocomplete="off"
-                  />
-                  
+                  <input v-model="newItemUnit" @input="handleInput" @keydown="handleKeydown" type="text"
+                    :class="['form-control', 'unit-input', { 'is-invalid': unitError }]" placeholder="Unit (e.g., kg)"
+                    autocomplete="off" />
+
                   <!-- Dropdown suggestions -->
                   <ul v-if="showSuggestions && filteredUnits.length > 0" class="suggestions-dropdown">
-                    <li
-                      v-for="(unit, index) in filteredUnits"
-                      :key="unit"
+                    <li v-for="(unit, index) in filteredUnits" :key="unit"
                       :class="['suggestion-item', { 'active': index === selectedIndex }]"
-                      @mousedown.prevent="selectUnit(unit)"
-                      @mouseenter="selectedIndex = index"
-                    >
+                      @mousedown.prevent="selectUnit(unit)" @mouseenter="selectedIndex = index">
                       {{ unit }}
                     </li>
                   </ul>
@@ -96,20 +72,17 @@
                 {{ unitError }}
               </div>
             </div>
-            
+
             <!-- Category -->
-            <div class="input-wrapper"> 
-              <input 
-                v-model="newItemCategory"
-                placeholder="Category"
+            <div class="input-wrapper">
+              <input v-model="newItemCategory" placeholder="Category"
                 :class="['form-control', 'category-select', { 'is-invalid': categoryError }]"
-                @input="capitalizeCategory"
-              />
+                @input="capitalizeCategory" />
               <div v-if="categoryError" class="error-text-below">
                 {{ categoryError }}
-              </div>                 
+              </div>
             </div>
-            
+
             <!-- Add Button -->
             <button @click="addItem" class="btn btn-primary add-btn">
               <i class="bi bi-plus-lg"></i>
@@ -142,42 +115,27 @@
 
           <div class="list-body">
             <!-- Category Groups -->
-            <div 
-              v-for="category in filteredCategories" 
-              :key="category.name"
-              class="category-group"
-            >
+            <div v-for="category in filteredCategories" :key="category.name" class="category-group">
               <div class="category-header" @click="toggleCategory(category.name)">
                 <i :class="['bi', isCategoryExpanded(category.name) ? 'bi-chevron-down' : 'bi-chevron-right']"></i>
                 <span class="category-name">{{ category.name }}</span>
 
                 <!-- Clear Category Button -->
-                <button
-                  v-if="category.items.length > 0"
-                  class="btn-clear-category"
-                  @click.stop="confirmClearCategory(category.name)"
-                  title="Clear all items in this category"
-                >
+                <button v-if="category.items.length > 0" class="btn-clear-category"
+                  @click.stop="confirmClearCategory(category.name)" title="Clear all items in this category">
                   <i class="bi bi-trash"></i>
                   Clear
                 </button>
 
                 <span class="category-count">{{ category.items.length }}</span>
-          
+
               </div>
 
               <div v-show="isCategoryExpanded(category.name)" class="category-items">
-                <div 
-                  v-for="item in category.items" 
-                  :key="item.id"
-                  :class="['list-item', { 'purchased': item.purchased }]"
-                >
-                  <input 
-                    type="checkbox" 
-                    :checked="item.purchased"
-                    @change="togglePurchased(item.id)"
-                    class="item-checkbox"
-                  >
+                <div v-for="item in category.items" :key="item.id"
+                  :class="['list-item', { 'purchased': item.purchased }]">
+                  <input type="checkbox" :checked="item.purchased" @change="togglePurchased(item.id)"
+                    class="item-checkbox">
                   <span class="item-name">{{ item.name }}</span>
                   <span class="item-quantity">{{ item.quantity }} {{ item.unit }}</span>
                   <button @click="deleteItem(item.id)" class="btn-delete">
@@ -239,7 +197,7 @@ const validateName = () => {
   if (!newItemName.value.trim()) {
     nameError.value = 'Item name is required'
     return false
-  } 
+  }
   else {
     nameError.value = ''
     return true
@@ -248,11 +206,11 @@ const validateName = () => {
 
 const validateQty = () => {
   const value = newItemQuantity.value.trim()
-  
+
   if (!value) {
     qtyError.value = 'Quantity is required'
     return false
-  } 
+  }
   else if (!/^\d+(\.\d+)?$/.test(value)) {
     qtyError.value = 'Please enter a valid number'
     return false
@@ -265,7 +223,7 @@ const validateQty = () => {
 
 const validateUnit = () => {
   const value = newItemUnit.value.trim()
-  
+
   if (!value) {
     unitError.value = 'Unit is required'
     return false
@@ -277,7 +235,7 @@ const validateUnit = () => {
 
 const validateCategory = () => {
   const value = newItemCategory.value.trim()
-  
+
   if (!value) {
     categoryError.value = 'Category is required'
     return false
@@ -297,8 +255,8 @@ function capitalizeCategory(event) {
 
 // Available units
 const units = [
-  'piece', 'kg', 'g', 'lbs', 'oz', 
-  'gallon', 'liter', 'carton', 'bottle', 'can', 
+  'piece', 'kg', 'g', 'lbs', 'oz',
+  'gallon', 'liter', 'carton', 'bottle', 'can',
   'box', 'bag', 'bunch', 'loaf', 'dozen', 'cup'
 ]
 
@@ -312,7 +270,7 @@ function displayToast(message) {
 // Filter units based on input
 const filteredUnits = computed(() => {
   if (!newItemUnit.value) return []
-  
+
   const input = newItemUnit.value.toLowerCase()
   return units.filter(unit => unit.toLowerCase().startsWith(input)).sort()
 })
@@ -320,7 +278,7 @@ const filteredUnits = computed(() => {
 // Ghost text suggestion (first match)
 const suggestion = computed(() => {
   if (!newItemUnit.value || filteredUnits.value.length === 0) return ''
-  
+
   const firstMatch = filteredUnits.value[0]
   return firstMatch.slice(newItemUnit.value.length)
 })
@@ -345,24 +303,24 @@ const handleKeydown = (e) => {
         showSuggestions.value = false
       }
       break
-      
+
     case 'ArrowDown':
       e.preventDefault()
       selectedIndex.value = Math.min(selectedIndex.value + 1, filteredUnits.value.length - 1)
       break
-      
+
     case 'ArrowUp':
       e.preventDefault()
       selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
       break
-      
+
     case 'Enter':
       e.preventDefault()
       if (filteredUnits.value.length > 0) {
         selectUnit(filteredUnits.value[selectedIndex.value])
       }
       break
-      
+
     case 'Escape':
       showSuggestions.value = false
       break
@@ -391,7 +349,7 @@ watch(
 const confirmClearCategory = async (categoryName) => {
   // Find items in the category
   const categoryItems = filteredCategories.value.find(c => c.name === categoryName)?.items || []
-  
+
   if (!categoryItems.length) {
     await Swal.fire({
       icon: 'info',
@@ -575,12 +533,12 @@ async function addItem() {
       // Update existing item's quantity
       try {
         const newQty = parseFloat(existingItem.quantity) + parseFloat(newItemQuantity.value || 1)
-        
+
         const { error } = await supabase
           .from('shopping_items')
-          .update({ 
+          .update({
             quantity: newQty.toString(),
-            unit: newItemUnit.value 
+            unit: newItemUnit.value
           })
           .eq('id', existingItem.id)
           .eq('user_id', currentUser.value.id)
@@ -659,7 +617,7 @@ async function addItem() {
     qtyError.value = ''
     unitError.value = ''
     categoryError.value = ''
-    
+
     await Swal.fire({
       icon: 'success',
       title: 'Added!',
@@ -719,7 +677,7 @@ async function deleteItem(itemId) {
       .delete()
       .eq('id', itemId)
       .eq('user_id', currentUser.value.id) // ← Add user_id check for security
-    
+
     if (error) throw error
 
     await fetchShoppingItems() // ← Better than manual filter
@@ -762,14 +720,27 @@ onMounted(async () => {
 }
 
 /* Header */
-.shopping-header {
-  padding: 2rem 0;
-}
-
 .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-top: 1rem;
+}
+
+.planning-text h1 {
+  color: #6b46c1;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.planning-text p {
+  color: #666;
+  margin: 0;
+}
+
+.shopping-text {
+  text-align: left !important;
 }
 
 .shopping-text h1 {
@@ -792,7 +763,7 @@ onMounted(async () => {
   z-index: 100;
 }
 
-.unit-wrapper{
+.unit-wrapper {
   width: 180px;
 }
 
@@ -839,11 +810,14 @@ onMounted(async () => {
 /* Sort Dropdown Styling */
 .sort-dropdown {
   background: rgba(255, 255, 255, 0.9);
-  padding: 0.5rem 1rem;
+  padding: 1.25rem;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(8px);
-  width: fit-content;
+  backdrop-filter: blur(10px);
+  width: 100%;
+  overflow: visible;
+  position: relative;
+  z-index: 10;
 }
 
 .sort-label {
@@ -857,7 +831,7 @@ onMounted(async () => {
 }
 
 .custom-select {
-    width: 140px;
+  width: 140px;
 }
 
 /* Filter Tabs */
@@ -1140,7 +1114,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  margin-left: auto; /* ← Pushes button to the right */
+  margin-left: auto;
+  /* ← Pushes button to the right */
   opacity: 0;
   transform: translateX(10px);
 }
@@ -1181,6 +1156,7 @@ onMounted(async () => {
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -1261,6 +1237,14 @@ onMounted(async () => {
     flex-direction: column;
     gap: 1rem;
     align-items: flex-start;
+  }
+
+  .header-content {
+    justify-content: flex-start;
+  }
+
+  .shopping-text h1 {
+    text-align: left !important;
   }
 
   .sort-dropdown {
