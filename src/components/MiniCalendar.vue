@@ -244,9 +244,15 @@ function selectMonth(monthIndex) {
 
 function changeMonth(delta) {
   const newDate = new Date(miniCalendarDate.value)
+  const day = newDate.getDate()
+  newDate.setDate(1)
   newDate.setMonth(newDate.getMonth() + delta)
+  const daysInTargetMonth = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate()
+  newDate.setDate(Math.min(day, daysInTargetMonth))
+
   miniCalendarDate.value = newDate
 }
+
 
 function formatDateLocal(date) {
   const year = date.getFullYear()
