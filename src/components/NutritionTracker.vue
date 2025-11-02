@@ -120,8 +120,106 @@
           </div>
         </div>
 
+        <!-- Mode Toggle (visible on medium screens) -->
+        <div class="mode-toggle-card mb-4">
+          <div class="toggle-container">
+            <div :class="['toggle-slider', { 'right': viewMode === 'log' }]"></div>
+            <button
+              :class="['toggle-btn', { 'active': viewMode === 'meals' }]"
+              @click="viewMode = 'meals'"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem;">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+              View Meals
+            </button>
+            <button
+              :class="['toggle-btn', { 'active': viewMode === 'log' }]"
+              @click="viewMode = 'log'"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem;">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              Log Meal
+            </button>
+          </div>
+        </div>
+
+        <!-- Meals View Content (Calendar + Meals List) -->
+        <div class="meals-view-wrapper">
+          <!-- Calendar moved here for medium screens -->
+          <div class="calendar-sidebar-responsive">
+            <div class="calendar-section">
+              <div class="calendar-dropdown scrollable-card">
+                <div class="calendar-header">
+                  <h6>View Nutrition History</h6>
+                  <small class="text-muted">Choose from a highlighted date to view that day's nutrition data</small>
+                </div>
+                <div class="selected-date-display">
+                  <small class="text-muted">Selected: {{ formatDisplayDate(selectedDate) }}</small>
+                </div>
+                <div class="calendar-container">
+                  <MiniCalendar
+                    :currentWeek="selectedDate"
+                    :selectedDates="[selectedDateStr]"
+                    :datesWithMeals="datesWithMeals"
+                    mode="single"
+                    :highlight-selected="true"
+                    :autoClose="false"
+                    @select-date="onDateSelect"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Today's Meals -->
+          <div class="nutrition-card meals-section scrollable-card">
+            <h5 class="mb-3">{{ selectedDateStr === todayStr ? "Today's" : selectedDateStr + "'s" }} Meals</h5>
+            <div v-if="isLoadingMeals" class="empty-state">
+              <span class="loading-spinner-large"></span>
+              <p>Loading meals...</p>
+            </div>
+            <div v-else-if="currentMeals.length === 0" class="empty-state">
+              <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">🍽️</div>
+              <p>No meals logged yet. Log a meal above!</p>
+            </div>
+            <div v-else class="meals-list-container">
+              <div
+                v-for="meal in currentMeals"
+                :key="meal.id"
+                class="meal-item"
+              >
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="meal-details">
+                    <strong>{{ meal.name }}</strong>
+                    <div class="small text-muted">
+                      {{ Math.round(meal.calories) }} cal | {{ meal.protein.toFixed(1) }}g protein | {{ meal.carbs.toFixed(1) }}g carbs | {{ meal.fat.toFixed(1) }}g fat
+                    </div>
+                    <div class="small text-muted">Servings: {{ meal.servings }}</div>
+                  </div>
+                  <button
+                    class="btn btn-outline-danger btn-sm delete-btn"
+                    @click="handleDeleteMeal(meal)"
+                    title="Delete meal"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Log Meal Form -->
-        <div class="nutrition-card">
+        <div class="nutrition-card log-meal-section">
           <h5 class="mb-3">Log Meal</h5>
           <div class="alert-custom alert-warning">
             <small>⚠️ Only meals/foods recognized by Spoonacular can be logged. Start typing to see suggestions.</small>
@@ -187,43 +285,37 @@
               </div>
             </div>
           </form>
-        </div>
 
-        <!-- Today's Meals -->
-        <div class="nutrition-card">
-          <h5 class="mb-3">{{ selectedDateStr === todayStr ? "Today's" : selectedDateStr + "'s" }} Meals</h5>
-          <div v-if="isLoadingMeals" class="empty-state">
-            <span class="loading-spinner-large"></span>
-            <p>Loading meals...</p>
-          </div>
-          <div v-else-if="currentMeals.length === 0" class="empty-state">
-            <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">🍽️</div>
-            <p>No meals logged yet. Log a meal above!</p>
-          </div>
-          <div v-else>
-            <div
-              v-for="meal in currentMeals"
-              :key="meal.id"
-              class="meal-item"
-            >
-              <div class="d-flex justify-content-between align-items-center">
-                <div class="meal-details">
-                  <strong>{{ meal.name }}</strong>
-                  <div class="small text-muted">
-                    {{ Math.round(meal.calories) }} cal | {{ meal.protein.toFixed(1) }}g protein | {{ meal.carbs.toFixed(1) }}g carbs | {{ meal.fat.toFixed(1) }}g fat
+          <!-- Logged Meals in Log Mode -->
+          <div class="logged-meals-in-form mt-4">
+            <h6 class="mb-3">{{ selectedDateStr === todayStr ? "Today's" : selectedDateStr + "'s" }} Logged Meals</h6>
+            <div v-if="isLoadingMeals" class="empty-state-compact">
+              <span class="loading-spinner-small"></span>
+              <p>Loading...</p>
+            </div>
+            <div v-else-if="currentMeals.length === 0" class="empty-state-compact">
+              <p>No meals logged yet</p>
+            </div>
+            <div v-else class="meals-scroll-container">
+              <div
+                v-for="meal in currentMeals"
+                :key="meal.id"
+                class="meal-item-compact"
+              >
+                <div class="meal-content">
+                  <strong class="meal-name">{{ meal.name }}</strong>
+                  <div class="small text-muted meal-info">
+                    {{ Math.round(meal.calories) }} cal | {{ meal.protein.toFixed(1) }}g P | {{ meal.carbs.toFixed(1) }}g C | {{ meal.fat.toFixed(1) }}g F
                   </div>
-                  <div class="small text-muted">Servings: {{ meal.servings }}</div>
                 </div>
                 <button
-                  class="btn btn-outline-danger btn-sm delete-btn"
+                  class="btn-delete-compact"
                   @click="handleDeleteMeal(meal)"
                   title="Delete meal"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="3 6 5 6 21 6"></polyline>
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    <line x1="10" y1="11" x2="10" y2="17"></line>
-                    <line x1="14" y1="11" x2="14" y2="17"></line>
                   </svg>
                 </button>
               </div>
@@ -305,89 +397,7 @@ const localFoodsDB = [
   { id: 5022, name: "Pancakes", calories: 520, protein: 12, carbs: 78, fat: 18 },
   { id: 5023, name: "French Toast", calories: 480, protein: 14, carbs: 68, fat: 16 },
   { id: 5024, name: "Avocado Toast", calories: 320, protein: 12, carbs: 38, fat: 14 },
-  { id: 5025, name: "Smoothie Bowl", calories: 380, protein: 8, carbs: 72, fat: 8 },
-  { id: 5026, name: "Mushroom Quesadillas", calories: 420, protein: 16, carbs: 45, fat: 18 },
-  { id: 5027, name: "Cinnamon Rolls", calories: 480, protein: 8, carbs: 68, fat: 20 },
-  { id: 5028, name: "Mung Bean Sprout and Quinoa Salad", calories: 290, protein: 12, carbs: 38, fat: 10 },
-  { id: 5029, name: "Orange Ginger Granola Bars", calories: 220, protein: 5, carbs: 32, fat: 9 },
-  { id: 5030, name: "Cold Soba Noodles", calories: 310, protein: 14, carbs: 52, fat: 6 },
-  { id: 5031, name: "Grilled Portabella and Poblano Tacos", calories: 280, protein: 10, carbs: 35, fat: 12 },
-  { id: 5032, name: "Instant Pot Quinoa Grain Bowl", calories: 380, protein: 14, carbs: 58, fat: 11 },
-  { id: 5033, name: "Strawberries and Cream Scones", calories: 340, protein: 6, carbs: 48, fat: 14 },
-  { id: 5034, name: "Avocado Tomato & Mozzarella Panini", calories: 420, protein: 18, carbs: 38, fat: 22 },
-  { id: 5035, name: "One Pot Veggie Quinoa", calories: 320, protein: 11, carbs: 52, fat: 8 },
-  { id: 5036, name: "Smoky Black Bean Soup With Sweet Potato & Kale", calories: 280, protein: 14, carbs: 48, fat: 5 },
-  { id: 5037, name: "Easy Avocado Egg Quinoa Breakfast Bowl", calories: 390, protein: 16, carbs: 42, fat: 18 },
-  { id: 5038, name: "Avocado and Orange Salad With Orange-Ginger Dressing", calories: 250, protein: 4, carbs: 28, fat: 14 },
-  { id: 5039, name: "Breakfast Tacos", calories: 380, protein: 18, carbs: 32, fat: 20 },
-  { id: 5040, name: "Indian Lentil Dahl", calories: 310, protein: 16, carbs: 48, fat: 7 },
-  { id: 5041, name: "Cracked Wheat Cereal", calories: 260, protein: 8, carbs: 52, fat: 3 },
-  { id: 5042, name: "Coriander Ravioli With Pumpkin & Cottage Cheese Filling", calories: 420, protein: 18, carbs: 52, fat: 16 },
-  { id: 5043, name: "Black Lentil and Couscous Salad", calories: 340, protein: 15, carbs: 55, fat: 8 },
-  { id: 5044, name: "Cinnamon Buns With Maple Glaze", calories: 510, protein: 9, carbs: 72, fat: 21 },
-  { id: 5045, name: "Lemon White Wine Chicken over Linguini", calories: 540, protein: 38, carbs: 58, fat: 14 },
-  { id: 5046, name: "Farfalle with Peas, Ham and Cream", calories: 580, protein: 28, carbs: 62, fat: 24 },
-  { id: 5047, name: "Cauliflower, Brown Rice, and Vegetable Fried Rice", calories: 320, protein: 10, carbs: 54, fat: 8 },
-  { id: 5048, name: "Bruschetta Style Pork & Pasta", calories: 520, protein: 32, carbs: 56, fat: 18 },
-  { id: 5049, name: "Mushroom Tarragon Fish", calories: 280, protein: 32, carbs: 12, fat: 12 },
-  { id: 5050, name: "Agedashi Tofu", calories: 240, protein: 14, carbs: 18, fat: 12 },
-  { id: 5051, name: "Lemon Scented Polenta Pancakes with Blueberry Thyme Syrup", calories: 420, protein: 8, carbs: 68, fat: 14 },
-  { id: 5052, name: "Ozoni", calories: 290, protein: 12, carbs: 42, fat: 8 },
-  { id: 5053, name: "Lemon-Poppy Seed Scones", calories: 380, protein: 7, carbs: 52, fat: 16 },
-  { id: 5054, name: "Potato Gnocchi With Kale and Mushrooms In A Goat Cheese Sauce", calories: 480, protein: 16, carbs: 58, fat: 20 },
-  { id: 5055, name: "Korean Sweet n Sour Chicken", calories: 460, protein: 32, carbs: 52, fat: 14 },
-  { id: 5056, name: "Beef Lo Mein Noodles", calories: 520, protein: 28, carbs: 62, fat: 18 },
-  { id: 5057, name: "Boozy Bbq Chicken", calories: 410, protein: 36, carbs: 28, fat: 16 },
-  { id: 5058, name: "Caldo Verde - Portuguese Kale Soup", calories: 280, protein: 14, carbs: 32, fat: 11 },
-  { id: 5059, name: "Chocolate Chip Coconut Muffins", calories: 340, protein: 6, carbs: 48, fat: 15 },
-  { id: 5060, name: "Roasted Chicken and Brown Rice Soup", calories: 320, protein: 24, carbs: 38, fat: 9 },
-  { id: 5061, name: "Thai Basil Chicken With Green Curry", calories: 420, protein: 32, carbs: 28, fat: 20 },
-  { id: 5062, name: "Carrot Quinoa Muffins", calories: 280, protein: 7, carbs: 42, fat: 10 },
-  { id: 5063, name: "3 Delicious Twists on an Egg Salad Sandwich", calories: 380, protein: 18, carbs: 32, fat: 20 },
-  { id: 5064, name: "Classic Wedge Salad", calories: 320, protein: 12, carbs: 18, fat: 24 },
-  { id: 5065, name: "Chicken Sweet Corn and Green Chile Chowder", calories: 380, protein: 26, carbs: 42, fat: 12 },
-  { id: 5066, name: "Easy Zesty Blueberry Muffins with Streusel Topping", calories: 360, protein: 6, carbs: 54, fat: 14 },
-  { id: 5067, name: "Gluten Free Almond Blueberry Coffee Cake", calories: 420, protein: 9, carbs: 58, fat: 18 },
-  { id: 5068, name: "Duck Breast with Redcurrant and Port Sauce", calories: 480, protein: 38, carbs: 22, fat: 28 },
-  { id: 5069, name: "Bigoli with smoked salmon", calories: 520, protein: 28, carbs: 58, fat: 18 },
-  { id: 5070, name: "Colorful Tomato and Spinach Seafood Pasta", calories: 440, protein: 32, carbs: 52, fat: 12 },
-  { id: 5071, name: "Easy Chicken, Kielbasa and Shrimp Paella", calories: 560, protein: 38, carbs: 58, fat: 18 },
-  { id: 5072, name: "Black Bean Garlic Shrimp Scramble", calories: 340, protein: 28, carbs: 24, fat: 14 },
-  { id: 5073, name: "Easy Chicken Wings", calories: 480, protein: 32, carbs: 8, fat: 36 },
-  { id: 5074, name: "Lemon Rosemary Chickpea Soup", calories: 290, protein: 14, carbs: 42, fat: 8 },
-  { id: 5075, name: "Asparagus Parmesan Frittata", calories: 280, protein: 18, carbs: 8, fat: 20 },
-  { id: 5076, name: "Egg Salad Wrap", calories: 360, protein: 16, carbs: 32, fat: 18 },
-  { id: 5077, name: "Creamy Chicken Tikka Masala", calories: 520, protein: 36, carbs: 32, fat: 28 },
-  { id: 5078, name: "Quiche with Swiss Chard and Mushroom", calories: 380, protein: 16, carbs: 28, fat: 24 },
-  { id: 5079, name: "Mushroom Barley Soup", calories: 240, protein: 8, carbs: 42, fat: 5 },
-  { id: 5080, name: "A Post Thanksgiving Sopa De Tortilla", calories: 320, protein: 18, carbs: 38, fat: 11 },
-  { id: 5081, name: "Paneer & Fig Pizza", calories: 480, protein: 20, carbs: 58, fat: 18 },
-  { id: 5082, name: "Mushroom Tofu Stew", calories: 260, protein: 16, carbs: 28, fat: 10 },
-  { id: 5083, name: "Poached Egg With Spinach and Tomato", calories: 220, protein: 14, carbs: 12, fat: 14 },
-  { id: 5084, name: "Blast Of Color Mexican Stuffed Bell Peppers", calories: 340, protein: 22, carbs: 38, fat: 12 },
-  { id: 5085, name: "No Fuss Sunday Slow-Cooker Balsamic Pot Roast", calories: 420, protein: 36, carbs: 18, fat: 24 },
-  { id: 5086, name: "Three-Cup Chicken", calories: 380, protein: 32, carbs: 22, fat: 18 },
-  { id: 5087, name: "Strawberry Poppy Seed Muffins", calories: 320, protein: 6, carbs: 48, fat: 12 },
-  { id: 5088, name: "Grilled Chicken Banh Mi", calories: 420, protein: 32, carbs: 42, fat: 14 },
-  { id: 5089, name: "Pan Seared Lamb Loin With Chimichurri", calories: 520, protein: 38, carbs: 12, fat: 36 },
-  { id: 5090, name: "Cherry Coconut Milk Smoothie", calories: 280, protein: 4, carbs: 42, fat: 12 },
-  { id: 5091, name: "Gluten Free Dairy Free Sugar Free Chinese Chicken Salad", calories: 320, protein: 28, carbs: 24, fat: 14 },
-  { id: 5092, name: "Persimmon, Pomegranate, and Goat Cheese Salad", calories: 290, protein: 8, carbs: 32, fat: 15 },
-  { id: 5093, name: "Duck Egg Omelette With Caviar and Sour Cream", calories: 380, protein: 22, carbs: 6, fat: 30 },
-  { id: 5094, name: "Applesauce Carrot Cake Muffins", calories: 310, protein: 5, carbs: 48, fat: 12 },
-  { id: 5095, name: "Beef With Oranges and Spices", calories: 440, protein: 32, carbs: 28, fat: 24 },
-  { id: 5096, name: "Celery, Orange and Smoked Mackerel Salad", calories: 320, protein: 24, carbs: 18, fat: 18 },
-  { id: 5097, name: "Slow Cooker Spicy Hot Wings", calories: 460, protein: 36, carbs: 12, fat: 32 },
-  { id: 5098, name: "Black Muffins", calories: 340, protein: 7, carbs: 52, fat: 13 },
-  { id: 5099, name: "Layered Chicken Salad With Couscous", calories: 380, protein: 28, carbs: 42, fat: 11 },
-  { id: 5100, name: "Chicken Ranch Burgers", calories: 520, protein: 34, carbs: 38, fat: 26 },
-  { id: 5101, name: "Wan Ton Mee", calories: 420, protein: 22, carbs: 58, fat: 11 },
-  { id: 5102, name: "Easy Sheet Pan Pancakes", calories: 480, protein: 12, carbs: 72, fat: 16 },
-  { id: 5103, name: "Pan-Seared Honey Glazed Salmon with Collard Greens", calories: 460, protein: 36, carbs: 28, fat: 22 },
-  { id: 5104, name: "Gluten Free Frosted Pumpkin Doughnuts", calories: 380, protein: 6, carbs: 58, fat: 15 },
-  { id: 5105, name: "Baked Spare Ribs With Red Wine Lees", calories: 580, protein: 32, carbs: 18, fat: 42 },
-  { id: 5106, name: "Classic French Mussels", calories: 320, protein: 28, carbs: 18, fat: 14 },
-  { id: 5107, name: "Miniature Fruit Tarts", calories: 280, protein: 4, carbs: 42, fat: 11 }
+  { id: 5025, name: "Smoothie Bowl", calories: 380, protein: 8, carbs: 72, fat: 8 }
 ]
 
 // Reactive data
@@ -414,6 +424,7 @@ let autocompleteTimeout = null
 const showLogButton = ref(false)
 const showGoalsModal = ref(false)
 const tempGoals = ref({ ...goals.value })
+const viewMode = ref('meals') // 'meals' or 'log'
 
 // Charts refs
 const macroChartCanvas = ref(null)
@@ -690,57 +701,6 @@ function selectMeal(suggestion) {
   mealSuggestions.value = []
 }
 
-async function logMeal2() {
-  if (!selectedFood.value) {
-    await Swal.fire('Invalid Selection', 'Please select a valid food/meal from the suggestions', 'info')
-    return
-  }
-
-  if (mealServings.value <= 0) {
-    await Swal.fire('Invalid Servings', 'Please enter a valid number of servings', 'info')
-    return
-  }
-
-  isLogging.value = true
-
-  try {
-    const nutrition = await getFoodNutrition(selectedFood.value.id)
-
-    const newMeal = {
-      id: Date.now(),
-      spoonacularId: selectedFood.value.id,
-      name: selectedFood.value.name || selectedFood.value.title,
-      servings: mealServings.value,
-      calories: nutrition.calories * mealServings.value,
-      protein: nutrition.protein * mealServings.value,
-      carbs: nutrition.carbs * mealServings.value,
-      fat: nutrition.fat * mealServings.value,
-      date: selectedDateStr.value,
-      timestamp: new Date().toISOString()
-    }
-
-    const success = await saveMealToSupabase(newMeal)
-    
-    if (success) {
-      await loadMealsFromSupabase()
-      updateCharts()
-
-      mealName.value = ''
-      mealServings.value = 1
-      selectedFood.value = null
-      showLogButton.value = false
-      
-      await Swal.fire('Meal Logged!', 'Your meal has been successfully logged.', 'success')
-    } else {
-      await Swal.fire('Saved Locally', 'Failed to save to database. Meal saved locally instead.', 'warning')
-    }
-  } catch (error) {
-    console.error(error)
-    await Swal.fire('Error', 'Failed to log meal. Please try again.', 'error')
-  } finally {
-    isLogging.value = false
-  }
-}
 async function logMeal() {
   if (!selectedFood.value) {
     await Swal.fire('Invalid Selection', 'Please select a valid food/meal from the suggestions', 'info')
@@ -963,8 +923,16 @@ function setupScrollAnimations() {
 
 watch(selectedDate, updateCharts)
 
+watch(viewMode, (newMode) => {
+  // Update body attribute for CSS targeting
+  document.body.setAttribute('data-view-mode', newMode)
+})
+
 onMounted(async () => {
   try {
+    // Set initial view mode attribute
+    document.body.setAttribute('data-view-mode', viewMode.value)
+    
     // Load saved goals
     const savedGoals = localStorage.getItem('nutritionGoals')
     if (savedGoals) {
@@ -1353,7 +1321,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,  0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1431,6 +1399,189 @@ onMounted(async () => {
   gap: 0.5rem;
 }
 
+/* Mode Toggle Styles */
+.mode-toggle-card {
+  display: none;
+  margin-bottom: 1.5rem;
+}
+
+.toggle-container {
+  position: relative;
+  display: flex;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 50px;
+  padding: 4px;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: #5f6368;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  position: relative;
+  z-index: 2;
+  border-radius: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-btn:hover {
+  color: #667eea;
+}
+
+.toggle-btn.active {
+  color: white;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  height: calc(100% - 8px);
+  width: calc(50% - 4px);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50px;
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.toggle-slider.right {
+  transform: translateX(100%);
+}
+
+/* Meals view wrapper - hidden on desktop, shown on mobile */
+.meals-view-wrapper {
+  display: none;
+}
+
+.calendar-sidebar-responsive {
+  display: none;
+}
+
+/* Logged meals in form (compact style) */
+.logged-meals-in-form {
+  border-top: 2px solid #e0e0e0;
+  padding-top: 1rem;
+}
+
+.logged-meals-in-form h6 {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.empty-state-compact {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #999;
+}
+
+.loading-spinner-small {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(102, 126, 234, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--primary-color);
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 0.5rem;
+}
+
+.meals-scroll-container {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.meals-scroll-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.meals-scroll-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.meals-scroll-container::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 10px;
+}
+
+.meals-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #5568d3;
+}
+
+.meal-item-compact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 3px solid var(--primary-color);
+  transition: all 0.2s ease;
+}
+
+.meal-item-compact:hover {
+  background: #e9ecef;
+  transform: translateX(2px);
+}
+
+.meal-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.meal-name {
+  display: block;
+  font-size: 0.95rem;
+  color: #333;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meal-info {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-delete-compact {
+  background: none;
+  border: none;
+  color: #dc3545;
+  padding: 0.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+}
+
+.btn-delete-compact:hover {
+  background: #dc3545;
+  color: white;
+}
+
 .form-group {
   margin-bottom: 1rem;
 }
@@ -1490,7 +1641,7 @@ onMounted(async () => {
   color: white;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 969px) {
   .progress-circle {
     width: 70px;
     height: 70px;
@@ -1537,6 +1688,165 @@ onMounted(async () => {
     height: 250px;
     min-height: 200px;
   }
+
+  /* Show toggle on medium screens */
+  .mode-toggle-card {
+    display: block;
+  }
+
+  /* Hide desktop calendar sidebar on tablets */
+  .calendar-sidebar {
+    display: none;
+  }
+
+  /* Show responsive meals view wrapper */
+  .meals-view-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .calendar-sidebar-responsive {
+    display: block;
+  }
+  /* Compact calendar styling for medium screens */
+  .calendar-sidebar-responsive .calendar-dropdown {
+    padding: 1rem;
+  }
+
+  .calendar-sidebar-responsive .calendar-header {
+    display: none;
+  }
+
+  .calendar-sidebar-responsive .calendar-header small {
+    font-size: 0.75rem;
+    display: block;
+    line-height: 1.3;
+  }
+
+  .calendar-sidebar-responsive .selected-date-display {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+  }
+
+  .calendar-sidebar-responsive .selected-date-display small {
+    font-size: 0.75rem;
+  }
+
+  /* Make calendar more compact */
+  .calendar-sidebar-responsive .calendar-container {
+    margin-top: 0.75rem;
+  }
+
+  /* Scale down calendar content */
+  .calendar-sidebar-responsive :deep(.mini-calendar) {
+    font-size: 0.85rem;
+  }
+
+  .calendar-sidebar-responsive :deep(.calendar-header) {
+    padding: 0.5rem;
+  }
+
+  .calendar-sidebar-responsive :deep(.calendar-grid) {
+    gap: 2px;
+  }
+
+  .calendar-sidebar-responsive :deep(.calendar-day) {
+    padding: 0.4rem;
+    font-size: 0.8rem;
+  }
+
+  .calendar-sidebar-responsive :deep(.weekday-header) {
+    font-size: 0.7rem;
+    padding: 0.3rem;
+  }
+  /* Make both cards same height with scrollable content */
+  .scrollable-card {
+    height: 500px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .scrollable-card .calendar-dropdown {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+  }
+
+  .scrollable-card .calendar-header {
+    flex-shrink: 0;
+    margin-bottom: 1rem;
+  }
+
+  .scrollable-card .selected-date-display {
+    flex-shrink: 0;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+  }
+
+  .scrollable-card .calendar-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .scrollable-card .meals-section {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .scrollable-card .meals-section h5 {
+    flex-shrink: 0;
+  }
+
+  .meals-list-container {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+  }
+
+  .meals-list-container::-webkit-scrollbar,
+  .scrollable-card .calendar-container::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .meals-list-container::-webkit-scrollbar-track,
+  .scrollable-card .calendar-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+
+  .meals-list-container::-webkit-scrollbar-thumb,
+  .scrollable-card .calendar-container::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 10px;
+  }
+
+  .meals-list-container::-webkit-scrollbar-thumb:hover,
+  .scrollable-card .calendar-container::-webkit-scrollbar-thumb:hover {
+    background: #5568d3;
+  }
+
+  /* Control visibility based on view mode */
+  body[data-view-mode="log"] .meals-view-wrapper {
+    display: none !important;
+  }
+
+  body[data-view-mode="meals"] .log-meal-section {
+    display: none !important;
+  }
+
+  body[data-view-mode="log"] .log-meal-section {
+    display: block !important;
+  }
+  
 }
 
 @media (max-width: 576px) {
@@ -1549,6 +1859,26 @@ onMounted(async () => {
   .modal-body,
   .modal-footer {
     padding: 1rem;
+  }
+
+  /* Stack everything vertically on small screens */
+  .meals-view-wrapper {
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  .calendar-sidebar-responsive {
+    width: 100%;
+  }
+
+  .toggle-btn {
+    font-size: 13px;
+    padding: 10px 16px;
+  }
+
+  .toggle-btn svg {
+    width: 16px;
+    height: 16px;
   }
 }
 </style>
