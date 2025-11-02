@@ -690,7 +690,7 @@ function selectMeal(suggestion) {
   mealSuggestions.value = []
 }
 
-async function logMeal() {
+async function logMeal2() {
   if (!selectedFood.value) {
     await Swal.fire('Invalid Selection', 'Please select a valid food/meal from the suggestions', 'info')
     return
@@ -734,6 +734,58 @@ async function logMeal() {
     } else {
       await Swal.fire('Saved Locally', 'Failed to save to database. Meal saved locally instead.', 'warning')
     }
+  } catch (error) {
+    console.error(error)
+    await Swal.fire('Error', 'Failed to log meal. Please try again.', 'error')
+  } finally {
+    isLogging.value = false
+  }
+}
+async function logMeal() {
+  if (!selectedFood.value) {
+    await Swal.fire('Invalid Selection', 'Please select a valid food/meal from the suggestions', 'info')
+    return
+  }
+
+  if (mealServings.value <= 0) {
+    await Swal.fire('Invalid Servings', 'Please enter a valid number of servings', 'info')
+    return
+  }
+
+  isLogging.value = true
+
+  try {
+    const nutrition = await getFoodNutrition(selectedFood.value.id)
+
+    const newMeal = {
+      id: Date.now(),
+      spoonacularId: selectedFood.value.id,
+      name: selectedFood.value.name || selectedFood.value.title,
+      servings: mealServings.value,
+      calories: nutrition.calories * mealServings.value,
+      protein: nutrition.protein * mealServings.value,
+      carbs: nutrition.carbs * mealServings.value,
+      fat: nutrition.fat * mealServings.value,
+      date: selectedDateStr.value,
+      timestamp: new Date().toISOString()
+    }
+
+    // Add to local array immediately for real-time update
+    loggedMeals.value.push(newMeal)
+    
+    // Save to localStorage
+    localStorage.setItem('nutritionMeals', JSON.stringify(loggedMeals.value))
+    
+    // Update charts with new data
+    updateCharts()
+
+    // Reset form
+    mealName.value = ''
+    mealServings.value = 1
+    selectedFood.value = null
+    showLogButton.value = false
+    
+    await Swal.fire('Meal Logged!', 'Your meal has been successfully logged.', 'success')
   } catch (error) {
     console.error(error)
     await Swal.fire('Error', 'Failed to log meal. Please try again.', 'error')
