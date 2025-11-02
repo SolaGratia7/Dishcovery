@@ -311,7 +311,69 @@
           </div>
 
           <div class="card-body">
-            <div class="table-responsive mobile-scroll">
+            <!-- Single Day View for Small Screens -->
+            <div class="single-day-view" v-if="isSmallScreen">
+              <div class="single-day-header">
+                <button
+                  @click="navigateDay(-1)"
+                  class="nav-arrow left-arrow"
+                >
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+
+                <div class="current-day-info">
+                  <h4 class="day-name">{{ currentDay.name }}</h4>
+                  <p class="day-date">{{ currentDay.dateDisplay }}</p>
+                </div>
+
+                <button
+                  @click="navigateDay(1)"
+                  class="nav-arrow right-arrow"
+                >
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+              </div>
+
+              <div class="single-day-meals">
+                <div
+                  v-for="mealType in ['breakfast', 'lunch', 'dinner']"
+                  :key="mealType"
+                  class="single-meal-card"
+                >
+                  <div class="meal-header">
+                    <h5 class="meal-type">{{ mealType.charAt(0).toUpperCase() + mealType.slice(1) }}</h5>
+                  </div>
+
+                  <div
+                    :id="`slot-${currentDay.dateStr}-${mealType}`"
+                    :class="['meal-slot-single', { 'empty': !getMeal(currentDay.dateStr, mealType), 'highlight': isHighlighted(currentDay.dateStr, mealType) }]"
+                    @click="planMeal(currentDay.dateStr, mealType)"
+                  >
+                    <div v-if="getMeal(currentDay.dateStr, mealType)" class="meal-content-single">
+                      <button
+                        class="delete-meal-btn-single"
+                        @click.stop="deleteMeal(currentDay.dateStr, mealType)"
+                        title="Remove this meal"
+                      >
+                        <i class="bi bi-trash"></i>
+                      </button>
+
+                      <img
+                        :src="getMeal(currentDay.dateStr, mealType).image"
+                        :alt="getMeal(currentDay.dateStr, mealType).title"
+                        class="meal-image-single"
+                        @error="handleImageError"
+                      >
+                      <span class="meal-title-single">{{ getMeal(currentDay.dateStr, mealType).title }}</span>
+                    </div>
+                    <span v-else class="plus-sign-single">+</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Table Views for Larger Screens -->
+            <div class="table-responsive mobile-scroll" v-else>
               <!-- Desktop Table (dates as rows) -->
               <table class="meal-planner-table desktop-table">
                 <thead>
@@ -671,6 +733,10 @@ const selectedMealType = ref('')
 const selectedRecipeId = ref('')
 const savingMeal = ref(false)
 
+// Single day view state
+const currentDayIndex = ref(0)
+const isSmallScreen = ref(false)
+
 // Search mode
 const SPOONACULAR_URL = 'https://api.spoonacular.com/recipes/complexSearch'
 const searchMode = ref('saved')
@@ -732,6 +798,11 @@ const currentWeekDisplay = computed(() => {
   const endStr = weekEnd.toLocaleDateString('en-US', options)
 
   return `${startStr} - ${endStr}`
+})
+
+// Computed for single day view
+const currentDay = computed(() => {
+  return weekDays.value[currentDayIndex.value] || weekDays.value[0]
 })
 
 const startDateDisplay = computed(() => {
@@ -830,6 +901,22 @@ function changeWeek(direction) {
   const newWeek = new Date(currentWeek.value)
   newWeek.setDate(newWeek.getDate() + (direction * 7))
   currentWeek.value = newWeek
+  // Reset to first day when changing weeks
+  currentDayIndex.value = 0
+}
+
+// Single day navigation
+function navigateDay(direction) {
+  const newIndex = currentDayIndex.value + direction
+  if (newIndex < 0) {
+    // Wrap to Saturday (last day)
+    currentDayIndex.value = weekDays.value.length - 1
+  } else if (newIndex >= weekDays.value.length) {
+    // Wrap to Sunday (first day)
+    currentDayIndex.value = 0
+  } else {
+    currentDayIndex.value = newIndex
+  }
 }
 
 function toggleCalendarDropdown() {
@@ -1543,6 +1630,20 @@ onMounted(async () => {
     currentUser.value = await getCurrentUser()
     await fetchSavedRecipes()
     await fetchMealPlans()
+
+    // Check screen size for responsive behavior
+    const checkScreenSize = () => {
+      isSmallScreen.value = window.innerWidth < 768
+    }
+
+    checkScreenSize()
+    window.addEventListener('resize', checkScreenSize)
+
+    // Set current day index to today for small screens on initial load
+    if (isSmallScreen.value) {
+      const today = new Date()
+      currentDayIndex.value = today.getDay()
+    }
   } catch (error) {
     console.error('Error initializing:', error)
     router.push('/login')
@@ -1705,6 +1806,12 @@ function closeRecipeModal() {
   font-size: 1.5rem;
   font-weight: 700;
   color: #6b46c1;
+}
+
+@media (max-width: 768px) {
+  .header-title {
+    text-align: center;
+  }
 }
 
 .week-nav {
@@ -2745,6 +2852,163 @@ function closeRecipeModal() {
   transform: scale(1.05);
 }
 
+/* Single Day View Styles (matching large screen styles) */
+.single-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  border: 2px solid rgba(255, 107, 26, 0.1);
+}
+
+.nav-arrow {
+  background: #ff9800;
+  border: 2px solid #ff9800;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+
+.nav-arrow:hover:not(:disabled) {
+  background: #ff6b1a;
+  color: white;
+  transform: scale(1.1);
+}
+
+.nav-arrow:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.current-day-info {
+  text-align: center;
+  flex: 1;
+}
+
+.day-name {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #6b46c1;
+}
+
+.day-date {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.meal-slot-single {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 1rem;
+  transition: all 0.3s;
+  background: rgba(255, 255, 255, 0.6);
+  border: 2px solid rgba(255, 107, 26, 0.1);
+}
+
+.meal-slot-single.empty {
+  background: rgba(255, 255, 255, 0.4);
+  min-height: 60px;
+}
+
+.meal-slot-single:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 26, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.meal-slot-single.highlight {
+  outline: 3px solid #ffcc00;
+  background: #fff8e6;
+  animation: pulse 1s ease-in-out;
+}
+
+.meal-content-single {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  position: relative;
+}
+
+.meal-image-single {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 107, 26, 0.2);
+}
+
+.meal-title-single {
+  font-weight: 600;
+  color: #1a1a1a;
+  word-break: break-word;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.plus-sign-single {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 107, 26, 0.1);
+  color: #ff6b1a;
+  font-size: 1.5rem;
+  font-weight: 300;
+  transition: all 0.3s;
+}
+
+.meal-slot-single:hover .plus-sign-single {
+  background: #ff6b1a;
+  color: white;
+  transform: scale(1.1);
+}
+
+.delete-meal-btn-single {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.25rem;
+  color: #dc2626;
+  opacity: 0.8;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.delete-meal-btn-single:hover {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
 /* Responsive */
 @media (max-width: 992px) {
   .day-col {
@@ -2785,11 +3049,13 @@ function closeRecipeModal() {
   .card-header-custom {
     flex-direction: column;
     gap: 1rem;
-    align-items: flex-start;
+    align-items: center;
   }
 
   .week-nav {
     flex-direction: row;
+    justify-content: center;
+    gap: 0.5rem;
   }
 
   .meal-planner-table th,
