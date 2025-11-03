@@ -218,13 +218,31 @@
                     required
                     class="form-input"
                   />
-                  <select v-model="form.unit" required class="unit-select">
-                    <option value="pcs">pcs</option>
-                    <option value="grams">grams</option>
-                    <option value="ml">ml</option>
-                    <option value="kg">kg</option>
-                    <option value="L">L</option>
-                  </select>
+                  <div class="unit-autocomplete-wrapper" style="position: relative; flex: 1;">
+                    <input
+                      type="text"
+                      v-model="form.unit"
+                      @input="handleUnitInput"
+                      @keydown="handleUnitKeydown"
+                      placeholder="Unit (e.g., kg)"
+                      required
+                      class="unit-select"
+                      autocomplete="off"
+                    />
+
+                    <!-- Dropdown suggestions -->
+                    <ul v-if="showUnitSuggestions && filteredUnits.length > 0" class="suggestions-dropdown">
+                      <li
+                        v-for="(unit, index) in filteredUnits"
+                        :key="unit"
+                        :class="['suggestion-item', { 'active': index === selectedUnitIndex }]"
+                        @mousedown.prevent="selectUnit(unit)"
+                        @mouseenter="selectedUnitIndex = index"
+                      >
+                        {{ unit }}
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
@@ -292,6 +310,72 @@ const sortByExpiration = ref(false)
 const showCalendar = ref(false)
 const calendarRef = ref(null)
 const formSubmitted = ref(false)
+const showUnitSuggestions = ref(false)
+const selectedUnitIndex = ref(0)
+
+const units = [
+  'pcs', 'kg', 'g', 'grams', 'lbs', 'oz',
+  'gallon', 'liter', 'L', 'ml', 'carton', 'bottle', 'can',
+  'box', 'bag', 'bunch', 'loaf', 'dozen', 'cup'
+]
+
+// Filter units based on input
+const filteredUnits = computed(() => {
+  if (!form.value.unit) return []
+
+  const input = form.value.unit.toLowerCase()
+  return units.filter(unit => unit.toLowerCase().startsWith(input)).sort()
+})
+
+// Handle unit input
+const handleUnitInput = () => {
+  showUnitSuggestions.value = true
+  selectedUnitIndex.value = 0
+}
+
+// Handle unit keyboard navigation
+const handleUnitKeydown = (e) => {
+  if (!showUnitSuggestions.value || filteredUnits.value.length === 0) return
+
+  switch (e.key) {
+    case 'Tab':
+    case 'ArrowRight':
+      if (filteredUnits.value.length > 0) {
+        e.preventDefault()
+        form.value.unit = filteredUnits.value[0]
+        showUnitSuggestions.value = false
+      }
+      break
+
+    case 'ArrowDown':
+      e.preventDefault()
+      selectedUnitIndex.value = Math.min(selectedUnitIndex.value + 1, filteredUnits.value.length - 1)
+      break
+
+    case 'ArrowUp':
+      e.preventDefault()
+      selectedUnitIndex.value = Math.max(selectedUnitIndex.value - 1, 0)
+      break
+
+    case 'Enter':
+      e.preventDefault()
+      if (filteredUnits.value.length > 0) {
+        selectUnit(filteredUnits.value[selectedUnitIndex.value])
+      }
+      break
+
+    case 'Escape':
+      showUnitSuggestions.value = false
+      break
+  }
+}
+
+// Select a unit
+const selectUnit = (unit) => {
+  form.value.unit = unit
+  showUnitSuggestions.value = false
+  selectedUnitIndex.value = 0
+}
 
 const capitalizeCategory = (event) => {
   const value = event.target.value
@@ -747,7 +831,7 @@ const closeModal = () => {
     name: '',
     category: '',
     quantity: '',
-    unit: 'pcs',
+    unit: '',
     expiration: ''
   }
   formSubmitted.value = false
@@ -1508,4 +1592,32 @@ onBeforeUnmount(() => {
   box-shadow: 0 4px 12px rgba(255, 107, 26, 0.3);
 }
 
+.suggestions-dropdown {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin-top: 0.25rem;
+}
+
+.suggestion-item {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.suggestion-item:hover,
+.suggestion-item.active {
+  background-color: #f3f4f6;
+}
 </style>
