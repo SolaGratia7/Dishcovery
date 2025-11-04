@@ -1439,6 +1439,7 @@ onBeforeUnmount(() => {
   border-radius: 10px;
   font-size: 1rem;
   transition: all 0.3s;
+  min-width: 80px;
 }
 
 .form-input:focus {
