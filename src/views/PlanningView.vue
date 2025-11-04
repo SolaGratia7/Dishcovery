@@ -909,10 +909,12 @@ function changeWeek(direction) {
 function navigateDay(direction) {
   const newIndex = currentDayIndex.value + direction
   if (newIndex < 0) {
-    // Wrap to Saturday (last day)
-    currentDayIndex.value = weekDays.value.length - 1
+    // Go to previous week and set to Saturday
+    changeWeek(-1)
+    currentDayIndex.value = 6
   } else if (newIndex >= weekDays.value.length) {
-    // Wrap to Sunday (first day)
+    // Go to next week and set to Sunday
+    changeWeek(1)
     currentDayIndex.value = 0
   } else {
     currentDayIndex.value = newIndex
