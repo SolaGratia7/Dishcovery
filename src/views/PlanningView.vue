@@ -660,9 +660,10 @@ const showRecipeModal = ref(false)
 const selectedRecipeForView = ref(null)
 
 const SPOONACULAR_API_KEY = [
-  '0ca96dd220c842a6bfdcddfcbcf15b5d',
-  'c96375c9282445708f1b26ce2d7e04a9',
-  '19de6749a5064deea9ebf17f2455d6bb'
+  import.meta.env.VITE_SPOONACULAR_KEY_1,
+  import.meta.env.VITE_SPOONACULAR_KEY_2,
+  import.meta.env.VITE_SPOONACULAR_KEY_3,
+  import.meta.env.VITE_SPOONACULAR_KEY_4, 
 ].filter(Boolean) // Remove any undefined keys
 
 let currentKeyIndex = 0
@@ -1137,12 +1138,22 @@ const calculatedCalories = computed(() => {
 // Auto Generate Meal Plan
 async function generateAutoMealPlan(targetCalories) {
   if (!isGoalValid.value) {
-    displayToast('Please enter valid weight and timeframe')
+    await Swal.fire({
+      icon: 'error',
+      title: 'Invalid Input',
+      text: 'Please enter valid weight and timeframe',
+      confirmButtonColor: '#6b46c1'
+    })
     return
   }
 
   if (!isDateRangeValid.value) {
-    displayToast('Please select a valid date range')
+    await Swal.fire({
+      icon: 'error',
+      title: 'Invalid Date Range',
+      text: 'Please select a valid date range',
+      confirmButtonColor: '#6b46c1'
+    })
     return
   }
 
@@ -1197,13 +1208,19 @@ async function generateAutoMealPlan(targetCalories) {
               readyInMinutes: recipe.readyInMinutes || 0,
               servings: recipe.servings || 0,
               aggregateLikes: recipe.aggregateLikes || 0,
-          summary: recipe.summary || '',
-          analyzedInstructions: recipe.analyzedInstructions || '',
-          extendedIngredients: recipe.extendedIngredients || [],
+              summary: recipe.summary || '',
+              analyzedInstructions: recipe.analyzedInstructions || '',
+              extendedIngredients: recipe.extendedIngredients || [],
               dishTypes: recipe.dishTypes || [],
               vegetarian: recipe.vegetarian || false,
               vegan: recipe.vegan || false,
-              glutenFree: recipe.glutenFree || false
+              glutenFree: recipe.glutenFree || false,
+
+              // ✅ ADD NUTRITION VALUES
+              calories: recipe.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
+              protein: recipe.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
+              carbs: recipe.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
+              fat: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,                  
             }
           }
 
@@ -1224,13 +1241,17 @@ async function generateAutoMealPlan(targetCalories) {
     const success = await saveMealPlansToSupabase()
 
     if (success) {
-      hasGeneratedPlan.value = true // Set to true after successful generation
-      // Automatically switch to manual mode
+      hasGeneratedPlan.value = true
       planningMode.value = 'manual'
-
-      // Move the currentWeek to the week containing the start date
       currentWeek.value = new Date(startDate.value)
-      displayToast('Meal plan generated successfully!')
+      
+      await Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Meal plan generated successfully!',
+        timer: 1500,  // Auto-close after 1.5 seconds
+        showConfirmButton: false,
+      })
     }
 
     setTimeout(() => {
@@ -1241,40 +1262,17 @@ async function generateAutoMealPlan(targetCalories) {
 
   } catch (error) {
     console.error('Error generating meal plan:', error)
-    displayToast('Failed to generate meal plan. Please try again.')
+    await Swal.fire({
+      icon: 'error',
+      title: 'Generation Failed',
+      text: 'Failed to generate meal plan. Please try again.',
+      confirmButtonColor: '#6b46c1'
+    })
     loadingAutoGen.value = false
     autoGenPercent.value = 0
   }
 }
 
-// async function deleteMeal(dateStr, mealType) {
-//   try {
-//     // Optimistically remove from local state
-//     if (mealPlans.value[dateStr]) {
-//       delete mealPlans.value[dateStr][mealType]
-
-//       // If no more meals for that date, remove the key entirely
-//       if (Object.keys(mealPlans.value[dateStr]).length === 0) {
-//         delete mealPlans.value[dateStr]
-//       }
-//     }
-
-//     // Delete from Supabase
-//     const { error } = await supabase
-//       .from('meal_plans')
-//       .delete()
-//       .eq('user_id', currentUser.value.id)
-//       .eq('date', dateStr)
-//       .eq('meal_type', mealType)
-
-//     if (error) throw error
-
-//     displayToast('Meal removed successfully!')
-//   } catch (error) {
-//     console.error('Error deleting meal:', error)
-//     displayToast('Failed to delete meal. Please try again.')
-//   }
-// }
 async function deleteMeal(dateStr, mealType) {
   try {
     // 🧩 First confirmation
@@ -1329,6 +1327,7 @@ async function autoSearchRecipeForMeal(targetCalories, mealType) {
       number: 5,
       addRecipeInformation: true,
       addRecipeInstructions: true,
+      addRecipeNutrition: true,
       fillIngredients: true,
       minCalories: targetCalories - 100,
       maxCalories: targetCalories + 100,
@@ -1352,6 +1351,7 @@ async function autoSearchRecipeForMeal(targetCalories, mealType) {
     }
 
     const response = await makeApiRequest(params)
+    console.log(response.data.results[0])
 
     if (response.data.results && response.data.results.length > 0) {
       return response.data.results[0]
@@ -1379,6 +1379,7 @@ async function searchOnlineRecipes(){
         number: 12,
         addRecipeInformation: true,
         addRecipeInstructions: true,
+        addRecipeNutrition: true,
         fillIngredients: true
       }
 
@@ -1438,7 +1439,13 @@ async function saveMealPlan() {
       summary: recipeToSave.summary || '',
       analyzedInstructions: recipeToSave.analyzedInstructions || '',
       extendedIngredients: recipeToSave.extendedIngredients || [],
-      dishTypes: recipeToSave.dishTypes || []
+      dishTypes: recipeToSave.dishTypes || [],
+
+        // ✅ ADD NUTRITION VALUES
+        calories: recipeToSave.calories || 0,
+        protein: recipeToSave.protein || 0,
+        carbs: recipeToSave.carbs || 0,
+        fat: recipeToSave.fat || 0      
     }
 
     console.log(mealPlans.value[selectedDate.value][selectedMealType.value].extendedIngredients)
@@ -1448,30 +1455,24 @@ async function saveMealPlan() {
     success = true
   } catch (error) {
     console.error('Error saving meal:', error)
-    displayToast('Failed to add meal. Please try again.')
+    await Swal.fire({
+      icon: 'error',
+      title: 'Generation Failed',
+      text: 'Failed to generate meal plan. Please try again.',
+      confirmButtonColor: '#6b46c1'
+    })
   } finally {
     savingMeal.value = false
     if (success) {
       closePlanMealModal()
-      displayToast('Meal added to plan')
+      await Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Meal added to plan!',
+        timer: 1500,  // Auto-close after 2 seconds
+        showConfirmButton: false,
+      })      
     }
-  }
-}
-
-async function removeMeal() {
-  if (mealPlans.value[selectedDate.value]) {
-    delete mealPlans.value[selectedDate.value][selectedMealType.value]
-
-    if (Object.keys(mealPlans.value[selectedDate.value]).length === 0) {
-      delete mealPlans.value[selectedDate.value]
-    }
-  }
-
-  const success = await saveMealPlansToSupabase()
-
-  if (success) {
-    closePlanMealModal()
-    displayToast('Meal removed from plan')
   }
 }
 
@@ -1562,7 +1563,13 @@ async function fetchMealPlans() {
         summary: plan.summary || '',
         analyzedInstructions: plan.analyzedInstructions || '',
         extendedIngredients: plan.extendedIngredients || [],
-        dishTypes: plan.dishTypes || []
+        dishTypes: plan.dishTypes || [],
+
+        // ✅ ADD NUTRITION VALUES
+        calories: plan.calories || 0,
+        protein: plan.protein || 0,
+        carbs: plan.carbs || 0,
+        fat: plan.fat || 0          
       }
     })
 
@@ -1594,7 +1601,13 @@ async function saveMealPlansToSupabase() {
             summary: meals[mealType].summary || '',
             analyzedInstructions: meals[mealType].analyzedInstructions || "",
             extendedIngredients: meals[mealType].extendedIngredients || [],
-            dishTypes: meals[mealType].dishTypes || []
+            dishTypes: meals[mealType].dishTypes || [],
+
+            // ✅ ADD NUTRITION VALUES
+            calories: meals[mealType].calories || 0,
+            protein: meals[mealType].protein || 0,
+            carbs: meals[mealType].carbs || 0,
+            fat: meals[mealType].fat || 0            
           })
         }
       })
