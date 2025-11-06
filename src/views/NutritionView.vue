@@ -298,6 +298,7 @@ import NutritionChart from '@/components/NutritionChart.vue';
 import MiniCalendar from '@/components/MiniCalendar.vue'
 import axios from 'axios'
 import Swal from 'sweetalert2'
+import dayjs from 'dayjs'
 
 const currentUser = ref(null)
 
@@ -322,6 +323,7 @@ const viewMode = ref('meals')
 
 const searchQuery = ref('')
 const recipes = ref([])
+const selectedRecipe = ref(null)
 
 const SPOONACULAR_URL = 'https://api.spoonacular.com/recipes/complexSearch'
 
@@ -333,6 +335,10 @@ const SPOONACULAR_API_KEY = [
 ]
 
 let currentKeyIndex = 0
+
+// Nutrition Chart
+const chartLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const dailyCalories = ref([0, 0, 0, 0, 0, 0, 0])
 
 // Dates
 const selectedDate = ref(new Date())
@@ -563,25 +569,28 @@ const macroChartOptions = ref({
 
 // Daily Progress Chart Data
 const progressChartData = computed(() => ({
-  labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-  datasets: [{
-    label: 'Calories',
-    data: [1800, 2100, 1950, 2200, 1850, 2050, 1650],
-    backgroundColor: 'rgba(59, 130, 246, 0.6)',
-    borderColor: 'rgba(59, 130, 246, 1)',
-    borderWidth: 2,
-    borderRadius: 8
-  }, {
-    label: 'Goal',
-    data: Array(7).fill(goals.value.calories),
-    type: 'line',
-    borderColor: 'rgba(239, 68, 68, 0.8)',
-    borderWidth: 2,
-    borderDash: [5, 5],
-    pointRadius: 0,
-    fill: false
-  }]
-}));
+  labels: chartLabels,
+  datasets: [
+    {
+      label: 'Calories',
+      data: dailyCalories.value,
+      backgroundColor: 'rgba(59, 130, 246, 0.6)',
+      borderColor: 'rgba(59, 130, 246, 1)',
+      borderWidth: 2,
+      borderRadius: 8
+    },
+    {
+      label: 'Goal',
+      data: Array(7).fill(goals.value.calories),
+      type: 'line',
+      borderColor: 'rgba(239, 68, 68, 0.8)',
+      borderWidth: 2,
+      borderDash: [5, 5],
+      pointRadius: 0,
+      fill: false
+    }
+  ]
+}))
 
 const progressChartOptions = ref({
   scales: {
@@ -783,10 +792,86 @@ const searchRecipes = async () => {
   }
 }
 
+// Fetch last 7 days from Supabase
+async function fetchWeeklyCalories() {
+  if (!currentUser.value) {
+    await getCurrentUser()
+  }
+
+  const today = dayjs().startOf('day')
+  const last7Days = Array.from({ length: 7 }, (_, i) =>
+    today.subtract(6 - i, 'day')
+  )
+
+  const { data, error } = await supabase
+    .from('meal_plans')
+    .select('date, calories')
+    .eq('user_id', currentUser.value.id)
+    .gte('date', last7Days[0].format('YYYY-MM-DD'))
+    .lte('date', today.format('YYYY-MM-DD'))
+
+  if (error) {
+    console.error('Error fetching meals:', error)
+    return
+  }
+
+  // Sum calories per day
+  const calorieMap = {}
+  for (const meal of data) {
+    const date = meal.date
+    const calories = meal.calories || 0
+    calorieMap[date] = (calorieMap[date] || 0) + calories
+  }
+
+  // Map results to the past 7 days (fill 0 if none)
+  dailyCalories.value = last7Days.map(d =>
+    calorieMap[d.format('YYYY-MM-DD')] || 0
+  )
+
+  console.log('7-day calories:', dailyCalories.value)
+}
+
+function selectRecipe(recipe) {
+  // If the same recipe is clicked again, deselect it
+  if (selectedRecipe.value?.id === recipe.id) {
+    selectedRecipe.value = null
+    resetNutritionCards()
+    return
+  }
+
+  selectedRecipe.value = recipe
+
+  // Extract nutrition info (from Spoonacular API response)
+  const nutrition = recipe.nutrition?.nutrients || []
+
+  // Helper to find nutrient values by name
+  const getNutrient = (name) => {
+    const found = nutrition.find(n => n.name.toLowerCase() === name.toLowerCase())
+    return found ? found.amount : 0
+  }
+
+  totals.value = {
+    calories: getNutrient('Calories'),
+    protein: getNutrient('Protein'),
+    carbs: getNutrient('Carbohydrates'),
+    fats: getNutrient('Fat')
+  }
+}
+
+function resetNutritionCards() {
+  totals.value = {
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fats: 0
+  }
+}
+
 onMounted(async () => {
   await getCurrentUser()           // Get logged-in user
   await getNutritionFromSupabase()  // Load their goals
   await loadDatesWithMeals()
+  await fetchWeeklyCalories()
 })
 </script>
 
@@ -1127,5 +1212,89 @@ onMounted(async () => {
 .search-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Recipe Grid */
+.recipes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.recipe-card {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s;
+}
+
+.recipe-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.recipe-image-container {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+}
+
+.recipe-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+
+.recipe-card:hover .recipe-image {
+  transform: scale(1.05);
+}
+
+.recipe-info {
+  padding: 1.25rem;
+}
+
+.recipe-title {
+  color: #1a1a1a;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.recipe-stats {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-top: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 1rem;
+}
+
+.recipe-card.selected {
+  border: 2px solid #3b82f6;  /* blue highlight */
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transform: scale(1.02);
+  transition: all 0.2s ease;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.stat i {
+  color: #ff6b1a;
+  font-size: 1rem;
 }
 </style>

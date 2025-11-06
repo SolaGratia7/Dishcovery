@@ -156,7 +156,7 @@
             </div>
             <div v-else-if="currentMeals.length === 0" class="empty-state">
               <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">🍽️</div>
-              <p>No meals logged yet. Log a meal above!</p>
+              <p>No meals plan yet. Proceed to Meal Planner to plan your meal!</p>
             </div>
             <div v-else class="meals-list-container">
               <div
@@ -193,9 +193,6 @@
         <!-- Log Meal Form -->
         <div class="nutrition-card log-meal-section">
           <h5 class="mb-3">Log Meal</h5>
-          <div class="alert-custom alert-warning">
-            <small>⚠️ Only meals/foods recognized by Spoonacular can be logged. Start typing to see suggestions.</small>
-          </div>
           <form @submit.prevent="logMeal">
             <div class="row g-3">
               <div class="col-12 col-md-5 autocomplete-container">
@@ -1963,4 +1960,44 @@ onMounted(async () => {
     height: 16px;
   }
 }
+
+/* Recipe Grid */
+.recipes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.recipe-card {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s;
+}
+
+.recipe-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.recipe-image-container {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+}
+
+.recipe-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+
+.recipe-card:hover .recipe-image {
+  transform: scale(1.05);
+}
+
 </style>
