@@ -373,7 +373,8 @@ const SPOONACULAR_API_KEY = [
   import.meta.env.VITE_SPOONACULAR_KEY_1,
   import.meta.env.VITE_SPOONACULAR_KEY_2,
   import.meta.env.VITE_SPOONACULAR_KEY_3,
-  import.meta.env.VITE_SPOONACULAR_KEY_4,  
+  import.meta.env.VITE_SPOONACULAR_KEY_4, 
+  import.meta.env.VITE_SPOONACULAR_KEY_5, 
 ]
 
 let currentKeyIndex = 0
