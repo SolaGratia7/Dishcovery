@@ -1116,24 +1116,48 @@ function handleDatePickerClickOutside(event) {
 
 // Computed for calculated calories
 const calculatedCalories = computed(() => {
-  if (!weightChange.value) return 0
+  // ✅ Treat 0 kg as “maintain weight” instead of falsy
+  const hasWeightInput = weightChange.value !== null && weightChange.value !== undefined;
 
-  // Use calculated timeframe from date range if available, otherwise use manual input
-  const effectiveTimeframe = timeframeDisplay.value ? calculatedTimeframe.value / 30 : timeframe.value
-  if (!effectiveTimeframe) return 0
+  // Use calculated timeframe from date range if available
+  const effectiveTimeframe =
+    timeframeDisplay.value ? calculatedTimeframe.value / 30 : timeframe.value;
+  if (!effectiveTimeframe) return 0;
 
-  const baseCalories = 2000
-  const totalCalories = weightChange.value * 7700
-  const dailyChange = totalCalories / (effectiveTimeframe * 30)
+  // Rough maintenance estimate
+  const maintenanceCalories = 2000;
 
-  if (goalType.value === 'lose') {
-    return Math.max(1200, Math.round(baseCalories - dailyChange))
-  } else if (goalType.value === 'gain') {
-    return Math.round(baseCalories + dailyChange)
+  // If user enters 0 kg → maintenance calories
+  if (hasWeightInput && weightChange.value === 0) {
+    return maintenanceCalories;
   }
 
-  return baseCalories
-})
+  // Total calorie difference (1 kg ≈ 7700 kcal)
+  const totalCalories = Math.abs(weightChange.value) * 7700;
+  const dailyChange = totalCalories / (effectiveTimeframe * 30);
+
+  let targetCalories = maintenanceCalories;
+
+  if (goalType.value === 'lose') {
+    targetCalories = maintenanceCalories - dailyChange;
+    targetCalories = Math.max(1200, Math.round(targetCalories));
+  } else if (goalType.value === 'gain') {
+    targetCalories = maintenanceCalories + dailyChange;
+    targetCalories = Math.min(maintenanceCalories + 1000, Math.round(targetCalories));
+  }
+
+  console.log('📊 Calorie Calculation:', {
+    goalType: goalType.value,
+    weightChange: weightChange.value,
+    timeframe: effectiveTimeframe,
+    maintenanceCalories,
+    dailyChange: Math.round(dailyChange),
+    targetCalories
+  });
+
+  return targetCalories;
+});
+
 
 // Auto Generate Meal Plan
 async function generateAutoMealPlan(targetCalories) {
@@ -1333,6 +1357,9 @@ async function autoSearchRecipeForMeal(targetCalories, mealType) {
       maxCalories: targetCalories + 100,
       sort: 'random'
     }
+
+    console.log(`minCalories: ${targetCalories - 100}`)
+    console.log(`maxCalories: ${targetCalories + 100}`)
 
     if (mealType === 'breakfast') {
       params.type = 'breakfast'
