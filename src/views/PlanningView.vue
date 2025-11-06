@@ -664,6 +664,7 @@ const SPOONACULAR_API_KEY = [
   import.meta.env.VITE_SPOONACULAR_KEY_2,
   import.meta.env.VITE_SPOONACULAR_KEY_3,
   import.meta.env.VITE_SPOONACULAR_KEY_4, 
+  import.meta.env.VITE_SPOONACULAR_KEY_5, 
 ].filter(Boolean) // Remove any undefined keys
 
 let currentKeyIndex = 0
@@ -1116,24 +1117,48 @@ function handleDatePickerClickOutside(event) {
 
 // Computed for calculated calories
 const calculatedCalories = computed(() => {
-  if (!weightChange.value) return 0
+  // ✅ Treat 0 kg as “maintain weight” instead of falsy
+  const hasWeightInput = weightChange.value !== null && weightChange.value !== undefined;
 
-  // Use calculated timeframe from date range if available, otherwise use manual input
-  const effectiveTimeframe = timeframeDisplay.value ? calculatedTimeframe.value / 30 : timeframe.value
-  if (!effectiveTimeframe) return 0
+  // Use calculated timeframe from date range if available
+  const effectiveTimeframe =
+    timeframeDisplay.value ? calculatedTimeframe.value / 30 : timeframe.value;
+  if (!effectiveTimeframe) return 0;
 
-  const baseCalories = 2000
-  const totalCalories = weightChange.value * 7700
-  const dailyChange = totalCalories / (effectiveTimeframe * 30)
+  // Rough maintenance estimate
+  const maintenanceCalories = 2000;
 
-  if (goalType.value === 'lose') {
-    return Math.max(1200, Math.round(baseCalories - dailyChange))
-  } else if (goalType.value === 'gain') {
-    return Math.round(baseCalories + dailyChange)
+  // If user enters 0 kg → maintenance calories
+  if (hasWeightInput && weightChange.value === 0) {
+    return maintenanceCalories;
   }
 
-  return baseCalories
-})
+  // Total calorie difference (1 kg ≈ 7700 kcal)
+  const totalCalories = Math.abs(weightChange.value) * 7700;
+  const dailyChange = totalCalories / (effectiveTimeframe * 30);
+
+  let targetCalories = maintenanceCalories;
+
+  if (goalType.value === 'lose') {
+    targetCalories = maintenanceCalories - dailyChange;
+    targetCalories = Math.max(1200, Math.round(targetCalories));
+  } else if (goalType.value === 'gain') {
+    targetCalories = maintenanceCalories + dailyChange;
+    targetCalories = Math.min(maintenanceCalories + 1000, Math.round(targetCalories));
+  }
+
+  console.log('📊 Calorie Calculation:', {
+    goalType: goalType.value,
+    weightChange: weightChange.value,
+    timeframe: effectiveTimeframe,
+    maintenanceCalories,
+    dailyChange: Math.round(dailyChange),
+    targetCalories
+  });
+
+  return targetCalories;
+});
+
 
 // Auto Generate Meal Plan
 async function generateAutoMealPlan(targetCalories) {
@@ -1220,7 +1245,7 @@ async function generateAutoMealPlan(targetCalories) {
               calories: recipe.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
               protein: recipe.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
               carbs: recipe.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
-              fat: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,                  
+              fats: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,                  
             }
           }
 
@@ -1334,6 +1359,9 @@ async function autoSearchRecipeForMeal(targetCalories, mealType) {
       sort: 'random'
     }
 
+    console.log(`minCalories: ${targetCalories - 100}`)
+    console.log(`maxCalories: ${targetCalories + 100}`)
+
     if (mealType === 'breakfast') {
       params.type = 'breakfast'
     } else if (mealType === 'lunch') {
@@ -1442,10 +1470,10 @@ async function saveMealPlan() {
       dishTypes: recipeToSave.dishTypes || [],
 
         // ✅ ADD NUTRITION VALUES
-        calories: recipeToSave.calories || 0,
-        protein: recipeToSave.protein || 0,
-        carbs: recipeToSave.carbs || 0,
-        fat: recipeToSave.fat || 0      
+      calories: recipeToSave.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
+      protein: recipeToSave.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
+      carbs: recipeToSave.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
+      fats: recipeToSave.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,    
     }
 
     console.log(mealPlans.value[selectedDate.value][selectedMealType.value].extendedIngredients)
@@ -1569,7 +1597,7 @@ async function fetchMealPlans() {
         calories: plan.calories || 0,
         protein: plan.protein || 0,
         carbs: plan.carbs || 0,
-        fat: plan.fat || 0          
+        fats: plan.fats || 0          
       }
     })
 
@@ -1607,7 +1635,7 @@ async function saveMealPlansToSupabase() {
             calories: meals[mealType].calories || 0,
             protein: meals[mealType].protein || 0,
             carbs: meals[mealType].carbs || 0,
-            fat: meals[mealType].fat || 0            
+            fats: meals[mealType].fats || 0            
           })
         }
       })

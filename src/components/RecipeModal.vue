@@ -35,6 +35,8 @@
                     </div>
                 </div>
                 </div>
+
+                
                 <div class="ingredients-section">
                   <h4><i class="bi bi-basket-fill me-2"></i>Ingredients</h4>
                   <ul v-if="ingredients && ingredients.length > 0" class="ingredients-list">

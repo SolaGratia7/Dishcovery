@@ -229,9 +229,9 @@
 
             <!-- Recipe Grid -->
             <div v-if="recipes.length > 0" class="recipes-grid">
-              <div 
-                v-for="recipe in recipes" 
-                :key="recipe.id" 
+              <div
+                v-for="recipe in recipes"
+                :key="recipe.id"
                 class="recipe-card"
                 :class="{ 'selected': selectedRecipe?.id === recipe.id }"
                 @click="selectRecipe(recipe)"
@@ -242,12 +242,28 @@
                     :src="recipe.image"
                     :alt="recipe.title"
                     class="recipe-image"
+                    @click.stop="showNutrition(recipe)"
                   >
+                  <button class="favorite-btn" @click.stop="toggleFavorite(recipe.id)">
+                    <i :class="isFavorited(recipe.id) ? 'bi bi-heart-fill' : 'bi bi-heart'"></i>
+                  </button>
                 </div>
 
                 <!-- Recipe Info -->
                 <div class="recipe-info">
                   <h5 class="recipe-title">{{ recipe.title }}</h5>
+
+                  <!-- Optional Summary -->
+                  <p class="recipe-description" v-if="recipe.summary">
+                    {{ stripHtml(recipe.summary).substring(0, 80) }}...
+                  </p>
+
+                  <!-- Tags -->
+                  <div class="recipe-tags">
+                    <span v-if="recipe.vegetarian" class="tag vegetarian">Vegetarian</span>
+                    <span v-if="recipe.vegan" class="tag vegan">Vegan</span>
+                    <span v-if="recipe.glutenFree" class="tag gluten-free">Gluten-Free</span>
+                  </div>
 
                   <!-- Stats -->
                   <div class="recipe-stats">
@@ -264,9 +280,19 @@
                       <span>{{ recipe.aggregateLikes }}</span>
                     </div>
                   </div>
+
+                  <!-- View Recipe Button -->
+                  <button
+                    @click.stop="showRecipeDetails(recipe)"
+                    class="btn-view-recipe"
+                  >
+                    <i class="bi bi-book me-2"></i>
+                    View Recipe
+                  </button>
                 </div>
               </div>
             </div>
+
 
             <!-- Empty State -->
             <div v-else-if="!loading" class="empty-state">
@@ -279,9 +305,53 @@
             <div v-if="loading" class="loading-state">
               <div class="spinner-border text-primary"></div>
               <p>Searching for delicious recipes...</p>
-            </div>            
+            </div>
+
+            <RecipeModal
+              :recipe="selectedRecipe"
+              @close="selectedRecipe = null"
+            />            
           <!-- Your search functionality -->
-        </div>                                
+        </div>
+
+        <!-- Nutrition Popup Modal -->
+        <div v-if="showNutritionModal" class="modal-overlay" @click="closeNutritionModal">
+          <div class="modal-content" @click.stop>
+            <button @click="closeNutritionModal" class="btn-close-modal">
+              <i class="bi bi-x-lg"></i>  
+            </button>
+
+            <div v-if="selectedRecipeForNutrition" class="nutrition-modal-body">
+              <h3 class="modal-title">
+                <i class="bi bi-bar-chart-line-fill me-2"></i>
+                {{ selectedRecipeForNutrition.title }} - Nutrition Facts
+              </h3>
+
+              <div class="nutrition-popup-grid">
+                <div class="nutrition-popup-item calories" v-if="selectedRecipeForNutrition.calories">
+                  <div class="nutrition-popup-value">{{ Math.round(selectedRecipeForNutrition.calories) }}</div>
+                  <div class="nutrition-popup-label">Calories</div>
+                </div>
+                <div class="nutrition-popup-item protein" v-if="selectedRecipeForNutrition.protein">
+                  <div class="nutrition-popup-value">{{ selectedRecipeForNutrition.protein.toFixed(1) }}g</div>
+                  <div class="nutrition-popup-label">Protein</div>
+                </div>
+                <div class="nutrition-popup-item carbs" v-if="selectedRecipeForNutrition.carbs">
+                  <div class="nutrition-popup-value">{{ selectedRecipeForNutrition.carbs.toFixed(1) }}g</div>
+                  <div class="nutrition-popup-label">Carbs</div>
+                </div>
+                <div class="nutrition-popup-item fats" v-if="selectedRecipeForNutrition.fats">
+                  <div class="nutrition-popup-value">{{ selectedRecipeForNutrition.fats.toFixed(1) }}g</div>
+                  <div class="nutrition-popup-label">Fats</div>
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <small class="text-muted">Per serving • {{ selectedRecipeForNutrition.servings }} servings</small>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </AppLayout>
@@ -296,6 +366,7 @@ import GoalModal from '@/components/GoalModal.vue';
 import NutritionCard from '@/components/NutritionCard.vue';
 import NutritionChart from '@/components/NutritionChart.vue';
 import MiniCalendar from '@/components/MiniCalendar.vue'
+import RecipeModal from '@/components/RecipeModal.vue'
 import axios from 'axios'
 import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
@@ -324,6 +395,9 @@ const viewMode = ref('meals')
 const searchQuery = ref('')
 const recipes = ref([])
 const selectedRecipe = ref(null)
+const showNutritionModal = ref(false)
+const selectedRecipeForNutrition = ref(null)
+const addedNutrition = ref(null)
 
 const SPOONACULAR_URL = 'https://api.spoonacular.com/recipes/complexSearch'
 
@@ -331,13 +405,147 @@ const SPOONACULAR_API_KEY = [
   import.meta.env.VITE_SPOONACULAR_KEY_1,
   import.meta.env.VITE_SPOONACULAR_KEY_2,
   import.meta.env.VITE_SPOONACULAR_KEY_3,
-  import.meta.env.VITE_SPOONACULAR_KEY_4,  
+  import.meta.env.VITE_SPOONACULAR_KEY_4, 
+  import.meta.env.VITE_SPOONACULAR_KEY_5, 
 ]
 
 let currentKeyIndex = 0
 
+function showRecipeDetails(recipe) {
+  selectedRecipe.value = recipe
+}
+
+function showNutrition(recipe) {
+  const nutrition = recipe.nutrition?.nutrients || []
+
+  const getNutrient = (name) => {
+    const found = nutrition.find(n => n.name.toLowerCase() === name.toLowerCase())
+    return found ? found.amount : 0
+  }
+
+  selectedRecipeForNutrition.value = {
+    title: recipe.title,
+    calories: getNutrient('Calories'),
+    protein: getNutrient('Protein'),
+    carbs: getNutrient('Carbohydrates'),
+    fats: getNutrient('Fat'),
+    servings: recipe.servings || 1
+  }
+
+  showNutritionModal.value = true
+}
+
+const savedRecipeIds = ref(new Set())
+
+const loadSavedRecipes = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('saved_recipes')
+      .select('id')
+      .eq('user_id', currentUser.value.id)
+
+    if (error) throw error
+
+    savedRecipeIds.value = new Set(data.map(r => r.id))
+  } catch (error) {
+    console.error('Error loading saved recipes:', error)
+  }
+}
+
+const isFavorited = (id) => {
+  return savedRecipeIds.value.has(id)
+}
+
+const toggleFavorite = async (id) => {
+  try {
+    const recipe = recipes.value.find(r => r.id === id)
+    if (!recipe) return
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('saved_recipes')
+      .select('id')
+      .eq('user_id', currentUser.value.id)
+      .eq('id', id)
+      .maybeSingle()
+
+    if (fetchError) throw fetchError
+
+    if (existing) {
+      // Remove from favorites
+      const { error } = await supabase
+        .from('saved_recipes')
+        .delete()
+        .eq('user_id', currentUser.value.id)
+        .eq('id', id)
+
+      if (error) throw error
+
+      savedRecipeIds.value.delete(id)
+      await Swal.fire({
+        icon: 'success',
+        title: 'Removed!',
+        text: 'Recipe removed from Favorites!',
+        timer: 1500,
+        showConfirmButton: false,
+      })
+    } else {
+      // Add to favorites
+      const { error } = await supabase
+        .from('saved_recipes')
+        .insert({
+          user_id: currentUser.value.id,
+          id: recipe.id,
+          title: recipe.title,
+          image: recipe.image,
+          readyInMinutes: recipe.readyInMinutes || 0,
+          servings: recipe.servings || 0,
+          aggregateLikes: recipe.aggregateLikes || 0,
+          summary: recipe.summary || '',
+          analyzedInstructions: recipe.analyzedInstructions
+            ? JSON.stringify(recipe.analyzedInstructions)
+            : '',
+          extendedIngredients: recipe.extendedIngredients || [],
+          dishTypes: recipe.dishTypes || [],
+          vegetarian: recipe.vegetarian || false,
+          vegan: recipe.vegan || false,
+          glutenFree: recipe.glutenFree || false,
+
+          calories: recipe.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
+          protein: recipe.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
+          carbs: recipe.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
+          fats: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,
+        })
+
+      if (error) throw error
+
+      savedRecipeIds.value.add(id)
+      await Swal.fire({
+        icon: 'success',
+        title: 'Saved!',
+        text: 'Recipe added to Favorites!',
+        timer: 1500,
+        showConfirmButton: false,
+      })
+    }
+  } catch (error) {
+    console.error('Error toggling favorite:', error)
+    Swal.fire({
+      icon: 'error',
+      title: 'Oops...',
+      text: 'Failed to update favorites. Please try again.'
+    })
+  }
+}
+
+const stripHtml = (html) => {
+  const div = document.createElement('div')
+  div.innerHTML = html
+  return div.textContent || div.innerText || ''
+}
+
+
 // Nutrition Chart
-const chartLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const chartLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const dailyCalories = ref([0, 0, 0, 0, 0, 0, 0])
 
 // Dates
@@ -792,23 +1000,27 @@ const searchRecipes = async () => {
   }
 }
 
-// Fetch last 7 days from Supabase
+// Fetch current week from Sunday to Saturday from Supabase
 async function fetchWeeklyCalories() {
   if (!currentUser.value) {
     await getCurrentUser()
   }
 
   const today = dayjs().startOf('day')
-  const last7Days = Array.from({ length: 7 }, (_, i) =>
-    today.subtract(6 - i, 'day')
+  // Find start of current week (Sunday)
+  const weekStart = today.startOf('week') // dayjs considers Sunday as start of week by default
+  const weekEnd = weekStart.add(6, 'day') // Saturday
+
+  const weekDays = Array.from({ length: 7 }, (_, i) =>
+    weekStart.add(i, 'day')
   )
 
   const { data, error } = await supabase
     .from('meal_plans')
     .select('date, calories')
     .eq('user_id', currentUser.value.id)
-    .gte('date', last7Days[0].format('YYYY-MM-DD'))
-    .lte('date', today.format('YYYY-MM-DD'))
+    .gte('date', weekStart.format('YYYY-MM-DD'))
+    .lte('date', weekEnd.format('YYYY-MM-DD'))
 
   if (error) {
     console.error('Error fetching meals:', error)
@@ -823,24 +1035,15 @@ async function fetchWeeklyCalories() {
     calorieMap[date] = (calorieMap[date] || 0) + calories
   }
 
-  // Map results to the past 7 days (fill 0 if none)
-  dailyCalories.value = last7Days.map(d =>
+  // Map results to the current week (fill 0 if none)
+  dailyCalories.value = weekDays.map(d =>
     calorieMap[d.format('YYYY-MM-DD')] || 0
   )
 
-  console.log('7-day calories:', dailyCalories.value)
+  console.log('Current week calories:', dailyCalories.value)
 }
 
 function selectRecipe(recipe) {
-  // If the same recipe is clicked again, deselect it
-  if (selectedRecipe.value?.id === recipe.id) {
-    selectedRecipe.value = null
-    resetNutritionCards()
-    return
-  }
-
-  selectedRecipe.value = recipe
-
   // Extract nutrition info (from Spoonacular API response)
   const nutrition = recipe.nutrition?.nutrients || []
 
@@ -850,12 +1053,29 @@ function selectRecipe(recipe) {
     return found ? found.amount : 0
   }
 
-  totals.value = {
+  selectedRecipeForNutrition.value = {
+    title: recipe.title,
     calories: getNutrient('Calories'),
     protein: getNutrient('Protein'),
     carbs: getNutrient('Carbohydrates'),
-    fats: getNutrient('Fat')
+    fats: getNutrient('Fat'),
+    servings: recipe.servings || 1
   }
+
+  // Update totals to show recipe's nutrition in the charts (except daily progress)
+  totals.value = {
+    calories: selectedRecipeForNutrition.value.calories,
+    protein: selectedRecipeForNutrition.value.protein,
+    carbs: selectedRecipeForNutrition.value.carbs,
+    fats: selectedRecipeForNutrition.value.fats
+  }
+
+  showNutritionModal.value = true
+}
+
+function closeNutritionModal() {
+  showNutritionModal.value = false
+  selectedRecipeForNutrition.value = null
 }
 
 function resetNutritionCards() {
@@ -870,6 +1090,7 @@ function resetNutritionCards() {
 onMounted(async () => {
   await getCurrentUser()           // Get logged-in user
   await getNutritionFromSupabase()  // Load their goals
+  await loadSavedRecipes()
   await loadDatesWithMeals()
   await fetchWeeklyCalories()
 })
@@ -1219,6 +1440,23 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
+/* Responsive adjustments for search bar and button */
+@media (max-width: 768px) {
+  .search-input-group {
+    gap: 0.25rem;
+  }
+
+  .search-input {
+    padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+    font-size: 0.9rem;
+  }
+
+  .search-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
 .results-info {
   margin-bottom: 1.5rem;
    color: #666;
@@ -1308,5 +1546,207 @@ onMounted(async () => {
 .stat i {
   color: #ff6b1a;
   font-size: 1rem;
+}
+
+.btn-view-recipe {
+  width: 100%;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #ff6b1a 0%, #ff9800 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-view-recipe:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 107, 26, 0.3);
+}
+
+.favorite-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  background: white;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s;
+}
+
+.favorite-btn:hover {
+  transform: scale(1.1);
+  background: #fee2e2;
+}
+
+.favorite-btn i {
+  font-size: 1.1rem;
+  color: #ef4444;
+}
+
+/* Nutrition Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease;
+  position: relative;
+}
+
+@keyframes modalSlideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.btn-close-modal {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 40px;
+  height: 40px;
+  background: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.btn-close-modal:hover {
+  transform: scale(1.1);
+}
+
+.nutrition-modal-body {
+  padding: 3rem 2rem 2rem 2rem;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.nutrition-popup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.nutrition-popup-item {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 12px;
+  text-align: center;
+  border: 2px solid #e9ecef;
+  transition: all 0.3s;
+}
+
+.nutrition-popup-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.nutrition-popup-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ff6b1a;
+  margin-bottom: 0.5rem;
+}
+
+/* Color variants for nutrition popup items */
+.nutrition-popup-item.calories .nutrition-popup-value {
+  color: #3b82f6; /* Blue - matches calories card */
+}
+
+.nutrition-popup-item.protein .nutrition-popup-value {
+  color: #10b981; /* Green - matches protein card */
+}
+
+.nutrition-popup-item.carbs .nutrition-popup-value {
+  color: #f59e0b; /* Orange - matches carbs card */
+}
+
+.nutrition-popup-item.fats .nutrition-popup-value {
+  color: #ef4444; /* Red - matches fats card */
+}
+
+.nutrition-popup-label {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.modal-footer {
+  text-align: center;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .modal-overlay {
+    padding-top: 80px; /* Account for fixed navbar */
+  }
+
+  .modal-content {
+    max-width: 100%;
+    margin: 0 1rem;
+  }
+
+  .nutrition-modal-body {
+    padding: 3rem 1.5rem 1.5rem 1.5rem; /* Increased top padding to avoid close button overlap */
+  }
+
+  .modal-title {
+    font-size: 1.25rem;
+  }
+
+  .nutrition-popup-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nutrition-popup-value {
+    font-size: 1.5rem;
+  }
 }
 </style>
