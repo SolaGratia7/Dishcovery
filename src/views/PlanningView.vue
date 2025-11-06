@@ -1220,7 +1220,7 @@ async function generateAutoMealPlan(targetCalories) {
               calories: recipe.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
               protein: recipe.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
               carbs: recipe.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
-              fat: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,                  
+              fats: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,                  
             }
           }
 
@@ -1445,7 +1445,7 @@ async function saveMealPlan() {
         calories: recipeToSave.calories || 0,
         protein: recipeToSave.protein || 0,
         carbs: recipeToSave.carbs || 0,
-        fat: recipeToSave.fat || 0      
+        fats: recipeToSave.fats || 0      
     }
 
     console.log(mealPlans.value[selectedDate.value][selectedMealType.value].extendedIngredients)
@@ -1569,7 +1569,7 @@ async function fetchMealPlans() {
         calories: plan.calories || 0,
         protein: plan.protein || 0,
         carbs: plan.carbs || 0,
-        fat: plan.fat || 0          
+        fats: plan.fats || 0          
       }
     })
 
@@ -1607,7 +1607,7 @@ async function saveMealPlansToSupabase() {
             calories: meals[mealType].calories || 0,
             protein: meals[mealType].protein || 0,
             carbs: meals[mealType].carbs || 0,
-            fat: meals[mealType].fat || 0            
+            fats: meals[mealType].fats || 0            
           })
         }
       })

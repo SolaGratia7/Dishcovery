@@ -337,7 +337,7 @@ const SPOONACULAR_API_KEY = [
 let currentKeyIndex = 0
 
 // Nutrition Chart
-const chartLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const chartLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const dailyCalories = ref([0, 0, 0, 0, 0, 0, 0])
 
 // Dates
@@ -792,23 +792,27 @@ const searchRecipes = async () => {
   }
 }
 
-// Fetch last 7 days from Supabase
+// Fetch current week from Sunday to Saturday from Supabase
 async function fetchWeeklyCalories() {
   if (!currentUser.value) {
     await getCurrentUser()
   }
 
   const today = dayjs().startOf('day')
-  const last7Days = Array.from({ length: 7 }, (_, i) =>
-    today.subtract(6 - i, 'day')
+  // Find start of current week (Sunday)
+  const weekStart = today.startOf('week') // dayjs considers Sunday as start of week by default
+  const weekEnd = weekStart.add(6, 'day') // Saturday
+
+  const weekDays = Array.from({ length: 7 }, (_, i) =>
+    weekStart.add(i, 'day')
   )
 
   const { data, error } = await supabase
     .from('meal_plans')
     .select('date, calories')
     .eq('user_id', currentUser.value.id)
-    .gte('date', last7Days[0].format('YYYY-MM-DD'))
-    .lte('date', today.format('YYYY-MM-DD'))
+    .gte('date', weekStart.format('YYYY-MM-DD'))
+    .lte('date', weekEnd.format('YYYY-MM-DD'))
 
   if (error) {
     console.error('Error fetching meals:', error)
@@ -823,12 +827,12 @@ async function fetchWeeklyCalories() {
     calorieMap[date] = (calorieMap[date] || 0) + calories
   }
 
-  // Map results to the past 7 days (fill 0 if none)
-  dailyCalories.value = last7Days.map(d =>
+  // Map results to the current week (fill 0 if none)
+  dailyCalories.value = weekDays.map(d =>
     calorieMap[d.format('YYYY-MM-DD')] || 0
   )
 
-  console.log('7-day calories:', dailyCalories.value)
+  console.log('Current week calories:', dailyCalories.value)
 }
 
 function selectRecipe(recipe) {
@@ -1217,6 +1221,23 @@ onMounted(async () => {
 .search-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Responsive adjustments for search bar and button */
+@media (max-width: 768px) {
+  .search-input-group {
+    gap: 0.25rem;
+  }
+
+  .search-input {
+    padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+    font-size: 0.9rem;
+  }
+
+  .search-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
 }
 
 .results-info {
