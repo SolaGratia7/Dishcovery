@@ -533,18 +533,18 @@ async function handleSaveGoals(newGoals) {
 
 // Macro Breakdown Chart Data
 const macroChartData = computed(() => ({
-  labels: ['Protein', 'Carbs', 'fats'],
+  labels: ['Fats', 'Carbs', 'Protein'],
   datasets: [{
-    data: [totals.value.protein, totals.value.carbs, totals.value.fats],
+    data: [totals.value.fats, totals.value.carbs, totals.value.protein],
     backgroundColor: [
-      'rgba(16, 185, 129, 0.8)',  // Green for protein
+      'rgba(239, 68, 68, 0.8)',  // Green for protein
       'rgba(245, 158, 11, 0.8)',  // Orange for carbs
-      'rgba(239, 68, 68, 0.8)'    // Red for fats
+      'rgba(16, 185, 129, 0.8)'    // Red for fats
     ],
     borderColor: [
-      'rgba(16, 185, 129, 1)',
+      'rgba(239, 68, 68, 1)',
       'rgba(245, 158, 11, 1)',
-      'rgba(239, 68, 68, 1)'
+      'rgba(16, 185, 129, 1)'
     ],
     borderWidth: 2
   }]
@@ -1040,6 +1040,10 @@ onMounted(async () => {
     gap: 1rem;
     align-items: flex-start;
   }
+
+  .goal-edit-btn {
+    align-self: flex-end;
+  }
 }
 
 /* Calendar and Meals */
@@ -1171,6 +1175,7 @@ onMounted(async () => {
   gap: 0.5rem;
   position: relative;
   align-items: center;
+  margin-bottom: 1.5rem;
 }
 
 .search-input-group i {
@@ -1212,6 +1217,13 @@ onMounted(async () => {
 .search-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.results-info {
+  margin-bottom: 1.5rem;
+   color: #666;
+  font-weight: 600;
+  text-align: left;
 }
 
 /* Recipe Grid */
