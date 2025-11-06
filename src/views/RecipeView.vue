@@ -206,10 +206,10 @@ const filters = ref({
 })
 
 const SPOONACULAR_API_KEY = [
-  '0ca96dd220c842a6bfdcddfcbcf15b5d',
-  'c96375c9282445708f1b26ce2d7e04a9',
-  '19de6749a5064deea9ebf17f2455d6bb',
-  'c9c026de53dd4dc38768a9d0bc9e823e'
+  import.meta.env.VITE_SPOONACULAR_KEY_1,
+  import.meta.env.VITE_SPOONACULAR_KEY_2,
+  import.meta.env.VITE_SPOONACULAR_KEY_3,
+  import.meta.env.VITE_SPOONACULAR_KEY_4,  
 ]
 
 let currentKeyIndex = 0
@@ -267,6 +267,7 @@ const searchByPantry = async () => {
       number: 12,
       addRecipeInformation: true,
       addRecipeInstructions: true,
+      addRecipeNutrition: true,
       fillIngredients: true,
       ignorePantry: true
     }
@@ -318,6 +319,7 @@ const searchWithSpecificIngredients = async (ingredients) => {
       addRecipeInformation: true,
       addRecipeInstructions: true,
       fillIngredients: true,
+      addRecipeNutrition: true,
       ignorePantry: true,
       ranking: 2 // Maximize used ingredients
     }
@@ -369,6 +371,7 @@ const searchRecipes = async () => {
       number: 12,
       addRecipeInformation: true,
       addRecipeInstructions: true,
+      addRecipeNutrition: true,
       fillIngredients: true
     }
 
@@ -455,7 +458,13 @@ const toggleFavorite = async (id) => {
       if (error) throw error
 
       savedRecipeIds.value.delete(id) // Update UI
-      showToastMessage("Recipe Removed from Favourites")
+      await Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Recipe removed from Favourites!',
+        timer: 1500,  // Auto-close after 2 seconds
+        showConfirmButton: false,
+      })         
     } else {
       // Add to favorites
       const { error } = await supabase
@@ -476,13 +485,25 @@ const toggleFavorite = async (id) => {
           dishTypes: recipe.dishTypes || [],
           vegetarian: recipe.vegetarian || false,
           vegan: recipe.vegan || false,
-          glutenFree: recipe.glutenFree || false
+          glutenFree: recipe.glutenFree || false,
+
+          // ✅ ADD NUTRITION VALUES
+          calories: recipe.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
+          protein: recipe.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
+          carbs: recipe.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
+          fat: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,          
         })
 
       if (error) throw error
 
       savedRecipeIds.value.add(id) // Update UI
-      showToastMessage('Recipe saved to Favourites!')
+      await Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Recipe saved to Favourites!',
+        timer: 1500,  // Auto-close after 2 seconds
+        showConfirmButton: false,
+      })      
     }
 
   } catch (error) {

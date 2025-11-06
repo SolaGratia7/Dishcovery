@@ -510,7 +510,7 @@ async function addItem() {
   // Find existing category with same name (case-insensitive) to maintain consistent casing
   const inputCategory = newItemCategory.value.trim()
 
-  if (existingItem.category.toLowerCase() === inputCategory.toLowerCase()) {
+  if (existingItem && existingItem.category.toLowerCase() === inputCategory.toLowerCase()) {
     const result = await Swal.fire({
       icon: 'question',
       title: 'Item Already Exists',

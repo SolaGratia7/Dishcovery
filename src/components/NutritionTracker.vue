@@ -1,36 +1,8 @@
 <template>
   <div class="nutrition-tracker">
     <div class="tracker-layout">
-      <!-- Calendar Sidebar -->
-      <div class="calendar-sidebar">
-        <div class="calendar-section">
-          <div class="calendar-dropdown">
-            <div class="calendar-header">
-              <h6>View Nutrition History</h6>
-                <small class="text-muted">Choose from a highlighted date to view that day's nutrition data</small>
-            </div>
-            <div class="selected-date-display">
-              <small class="text-muted">Selected: {{ formatDisplayDate(selectedDate) }}</small>
-            </div>
-            <div class="calendar-container">
-              <MiniCalendar
-                :currentWeek="selectedDate"
-                :selectedDates="[selectedDateStr]"
-                :datesWithMeals="datesWithMeals"
-                mode="single"
-                :highlight-selected="true"
-                :autoClose="false"
-                @select-date="onDateSelect"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Main Content -->
       <div class="main-content">
-        <h2 class="mb-4">Nutrition Tracking</h2>
-
         <!-- Nutrition Goals Section -->
         <div class="row mb-4">
           <div class="col-12">
@@ -142,7 +114,7 @@
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
-              Log Meal
+              Search Meal
             </button>
           </div>
         </div>
@@ -184,7 +156,7 @@
             </div>
             <div v-else-if="currentMeals.length === 0" class="empty-state">
               <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">🍽️</div>
-              <p>No meals logged yet. Log a meal above!</p>
+              <p>No meals plan yet. Proceed to Meal Planner to plan your meal!</p>
             </div>
             <div v-else class="meals-list-container">
               <div
@@ -221,9 +193,6 @@
         <!-- Log Meal Form -->
         <div class="nutrition-card log-meal-section">
           <h5 class="mb-3">Log Meal</h5>
-          <div class="alert-custom alert-warning">
-            <small>⚠️ Only meals/foods recognized by Spoonacular can be logged. Start typing to see suggestions.</small>
-          </div>
           <form @submit.prevent="logMeal">
             <div class="row g-3">
               <div class="col-12 col-md-5 autocomplete-container">
@@ -368,8 +337,96 @@ import Swal from 'sweetalert2'
 
 // Constants
 const USE_LOCAL_DATABASE = true
-const SPOONACULAR_API_KEY = '0ca96dd220c842a6bfdcddfcbcf15b5d'
-const API_BASE = 'https://api.spoonacular.com'
+
+//API_KEY
+const SPOONACULAR_URL = 'https://api.spoonacular.com/recipes/complexSearch'
+const SPOONACULAR_API_KEY = [
+  import.meta.env.VITE_SPOONACULAR_KEY_1,
+  import.meta.env.VITE_SPOONACULAR_KEY_2,
+  import.meta.env.VITE_SPOONACULAR_KEY_3,
+  import.meta.env.VITE_SPOONACULAR_KEY_4,  
+]
+
+let currentKeyIndex = 0
+
+const makeApiRequest = async (params, retries = SPOONACULAR_API_KEY.length) => {
+  try {
+    const response = await axios.get(SPOONACULAR_URL, {
+      params: {
+        ...params,
+        apiKey: SPOONACULAR_API_KEY[currentKeyIndex]
+      }
+    })
+    return response
+  } catch (error) {
+    // If rate limited and we have more keys to try
+    if (error.response?.status === 402 && retries > 1) {
+      console.log('Rate limit hit, trying next API key...')
+      currentKeyIndex = (currentKeyIndex + 1) % SPOONACULAR_API_KEY.length
+      return makeApiRequest(params, retries - 1)
+    }
+    throw error
+  }
+}
+
+//Search Recipes
+const loading = ref(false)
+const recipes = ref([])
+const searchQuery = ref('')
+const searchRecipes = async () => {
+  if (!searchQuery.value.trim()) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Empty Search',
+      text: 'Please enter a recipe name to search.'
+    })
+    return
+  }
+
+  loading.value = true
+  try {
+    const params = {
+      query: searchQuery.value,
+      number: 12,
+      addRecipeInformation: true,
+      addRecipeInstructions: true,
+      fillIngredients: true
+    }
+
+    const response = await makeApiRequest(params)
+    recipes.value = response.data.results || []
+
+    if (recipes.value.length === 0) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: 'No recipes found. Try a different search term!'
+      })
+    } else {
+      // Scroll to cook time filter on smaller screens
+      await nextTick()
+      if (window.innerWidth <= 768) {
+        const cookTimeFilter = document.querySelector('.filter-item:nth-child(3)')
+        if (cookTimeFilter) {
+          cookTimeFilter.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error:', error)
+    Swal.fire({
+      icon: 'info',
+      title: 'No Recipes Found',
+      text: 'Try a different search term!'
+    })
+  } finally {
+    loading.value = false
+  }
+}
+
+const showRecipeDetails = (recipe) => {
+  selectedRecipe.value = recipe
+}
 
 // Extended local foods database
 const localFoodsDB = [
@@ -497,7 +554,7 @@ async function getNutritionByName(mealName) {
 
   try {
     const searchResponse = await fetch(
-      `${API_BASE}/food/menuItems/search?apiKey=${SPOONACULAR_API_KEY}&query=${encodeURIComponent(mealName)}&number=1`
+      `${SPOONACULAR_URL}/food/menuItems/search?apiKey=${SPOONACULAR_API_KEY}&query=${encodeURIComponent(mealName)}&number=1`
     )
     if (!searchResponse.ok) throw new Error('Search failed')
     const searchData = await searchResponse.json()
@@ -508,7 +565,7 @@ async function getNutritionByName(mealName) {
 
     const foodId = searchData.menuItems[0].id
     const nutritionResponse = await fetch(
-      `${API_BASE}/food/menuItems/${foodId}?apiKey=${SPOONACULAR_API_KEY}`
+      `${SPOONACULAR_URL}/food/menuItems/${foodId}?apiKey=${SPOONACULAR_API_KEY}`
     )
     if (!nutritionResponse.ok) throw new Error('Nutrition fetch failed')
     const nutritionData = await nutritionResponse.json()
@@ -623,53 +680,75 @@ async function deleteMealFromSupabase(mealId) {
 async function searchFood(query) {
   if (query.length < 2) return []
 
-  if (USE_LOCAL_DATABASE) {
-    const lowerQuery = query.toLowerCase()
-    return localFoodsDB.filter(item => item.name.toLowerCase().includes(lowerQuery)).slice(0, 10)
-  }
+  // if (USE_LOCAL_DATABASE) {
+  //   const lowerQuery = query.toLowerCase()
+  //   return localFoodsDB.filter(item => item.name.toLowerCase().includes(lowerQuery)).slice(0, 10)
+  // }
 
   try {
+    // Use complexSearch for recipes instead of menuItems
     const response = await fetch(
-      `${API_BASE}/food/menuItems/search?apiKey=${SPOONACULAR_API_KEY}&query=${encodeURIComponent(query)}&number=10`
+      `${SPOONACULAR_URL}/recipes/complexSearch?query=${encodeURIComponent(query)}&number=10&apiKey=${SPOONACULAR_API_KEY}`
     )
 
     if (!response.ok) throw new Error('API request failed')
     const data = await response.json()
-    return data.menuItems || []
+    
+    const pattern = new RegExp(`\\b${query}`, 'i')
+return (data.results || [])
+  .filter(recipe => pattern.test(recipe.title))
+  .map(recipe => ({
+    id: recipe.id,
+    title: recipe.title,
+    name: recipe.title,
+    image: recipe.image
+  }))
   } catch (error) {
     console.error('Food search error:', error)
+    // Fallback to local database on error
     const lowerQuery = query.toLowerCase()
     return localFoodsDB.filter(item => item.name.toLowerCase().includes(lowerQuery)).slice(0, 10)
   }
 }
 
 async function getFoodNutrition(id) {
-  if (USE_LOCAL_DATABASE) {
-    const found = localFoodsDB.find(f => f.id == id)
-    if (!found) return { calories: 0, protein: 0, carbs: 0, fat: 0 }
-    return {
-      calories: Number(found.calories) || 0,
-      protein: Number(found.protein) || 0,
-      carbs: Number(found.carbs) || 0,
-      fat: Number(found.fat) || 0
-    }
-  }
+  // if (USE_LOCAL_DATABASE) {
+  //   const found = localFoodsDB.find(f => f.id == id)
+  //   if (!found) return { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  //   return {
+  //     calories: Number(found.calories) || 0,
+  //     protein: Number(found.protein) || 0,
+  //     carbs: Number(found.carbs) || 0,
+  //     fat: Number(found.fat) || 0
+  //   }
+  // }
 
   try {
+    // Use recipe nutrition endpoint
     const response = await fetch(
-      `${API_BASE}/food/menuItems/${id}?apiKey=${SPOONACULAR_API_KEY}`
+      `${SPOONACULAR_URL}/recipes/${id}/nutritionWidget.json?apiKey=${SPOONACULAR_API_KEY}`
     )
+    
     if (!response.ok) throw new Error('API request failed')
     const data = await response.json()
 
+    // Helper function to extract nutrient amount
+    const getNutrientAmount = (nutrientName) => {
+      const nutrient = data.nutrients?.find(n => 
+        n.name.toLowerCase() === nutrientName.toLowerCase()
+      )
+      return parseFloat(nutrient?.amount || 0)
+    }
+
     return {
-      calories: parseNutritionValue(data.nutrition?.calories),
-      protein: parseNutritionValue(data.nutrition?.protein),
-      carbs: parseNutritionValue(data.nutrition?.carbs),
-      fat: parseNutritionValue(data.nutrition?.fat)
+      calories: getNutrientAmount('Calories'),
+      protein: getNutrientAmount('Protein'),
+      carbs: getNutrientAmount('Carbohydrates'),
+      fat: getNutrientAmount('Fat')
     }
   } catch (error) {
     console.error('Food nutrition error:', error)
+    // Fallback to local database on error
     const found = localFoodsDB.find(f => f.id == id)
     if (!found) return { calories: 0, protein: 0, carbs: 0, fat: 0 }
     return {
@@ -1881,4 +1960,44 @@ onMounted(async () => {
     height: 16px;
   }
 }
+
+/* Recipe Grid */
+.recipes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.recipe-card {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s;
+}
+
+.recipe-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.recipe-image-container {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+}
+
+.recipe-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+
+.recipe-card:hover .recipe-image {
+  transform: scale(1.05);
+}
+
 </style>

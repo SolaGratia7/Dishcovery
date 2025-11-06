@@ -305,9 +305,10 @@ const router = useRouter()
 const currentUser = ref(null)
 
 const SPOONACULAR_API_KEY = [
-  '0ca96dd220c842a6bfdcddfcbcf15b5d',
-  'c96375c9282445708f1b26ce2d7e04a9',
-  '19de6749a5064deea9ebf17f2455d6bb'
+  import.meta.env.VITE_SPOONACULAR_KEY_1,
+  import.meta.env.VITE_SPOONACULAR_KEY_2,
+  import.meta.env.VITE_SPOONACULAR_KEY_3,
+  import.meta.env.VITE_SPOONACULAR_KEY_4, 
 ].filter(Boolean)
 
 let currentKeyIndex = 0
@@ -505,6 +506,7 @@ const fetchPopularRecipes = async () => {
         sortDirection: 'desc',
         addRecipeInformation: true,
         instructionsRequired: true,
+        addRecipeNutrition: true,
         fillIngredients: true,
         minLikes: 100
       }
@@ -531,6 +533,10 @@ const fetchPopularRecipes = async () => {
       vegetarian: recipe.vegetarian || false,
       vegan: recipe.vegan || false,
       glutenFree: recipe.glutenFree || false,
+      calories: recipe.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
+      protein: recipe.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
+      carbs: recipe.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
+      fat: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,        
       updated_at: new Date().toISOString()
     }))
 
@@ -846,7 +852,7 @@ const toggleFavourite = async (recipe) => {
   font-weight: bold;
   color: #6b46c1;
   margin-bottom: 1rem;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.5px;  
 }
 
 @keyframes titleGlow {

@@ -216,7 +216,7 @@
                     step="any"
                     placeholder="0"
                     required
-                    class="form-input"
+                    class="form-input quantity-input"
                   />
                   <div class="unit-autocomplete-wrapper" style="position: relative; flex: 1;">
                     <input
@@ -1458,12 +1458,23 @@ onBeforeUnmount(() => {
   gap: 0.5rem;
 }
 
+.quantity-input {
+  flex: 0 0 30px;
+}
+
 .unit-select {
+  width: 100%;
   padding: 0.875rem;
   border: 2px solid #f0f0f0;
   border-radius: 10px;
-  cursor: pointer;
-  min-width: 100px;
+  font-size: 1rem;
+  transition: all 0.3s;
+  min-width: 150px;
+}
+
+.unit-select:focus {
+  outline: none;
+  border-color: #ff6b1a;
 }
 
 .btn-submit {
