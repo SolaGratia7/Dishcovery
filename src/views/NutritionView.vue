@@ -229,9 +229,9 @@
 
             <!-- Recipe Grid -->
             <div v-if="recipes.length > 0" class="recipes-grid">
-              <div 
-                v-for="recipe in recipes" 
-                :key="recipe.id" 
+              <div
+                v-for="recipe in recipes"
+                :key="recipe.id"
                 class="recipe-card"
                 :class="{ 'selected': selectedRecipe?.id === recipe.id }"
                 @click="selectRecipe(recipe)"
@@ -242,12 +242,28 @@
                     :src="recipe.image"
                     :alt="recipe.title"
                     class="recipe-image"
+                    @click.stop="showNutrition(recipe)"
                   >
+                  <button class="favorite-btn" @click.stop="toggleFavorite(recipe.id)">
+                    <i :class="isFavorited(recipe.id) ? 'bi bi-heart-fill' : 'bi bi-heart'"></i>
+                  </button>
                 </div>
 
                 <!-- Recipe Info -->
                 <div class="recipe-info">
                   <h5 class="recipe-title">{{ recipe.title }}</h5>
+
+                  <!-- Optional Summary -->
+                  <p class="recipe-description" v-if="recipe.summary">
+                    {{ stripHtml(recipe.summary).substring(0, 80) }}...
+                  </p>
+
+                  <!-- Tags -->
+                  <div class="recipe-tags">
+                    <span v-if="recipe.vegetarian" class="tag vegetarian">Vegetarian</span>
+                    <span v-if="recipe.vegan" class="tag vegan">Vegan</span>
+                    <span v-if="recipe.glutenFree" class="tag gluten-free">Gluten-Free</span>
+                  </div>
 
                   <!-- Stats -->
                   <div class="recipe-stats">
@@ -264,9 +280,19 @@
                       <span>{{ recipe.aggregateLikes }}</span>
                     </div>
                   </div>
+
+                  <!-- View Recipe Button -->
+                  <button
+                    @click.stop="showRecipeDetails(recipe)"
+                    class="btn-view-recipe"
+                  >
+                    <i class="bi bi-book me-2"></i>
+                    View Recipe
+                  </button>
                 </div>
               </div>
             </div>
+
 
             <!-- Empty State -->
             <div v-else-if="!loading" class="empty-state">
@@ -280,6 +306,11 @@
               <div class="spinner-border text-primary"></div>
               <p>Searching for delicious recipes...</p>
             </div>
+
+            <RecipeModal
+              :recipe="selectedRecipe"
+              @close="selectedRecipe = null"
+            />            
           <!-- Your search functionality -->
         </div>
 
@@ -287,7 +318,7 @@
         <div v-if="showNutritionModal" class="modal-overlay" @click="closeNutritionModal">
           <div class="modal-content" @click.stop>
             <button @click="closeNutritionModal" class="btn-close-modal">
-              <i class="bi bi-x-lg"></i>
+              <i class="bi bi-x-lg"></i>  
             </button>
 
             <div v-if="selectedRecipeForNutrition" class="nutrition-modal-body">
@@ -335,6 +366,7 @@ import GoalModal from '@/components/GoalModal.vue';
 import NutritionCard from '@/components/NutritionCard.vue';
 import NutritionChart from '@/components/NutritionChart.vue';
 import MiniCalendar from '@/components/MiniCalendar.vue'
+import RecipeModal from '@/components/RecipeModal.vue'
 import axios from 'axios'
 import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
@@ -378,6 +410,139 @@ const SPOONACULAR_API_KEY = [
 ]
 
 let currentKeyIndex = 0
+
+function showRecipeDetails(recipe) {
+  selectedRecipe.value = recipe
+}
+
+function showNutrition(recipe) {
+  const nutrition = recipe.nutrition?.nutrients || []
+
+  const getNutrient = (name) => {
+    const found = nutrition.find(n => n.name.toLowerCase() === name.toLowerCase())
+    return found ? found.amount : 0
+  }
+
+  selectedRecipeForNutrition.value = {
+    title: recipe.title,
+    calories: getNutrient('Calories'),
+    protein: getNutrient('Protein'),
+    carbs: getNutrient('Carbohydrates'),
+    fats: getNutrient('Fat'),
+    servings: recipe.servings || 1
+  }
+
+  showNutritionModal.value = true
+}
+
+const savedRecipeIds = ref(new Set())
+
+const loadSavedRecipes = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('saved_recipes')
+      .select('id')
+      .eq('user_id', currentUser.value.id)
+
+    if (error) throw error
+
+    savedRecipeIds.value = new Set(data.map(r => r.id))
+  } catch (error) {
+    console.error('Error loading saved recipes:', error)
+  }
+}
+
+const isFavorited = (id) => {
+  return savedRecipeIds.value.has(id)
+}
+
+const toggleFavorite = async (id) => {
+  try {
+    const recipe = recipes.value.find(r => r.id === id)
+    if (!recipe) return
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('saved_recipes')
+      .select('id')
+      .eq('user_id', currentUser.value.id)
+      .eq('id', id)
+      .maybeSingle()
+
+    if (fetchError) throw fetchError
+
+    if (existing) {
+      // Remove from favorites
+      const { error } = await supabase
+        .from('saved_recipes')
+        .delete()
+        .eq('user_id', currentUser.value.id)
+        .eq('id', id)
+
+      if (error) throw error
+
+      savedRecipeIds.value.delete(id)
+      await Swal.fire({
+        icon: 'success',
+        title: 'Removed!',
+        text: 'Recipe removed from Favorites!',
+        timer: 1500,
+        showConfirmButton: false,
+      })
+    } else {
+      // Add to favorites
+      const { error } = await supabase
+        .from('saved_recipes')
+        .insert({
+          user_id: currentUser.value.id,
+          id: recipe.id,
+          title: recipe.title,
+          image: recipe.image,
+          readyInMinutes: recipe.readyInMinutes || 0,
+          servings: recipe.servings || 0,
+          aggregateLikes: recipe.aggregateLikes || 0,
+          summary: recipe.summary || '',
+          analyzedInstructions: recipe.analyzedInstructions
+            ? JSON.stringify(recipe.analyzedInstructions)
+            : '',
+          extendedIngredients: recipe.extendedIngredients || [],
+          dishTypes: recipe.dishTypes || [],
+          vegetarian: recipe.vegetarian || false,
+          vegan: recipe.vegan || false,
+          glutenFree: recipe.glutenFree || false,
+
+          calories: recipe.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
+          protein: recipe.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
+          carbs: recipe.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
+          fats: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,
+        })
+
+      if (error) throw error
+
+      savedRecipeIds.value.add(id)
+      await Swal.fire({
+        icon: 'success',
+        title: 'Saved!',
+        text: 'Recipe added to Favorites!',
+        timer: 1500,
+        showConfirmButton: false,
+      })
+    }
+  } catch (error) {
+    console.error('Error toggling favorite:', error)
+    Swal.fire({
+      icon: 'error',
+      title: 'Oops...',
+      text: 'Failed to update favorites. Please try again.'
+    })
+  }
+}
+
+const stripHtml = (html) => {
+  const div = document.createElement('div')
+  div.innerHTML = html
+  return div.textContent || div.innerText || ''
+}
+
 
 // Nutrition Chart
 const chartLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -925,6 +1090,7 @@ function resetNutritionCards() {
 onMounted(async () => {
   await getCurrentUser()           // Get logged-in user
   await getNutritionFromSupabase()  // Load their goals
+  await loadSavedRecipes()
   await loadDatesWithMeals()
   await fetchWeeklyCalories()
 })
@@ -1380,6 +1546,50 @@ onMounted(async () => {
 .stat i {
   color: #ff6b1a;
   font-size: 1rem;
+}
+
+.btn-view-recipe {
+  width: 100%;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #ff6b1a 0%, #ff9800 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-view-recipe:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 107, 26, 0.3);
+}
+
+.favorite-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  background: white;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s;
+}
+
+.favorite-btn:hover {
+  transform: scale(1.1);
+  background: #fee2e2;
+}
+
+.favorite-btn i {
+  font-size: 1.1rem;
+  color: #ef4444;
 }
 
 /* Nutrition Modal Styles */

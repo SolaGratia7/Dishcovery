@@ -1245,7 +1245,7 @@ async function generateAutoMealPlan(targetCalories) {
               calories: recipe.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
               protein: recipe.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
               carbs: recipe.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
-              fats: recipe.nutrition?.nutrients?.find(n => n.name === 'Fats')?.amount || 0,                  
+              fats: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,                  
             }
           }
 
