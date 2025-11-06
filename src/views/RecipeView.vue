@@ -491,7 +491,7 @@ const toggleFavorite = async (id) => {
           calories: recipe.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
           protein: recipe.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
           carbs: recipe.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
-          fat: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,          
+          fats: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,          
         })
 
       if (error) throw error

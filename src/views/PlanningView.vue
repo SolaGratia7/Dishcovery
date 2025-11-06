@@ -1220,7 +1220,7 @@ async function generateAutoMealPlan(targetCalories) {
               calories: recipe.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
               protein: recipe.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
               carbs: recipe.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
-              fats: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,                  
+              fats: recipe.nutrition?.nutrients?.find(n => n.name === 'Fats')?.amount || 0,                  
             }
           }
 
@@ -1442,10 +1442,10 @@ async function saveMealPlan() {
       dishTypes: recipeToSave.dishTypes || [],
 
         // ✅ ADD NUTRITION VALUES
-        calories: recipeToSave.calories || 0,
-        protein: recipeToSave.protein || 0,
-        carbs: recipeToSave.carbs || 0,
-        fats: recipeToSave.fats || 0      
+      calories: recipeToSave.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
+      protein: recipeToSave.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
+      carbs: recipeToSave.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
+      fats: recipeToSave.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,    
     }
 
     console.log(mealPlans.value[selectedDate.value][selectedMealType.value].extendedIngredients)

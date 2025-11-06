@@ -279,9 +279,48 @@
             <div v-if="loading" class="loading-state">
               <div class="spinner-border text-primary"></div>
               <p>Searching for delicious recipes...</p>
-            </div>            
+            </div>
           <!-- Your search functionality -->
-        </div>                                
+        </div>
+
+        <!-- Nutrition Popup Modal -->
+        <div v-if="showNutritionModal" class="modal-overlay" @click="closeNutritionModal">
+          <div class="modal-content" @click.stop>
+            <button @click="closeNutritionModal" class="btn-close-modal">
+              <i class="bi bi-x-lg"></i>
+            </button>
+
+            <div v-if="selectedRecipeForNutrition" class="nutrition-modal-body">
+              <h3 class="modal-title">
+                <i class="bi bi-bar-chart-line-fill me-2"></i>
+                {{ selectedRecipeForNutrition.title }} - Nutrition Facts
+              </h3>
+
+              <div class="nutrition-popup-grid">
+                <div class="nutrition-popup-item calories" v-if="selectedRecipeForNutrition.calories">
+                  <div class="nutrition-popup-value">{{ Math.round(selectedRecipeForNutrition.calories) }}</div>
+                  <div class="nutrition-popup-label">Calories</div>
+                </div>
+                <div class="nutrition-popup-item protein" v-if="selectedRecipeForNutrition.protein">
+                  <div class="nutrition-popup-value">{{ selectedRecipeForNutrition.protein.toFixed(1) }}g</div>
+                  <div class="nutrition-popup-label">Protein</div>
+                </div>
+                <div class="nutrition-popup-item carbs" v-if="selectedRecipeForNutrition.carbs">
+                  <div class="nutrition-popup-value">{{ selectedRecipeForNutrition.carbs.toFixed(1) }}g</div>
+                  <div class="nutrition-popup-label">Carbs</div>
+                </div>
+                <div class="nutrition-popup-item fats" v-if="selectedRecipeForNutrition.fats">
+                  <div class="nutrition-popup-value">{{ selectedRecipeForNutrition.fats.toFixed(1) }}g</div>
+                  <div class="nutrition-popup-label">Fats</div>
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <small class="text-muted">Per serving • {{ selectedRecipeForNutrition.servings }} servings</small>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </AppLayout>
@@ -324,6 +363,9 @@ const viewMode = ref('meals')
 const searchQuery = ref('')
 const recipes = ref([])
 const selectedRecipe = ref(null)
+const showNutritionModal = ref(false)
+const selectedRecipeForNutrition = ref(null)
+const addedNutrition = ref(null)
 
 const SPOONACULAR_URL = 'https://api.spoonacular.com/recipes/complexSearch'
 
@@ -836,15 +878,6 @@ async function fetchWeeklyCalories() {
 }
 
 function selectRecipe(recipe) {
-  // If the same recipe is clicked again, deselect it
-  if (selectedRecipe.value?.id === recipe.id) {
-    selectedRecipe.value = null
-    resetNutritionCards()
-    return
-  }
-
-  selectedRecipe.value = recipe
-
   // Extract nutrition info (from Spoonacular API response)
   const nutrition = recipe.nutrition?.nutrients || []
 
@@ -854,12 +887,29 @@ function selectRecipe(recipe) {
     return found ? found.amount : 0
   }
 
-  totals.value = {
+  selectedRecipeForNutrition.value = {
+    title: recipe.title,
     calories: getNutrient('Calories'),
     protein: getNutrient('Protein'),
     carbs: getNutrient('Carbohydrates'),
-    fats: getNutrient('Fat')
+    fats: getNutrient('Fat'),
+    servings: recipe.servings || 1
   }
+
+  // Update totals to show recipe's nutrition in the charts (except daily progress)
+  totals.value = {
+    calories: selectedRecipeForNutrition.value.calories,
+    protein: selectedRecipeForNutrition.value.protein,
+    carbs: selectedRecipeForNutrition.value.carbs,
+    fats: selectedRecipeForNutrition.value.fats
+  }
+
+  showNutritionModal.value = true
+}
+
+function closeNutritionModal() {
+  showNutritionModal.value = false
+  selectedRecipeForNutrition.value = null
 }
 
 function resetNutritionCards() {
@@ -1329,5 +1379,163 @@ onMounted(async () => {
 .stat i {
   color: #ff6b1a;
   font-size: 1rem;
+}
+
+/* Nutrition Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease;
+  position: relative;
+}
+
+@keyframes modalSlideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.btn-close-modal {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 40px;
+  height: 40px;
+  background: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.btn-close-modal:hover {
+  transform: scale(1.1);
+}
+
+.nutrition-modal-body {
+  padding: 3rem 2rem 2rem 2rem;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.nutrition-popup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.nutrition-popup-item {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 12px;
+  text-align: center;
+  border: 2px solid #e9ecef;
+  transition: all 0.3s;
+}
+
+.nutrition-popup-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.nutrition-popup-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ff6b1a;
+  margin-bottom: 0.5rem;
+}
+
+/* Color variants for nutrition popup items */
+.nutrition-popup-item.calories .nutrition-popup-value {
+  color: #3b82f6; /* Blue - matches calories card */
+}
+
+.nutrition-popup-item.protein .nutrition-popup-value {
+  color: #10b981; /* Green - matches protein card */
+}
+
+.nutrition-popup-item.carbs .nutrition-popup-value {
+  color: #f59e0b; /* Orange - matches carbs card */
+}
+
+.nutrition-popup-item.fats .nutrition-popup-value {
+  color: #ef4444; /* Red - matches fats card */
+}
+
+.nutrition-popup-label {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.modal-footer {
+  text-align: center;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .modal-overlay {
+    padding-top: 80px; /* Account for fixed navbar */
+  }
+
+  .modal-content {
+    max-width: 100%;
+    margin: 0 1rem;
+  }
+
+  .nutrition-modal-body {
+    padding: 3rem 1.5rem 1.5rem 1.5rem; /* Increased top padding to avoid close button overlap */
+  }
+
+  .modal-title {
+    font-size: 1.25rem;
+  }
+
+  .nutrition-popup-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nutrition-popup-value {
+    font-size: 1.5rem;
+  }
 }
 </style>
