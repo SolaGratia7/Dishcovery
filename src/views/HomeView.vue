@@ -308,8 +308,8 @@ const SPOONACULAR_API_KEY = [
   import.meta.env.VITE_SPOONACULAR_KEY_1,
   import.meta.env.VITE_SPOONACULAR_KEY_2,
   import.meta.env.VITE_SPOONACULAR_KEY_3,
-  import.meta.env.VITE_SPOONACULAR_KEY_4, 
-  import.meta.env.VITE_SPOONACULAR_KEY_5, 
+  import.meta.env.VITE_SPOONACULAR_KEY_4,
+  import.meta.env.VITE_SPOONACULAR_KEY_5,
 ].filter(Boolean)
 
 let currentKeyIndex = 0
@@ -368,9 +368,53 @@ const toggleViewMode = () => {
   isSwipeMode.value = !isSwipeMode.value
 }
 
-const openModal = (recipe) => {
-  selectedRecipe.value = recipe
+const openModal = async (recipe) => {
+  let parsedRecipe = { ...recipe }
+
+  // Parse JSON fields if stored as strings
+  try {
+    if (typeof parsedRecipe.analyzedInstructions === 'string') {
+      parsedRecipe.analyzedInstructions = JSON.parse(parsedRecipe.analyzedInstructions)
+    }
+  } catch (err) {
+    console.warn('Failed to parse analyzedInstructions:', err)
+  }
+
+  try {
+    if (typeof parsedRecipe.extendedIngredients === 'string') {
+      parsedRecipe.extendedIngredients = JSON.parse(parsedRecipe.extendedIngredients)
+    }
+  } catch (err) {
+    console.warn('Failed to parse extendedIngredients:', err)
+  }
+
+  // If missing, fetch full recipe info from Spoonacular
+  if (!parsedRecipe.extendedIngredients || !parsedRecipe.analyzedInstructions) {
+    try {
+      const response = await makeSpoonacularRequest(
+        `https://api.spoonacular.com/recipes/${parsedRecipe.id}/information`,
+        { includeNutrition: true }
+      )
+      parsedRecipe = { ...parsedRecipe, ...response.data }
+
+      // Optional: update Supabase with full info (cache it)
+      await supabase
+        .from('saved_recipes')
+        .update({
+          analyzedInstructions: JSON.stringify(response.data.analyzedInstructions || []),
+          extendedIngredients: JSON.stringify(response.data.extendedIngredients || [])
+        })
+        .eq('id', parsedRecipe.id)
+        .eq('user_id', currentUser.value.id)
+    } catch (err) {
+      console.error('Error fetching recipe details:', err)
+      Swal.fire('Error', 'Unable to load recipe details.', 'error')
+    }
+  }
+
+  selectedRecipe.value = parsedRecipe
 }
+
 
 // Handle recipe removal from RecipeCard component
 const handleRecipeRemoved = (recipeId) => {
@@ -409,7 +453,11 @@ const fetchSavedRecipes = async () => {
   try {
     const { data, error } = await supabase
       .from('saved_recipes')
-      .select('*')
+      .select(`
+        id, title, image, readyInMinutes, servings,
+        aggregateLikes, analyzedInstructions, extendedIngredients,
+        vegetarian, vegan, glutenFree, created_at
+      `)
       .eq('user_id', currentUser.value.id)
       .order('created_at', { ascending: false })
 
@@ -537,7 +585,7 @@ const fetchPopularRecipes = async () => {
       calories: recipe.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount || 0,
       protein: recipe.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount || 0,
       carbs: recipe.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount || 0,
-      fats: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,        
+      fats: recipe.nutrition?.nutrients?.find(n => n.name === 'Fat')?.amount || 0,
       updated_at: new Date().toISOString()
     }))
 
@@ -584,9 +632,23 @@ const fetchPopularRecipes = async () => {
   }
 }
 
-const showRecipeDetails = (img) => {
-  selectedCarouselRecipe.value = img.recipe
+const showRecipeDetails = async (img) => {
+  if (!img.recipe || !img.recipe.id) return
+
+  try {
+    const response = await makeSpoonacularRequest(
+      `https://api.spoonacular.com/recipes/${img.recipe.id}/information`,
+      { includeNutrition: true }
+    )
+
+    // Spoonacular returns full recipe info here
+    selectedCarouselRecipe.value = response.data
+  } catch (error) {
+    console.error('Error fetching full recipe details:', error)
+    Swal.fire('Error', 'Unable to load full recipe details.', 'error')
+  }
 }
+
 
 const fetchPantryItems = async () => {
   try {
@@ -853,7 +915,7 @@ const toggleFavourite = async (recipe) => {
   font-weight: bold;
   color: #6b46c1;
   margin-bottom: 1rem;
-  letter-spacing: 0.5px;  
+  letter-spacing: 0.5px;
 }
 
 @keyframes titleGlow {

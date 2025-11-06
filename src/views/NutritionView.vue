@@ -4,7 +4,7 @@
 
     <div class="nutrition-view">
       <!-- Header -->
-      <div class="nutrition-header">        
+      <div class="nutrition-header">
         <div class="container">
           <div class="header-content">
             <div class="nutrition-text">
@@ -13,19 +13,19 @@
             </div>
             <button @click="isModalOpen = true" class="goal-edit-btn">
               <span>Edit Goal</span>
-              <GoalModal 
+              <GoalModal
                 :is-open="isModalOpen"
                 :goals="goals"
                 @close="isModalOpen = false"
                 @save="handleSaveGoals"
               />
-            </button>            
+            </button>
           </div>
         </div>
       </div>
 
       <div class="container my-4">
-        <!--Nutrition Card-->     
+        <!--Nutrition Card-->
         <div class="row mb-4">
           <div class="col-6 col-md-3 mb-3">
             <NutritionCard
@@ -36,7 +36,7 @@
               color="primary"
             />
           </div>
-          
+
           <div class="col-6 col-md-3 mb-3">
             <NutritionCard
               label="Protein"
@@ -47,7 +47,7 @@
               :decimals="1"
             />
           </div>
-          
+
           <div class="col-6 col-md-3 mb-3">
             <NutritionCard
               label="Carbs"
@@ -58,7 +58,7 @@
               :decimals="1"
             />
           </div>
-          
+
           <div class="col-6 col-md-3 mb-3">
             <NutritionCard
               label="Fats"
@@ -127,11 +127,11 @@
                 <div class="calendar-header py-4">
                   <h6>View Nutrition History</h6>
                   <small class="text-muted">Click on a highlighted date to view that day's nutrition</small>
-                </div>                
+                </div>
                 <MiniCalendar
                   :current-week="selectedDate || new Date()"
                   :selectedDates="[selectedDateStr]"
-                  :datesWithMeals="datesWithMeals"  
+                  :datesWithMeals="datesWithMeals"
                   mode="single"
                   class="large-calendar"
                   :auto-close="false"
@@ -196,9 +196,9 @@
                       </div>
                     </div>
                   </div>
-                </div>                                             
+                </div>
               </div>
-            </div>          
+            </div>
           </div>
           <!-- Your nutrition cards, charts, etc. -->
         </div>
@@ -310,7 +310,7 @@
             <RecipeModal
               :recipe="selectedRecipe"
               @close="selectedRecipe = null"
-            />            
+            />
           <!-- Your search functionality -->
         </div>
 
@@ -318,7 +318,7 @@
         <div v-if="showNutritionModal" class="modal-overlay" @click="closeNutritionModal">
           <div class="modal-content" @click.stop>
             <button @click="closeNutritionModal" class="btn-close-modal">
-              <i class="bi bi-x-lg"></i>  
+              <i class="bi bi-x-lg"></i>
             </button>
 
             <div v-if="selectedRecipeForNutrition" class="nutrition-modal-body">
@@ -390,7 +390,7 @@ const goals = ref({
 const loading = ref(false)
 const error = ref(null)
 const isModalOpen = ref(false)
-const viewMode = ref('meals') 
+const viewMode = ref('meals')
 
 const searchQuery = ref('')
 const recipes = ref([])
@@ -405,15 +405,44 @@ const SPOONACULAR_API_KEY = [
   import.meta.env.VITE_SPOONACULAR_KEY_1,
   import.meta.env.VITE_SPOONACULAR_KEY_2,
   import.meta.env.VITE_SPOONACULAR_KEY_3,
-  import.meta.env.VITE_SPOONACULAR_KEY_4, 
-  import.meta.env.VITE_SPOONACULAR_KEY_5, 
+  import.meta.env.VITE_SPOONACULAR_KEY_4,
+  import.meta.env.VITE_SPOONACULAR_KEY_5,
 ]
 
 let currentKeyIndex = 0
 
-function showRecipeDetails(recipe) {
-  selectedRecipe.value = recipe
+async function showRecipeDetails(recipe) {
+  try {
+    // If recipe already includes instructions, no need to fetch again
+    if (recipe.analyzedInstructions && recipe.analyzedInstructions.length > 0) {
+      selectedRecipe.value = recipe
+      return
+    }
+
+    // Otherwise, fetch full recipe details from Spoonacular
+    const response = await axios.get(`https://api.spoonacular.com/recipes/${recipe.id}/information`, {
+      params: {
+        apiKey: SPOONACULAR_API_KEY[currentKeyIndex],
+        includeNutrition: true
+      }
+    })
+
+    // Merge the new data into the existing recipe
+    selectedRecipe.value = {
+      ...recipe,
+      ...response.data
+    }
+
+  } catch (error) {
+    console.error('Error fetching recipe details:', error)
+    Swal.fire({
+      icon: 'error',
+      title: 'Failed to load recipe details',
+      text: 'Please try again later.'
+    })
+  }
 }
+
 
 function showNutrition(recipe) {
   const nutrition = recipe.nutrition?.nutrients || []
@@ -579,7 +608,7 @@ async function getCurrentUser() {
 async function getNutritionFromSupabase() {
   loading.value = true
   error.value = null
-  
+
   try {
     // Make sure we have a user
     if (!currentUser.value) {
@@ -626,7 +655,7 @@ async function getNutritionFromSupabase() {
 async function saveGoalsToSupabase(newGoals) {
   loading.value = true
   error.value = null
-  
+
   try {
     if (!currentUser.value) {
       await getCurrentUser()
@@ -717,7 +746,7 @@ async function handleSaveGoals(newGoals) {
     })
 
     await saveGoalsToSupabase(newGoals)
-    
+
     // Success message
     await Swal.fire({
       icon: 'success',
@@ -726,7 +755,7 @@ async function handleSaveGoals(newGoals) {
       confirmButtonColor: '#3b82f6',
       timer: 2000
     })
-    
+
   } catch (err) {
     // Error message
     await Swal.fire({
@@ -874,7 +903,7 @@ async function loadDatesWithMeals() {
 // Load meals for selected date
 async function loadMealsForSelectedDate() {
   isLoadingMeals.value = true
-  
+
   try {
     if (!currentUser.value) {
       await getCurrentUser()
@@ -921,7 +950,7 @@ async function loadMealsForSelectedDate() {
 // Recalculate totals based on checked meals only
 function recalculateTotals() {
   const includedMeals = currentMeals.value.filter(meal => meal.included)
-  
+
   totals.value = {
     calories: includedMeals.reduce((sum, meal) => sum + meal.calories, 0),
     protein: includedMeals.reduce((sum, meal) => sum + meal.protein, 0),
@@ -1296,19 +1325,19 @@ onMounted(async () => {
   margin-right: 0.5rem;
 }
 
-.dot-primary { 
+.dot-primary {
   background: #3b82f6; /* Blue - matches calories card */
 }
 
-.dot-secondary { 
+.dot-secondary {
   background: #10b981; /* Green - matches protein card */
 }
 
-.dot-accent { 
+.dot-accent {
   background: #f59e0b; /* Orange - matches carbs card */
 }
 
-.dot-warning { 
+.dot-warning {
   background: #ef4444; /* Red - matches fats card */
 }
 
